@@ -86,8 +86,13 @@ private struct DeveloperSurfaceView: View {
 
     var body: some View {
         if developerModeEnabled {
-            ContentUnavailableView(surface.title, systemImage: surface.systemImage, description: Text("This developer surface is ready for its implementation."))
-                .navigationTitle(surface.title)
+            switch surface {
+            case .promptEditor:
+                ModelPromptEditorView()
+            case .modelLogs:
+                ContentUnavailableView(surface.title, systemImage: surface.systemImage, description: Text("This developer surface is ready for its implementation."))
+                    .navigationTitle(surface.title)
+            }
         } else {
             ContentUnavailableView("Developer Mode Off", systemImage: "lock")
         }

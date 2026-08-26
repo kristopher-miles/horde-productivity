@@ -24,6 +24,27 @@ struct ModelPromptComponent: Identifiable, Equatable, Sendable {
     let defaultText: String
 }
 
+struct ModelPromptOverrideStore {
+    private static let keyPrefix = "modelPromptOverride."
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func text(for id: ModelPromptComponentID) -> String {
+        defaults.string(forKey: key(for: id)) ?? id.defaultText
+    }
+
+    func save(_ text: String, for id: ModelPromptComponentID) {
+        defaults.set(text, forKey: key(for: id))
+    }
+
+    private func key(for id: ModelPromptComponentID) -> String {
+        Self.keyPrefix + id.rawValue
+    }
+}
+
 enum ModelPromptComponentID: String, CaseIterable, Codable, Sendable {
     case sharedGoalContext = "shared.goal-context"
     case sharedWorldContext = "shared.world-context"
@@ -110,16 +131,20 @@ enum ModelPromptRegistry {
         ModelPromptComponent(id: id, stages: id.stages, kind: id.kind, defaultText: id.defaultText)
     }
 
-    static func text(_ id: ModelPromptComponentID) -> String {
-        id.defaultText
+    static func text(_ id: ModelPromptComponentID, store: ModelPromptOverrideStore = ModelPromptOverrideStore()) -> String {
+        store.text(for: id)
     }
 
     static func components(for stage: ModelRequestStageID) -> [ModelPromptComponent] {
         editorEntries.filter { $0.stages.contains(stage) }
     }
 
-    static func render(_ id: ModelPromptComponentID, _ values: [String: String]) -> String {
-        let template = text(id)
+    static func render(
+        _ id: ModelPromptComponentID,
+        _ values: [String: String],
+        store: ModelPromptOverrideStore = ModelPromptOverrideStore()
+    ) -> String {
+        let template = text(id, store: store)
         var result = ""
         var cursor = template.startIndex
         while let opening = template[cursor...].range(of: "{{"),
