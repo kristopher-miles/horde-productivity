@@ -2,6 +2,16 @@ import Foundation
 
 enum DragonStage: String, Codable, Equatable, Sendable, CaseIterable {
     case baby, adolescent, adult, elder, greatWyrm
+
+    var regularUseDayThreshold: Int {
+        switch self {
+        case .baby: 0
+        case .adolescent: 7
+        case .adult: 14
+        case .elder: 30
+        case .greatWyrm: 60
+        }
+    }
 }
 
 enum DungeonBackgroundStage: Int, Codable, Equatable, Sendable, CaseIterable {
@@ -38,6 +48,11 @@ struct CharacterPalette: Codable, Equatable, Sendable {
 struct DragonVisualState: Codable, Equatable, Sendable {
     var stage: DragonStage
     var color: RGBColor
+}
+
+struct DragonGrowthState: Codable, Equatable, Sendable {
+    var consecutiveRegularUseDays: Int
+    var lastRegularUseDay: Date?
 }
 
 struct KoboldVisualState: Codable, Equatable, Sendable {
@@ -88,6 +103,7 @@ struct WorldFact: Codable, Equatable, Sendable, Identifiable {
 struct WorldSnapshot: Codable, Equatable, Sendable {
     var dragon: CharacterState
     var dragonVisual: DragonVisualState
+    var dragonGrowth: DragonGrowthState
     var residents: [CharacterState]
     var hoard: Int
     var backgroundStage: DungeonBackgroundStage { DungeonBackgroundStage(hoard: hoard) }
@@ -108,6 +124,7 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
         WorldSnapshot(
             dragon: CharacterState(id: "dragon", name: dragonName, role: "Baby dragon", identity: "A young, small, newly independent ember-scaled dragon who has just claimed an empty cavern. Not yet powerful or established, they face the untamed lair alone.", vitality: 50, bond: 50, conditions: []),
             dragonVisual: DragonVisualState(stage: .baby, color: .ember),
+            dragonGrowth: DragonGrowthState(consecutiveRegularUseDays: 0, lastRegularUseDay: nil),
             residents: [],
             hoard: 0,
             morale: 5, integrity: 1, food: 0,
@@ -117,6 +134,37 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
             facts: [],
             rollingSummary: originNarrative(dragonName: dragonName)
         )
+    }
+
+    @discardableResult mutating func recordRegularUse(on date: Date, calendar: Calendar) -> Bool {
+        let day = Self.canonicalLocalDay(for: date, timeZone: calendar.timeZone)
+        guard dragonGrowth.lastRegularUseDay != day else { return false }
+
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(secondsFromGMT: 0)!
+        let followsPreviousDay = dragonGrowth.lastRegularUseDay.flatMap {
+            utc.dateComponents([.day], from: $0, to: day).day
+        } == 1
+        dragonGrowth.consecutiveRegularUseDays = followsPreviousDay
+            ? dragonGrowth.consecutiveRegularUseDays + 1
+            : 1
+        dragonGrowth.lastRegularUseDay = day
+
+        if let earned = DragonStage.allCases.last(where: {
+            dragonGrowth.consecutiveRegularUseDays >= $0.regularUseDayThreshold
+        }), earned.regularUseDayThreshold > dragonVisual.stage.regularUseDayThreshold {
+            dragonVisual.stage = earned
+        }
+        return true
+    }
+
+    private static func canonicalLocalDay(for date: Date, timeZone: TimeZone) -> Date {
+        var local = Calendar(identifier: .gregorian)
+        local.timeZone = timeZone
+        let components = local.dateComponents([.year, .month, .day], from: date)
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(secondsFromGMT: 0)!
+        return utc.date(from: components)!
     }
 }
 

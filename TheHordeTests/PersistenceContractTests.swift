@@ -57,7 +57,7 @@ struct PersistenceContractTests {
         #expect(event.comparisonHistoryIDs == ["history-failure", "history-success"])
         #expect(event.acceptedAction == "Claim the crystal forge")
         #expect(event.finalProse == "Cinder claims the crystal forge and calls its ancient fire back to life.")
-        #expect(event.recordedWorld?.revision == 1)
+        #expect(event.recordedWorld?.revision == 2)
         #expect(event.recordedWorld?.snapshot.hoard == 60)
         #expect(event.recordedWorld?.snapshot.dragonVisual == DragonVisualState(stage: .elder, color: RGBColor(red: 12, green: 90, blue: 140)))
         #expect(event.recordedWorld?.snapshot.backgroundStage == .four)

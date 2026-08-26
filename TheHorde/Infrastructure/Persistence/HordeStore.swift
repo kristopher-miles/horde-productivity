@@ -348,6 +348,13 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 if occurrence.stateRaw != GoalOccurrenceState.pending.rawValue { return }
                 let save = try requireSave()
                 occurrence.stateRaw = state.rawValue; occurrence.resolvedAt = now
+                if state == .completed {
+                    var world = decodeWorld(save)
+                    if world.recordRegularUse(on: now, calendar: calendar) {
+                        save.worldData = try PersistentJSON.encode(world)
+                        save.revision += 1
+                    }
+                }
                 let eventID = "\(occurrence.id):\(valence.rawValue)"
                 if try modelContext.fetch(FetchDescriptor<StoryEventRecord>(predicate: #Predicate { $0.id == eventID })).isEmpty {
                     let source = occurrence.snapshot

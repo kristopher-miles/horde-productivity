@@ -55,6 +55,93 @@ struct Phase6QualificationTests {
         }
     }
 
+    @Test func regularUseThresholdsResetProgressWithoutRegressingEarnedStages() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+        let firstDay = try #require(calendar.date(from: DateComponents(year: 2026, month: 1, day: 1, hour: 12)))
+        var world = WorldSnapshot.initial()
+        let expected: [Int: DragonStage] = [1: .baby, 6: .baby, 7: .adolescent, 13: .adolescent, 14: .adult, 29: .adult, 30: .elder, 59: .elder, 60: .greatWyrm]
+
+        for day in 1...60 {
+            let date = try #require(calendar.date(byAdding: .day, value: day - 1, to: firstDay))
+            let recorded = world.recordRegularUse(on: date, calendar: calendar)
+            #expect(recorded)
+            if let stage = expected[day] { #expect(world.dragonVisual.stage == stage) }
+        }
+
+        world = .initial()
+        for offset in 0..<7 {
+            world.recordRegularUse(on: try #require(calendar.date(byAdding: .day, value: offset, to: firstDay)), calendar: calendar)
+        }
+        #expect(world.dragonVisual.stage == .adolescent)
+        world.recordRegularUse(on: try #require(calendar.date(byAdding: .day, value: 8, to: firstDay)), calendar: calendar)
+        #expect(world.dragonGrowth.consecutiveRegularUseDays == 1)
+        #expect(world.dragonVisual.stage == .adolescent)
+        for offset in 9...21 {
+            world.recordRegularUse(on: try #require(calendar.date(byAdding: .day, value: offset, to: firstDay)), calendar: calendar)
+        }
+        #expect(world.dragonGrowth.consecutiveRegularUseDays == 14)
+        #expect(world.dragonVisual.stage == .adult)
+        world.recordRegularUse(on: try #require(calendar.date(byAdding: .day, value: 23, to: firstDay)), calendar: calendar)
+        #expect(world.dragonGrowth.consecutiveRegularUseDays == 1)
+        #expect(world.dragonVisual.stage == .adult)
+    }
+
+    @Test func regularUsePersistsAcrossRelaunchAndUsesCompletionLocalDays() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "TheHorde.store")
+        var denver = Calendar(identifier: .gregorian)
+        denver.timeZone = try #require(TimeZone(identifier: "America/Denver"))
+        let firstDay = try #require(denver.date(from: DateComponents(year: 2026, month: 8, day: 1, hour: 12)))
+
+        do {
+            let store = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+            try await store.bootstrapForProof()
+            try await completeGoal(in: store, title: "Day 1A", now: firstDay, calendar: denver)
+            try await completeGoal(in: store, title: "Day 1B", now: firstDay.addingTimeInterval(60), calendar: denver)
+            for offset in 1..<6 {
+                let date = try #require(denver.date(byAdding: .day, value: offset, to: firstDay))
+                try await completeGoal(in: store, title: "Day \(offset + 1)", now: date, calendar: denver)
+            }
+            let beforeRelaunch = try await store.worldReadModel()
+            #expect(beforeRelaunch.revision == 6)
+            #expect(beforeRelaunch.snapshot.dragonGrowth.consecutiveRegularUseDays == 6)
+            #expect(beforeRelaunch.snapshot.dragonVisual.stage == .baby)
+        }
+
+        var tokyo = Calendar(identifier: .gregorian)
+        tokyo.timeZone = try #require(TimeZone(identifier: "Asia/Tokyo"))
+        let seventhLocalDay = try #require(tokyo.date(from: DateComponents(year: 2026, month: 8, day: 7, hour: 12)))
+        let reopened = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+        try await completeGoal(in: reopened, title: "Day 7 after travel", now: seventhLocalDay, calendar: tokyo)
+        let restored = try await reopened.worldReadModel()
+        #expect(restored.revision == 7)
+        #expect(restored.snapshot.dragonGrowth.consecutiveRegularUseDays == 7)
+        #expect(restored.snapshot.dragonVisual.stage == .adolescent)
+    }
+
+    @Test func newRegularUseDayInvalidatesAnOlderInFlightWorldCommit() async throws {
+        let store = HordeStore(modelContainer: try HordeStore.makeContainer(inMemory: true))
+        try await store.bootstrapForProof()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+        let firstDay = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 1, hour: 12)))
+        try await completeGoal(in: store, title: "First day", now: firstDay, calendar: calendar)
+        let firstEvent = try #require(await store.pendingStories().first)
+        let (_, claimedWorld) = try await store.claimEvent(firstEvent.id)
+
+        let secondDay = try #require(calendar.date(byAdding: .day, value: 1, to: firstDay))
+        try await completeGoal(in: store, title: "Second day", now: secondDay, calendar: calendar)
+        await #expect(throws: StoreError.staleRevision) {
+            _ = try await store.commitResolution(eventID: firstEvent.id, expectedRevision: claimedWorld.revision, world: claimedWorld.snapshot, mutations: [], deltas: [], generatedTitle: "Stale", narration: "This must not overwrite newer growth.", summary: "Stale.", cue: .idle)
+        }
+        let current = try await store.worldReadModel()
+        #expect(current.revision == 2)
+        #expect(current.snapshot.dragonGrowth.consecutiveRegularUseDays == 2)
+    }
+
     @Test func emberIdleAtlasMatchesPrototypeContract() {
         for (atlasName, names) in [("EmberIdle", DungeonSceneView.emberIdleFrameNames), ("EmberConcern", DungeonSceneView.emberConcernFrameNames)] {
             let atlas = SKTextureAtlas(named: atlasName)
@@ -69,6 +156,12 @@ struct Phase6QualificationTests {
         #expect(DungeonSceneView.emberConcernFrameDuration == 0.14)
         #expect(DungeonSceneView.emberIdleScenePosition.x.rounded() == DungeonSceneView.emberIdleScenePosition.x)
         #expect(DungeonSceneView.emberIdleScenePosition.y.rounded() == DungeonSceneView.emberIdleScenePosition.y)
+    }
+
+    private func completeGoal(in store: HordeStore, title: String, now: Date, calendar: Calendar) async throws {
+        let definitionID = try await store.createGoal(GoalDraft(title: title), now: now, calendar: calendar)
+        let occurrence = try #require(await store.definitionSummary(id: definitionID)?.history.first)
+        try await store.completeOccurrence(id: occurrence.id, now: now, calendar: calendar)
     }
 
     @Test @MainActor func emberIdleHonorsReducedMotionAndAppInterruption() throws {
