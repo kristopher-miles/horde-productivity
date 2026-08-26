@@ -330,6 +330,7 @@ actor FoundationModelClient {
     private let suggestionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)?
     private let customActionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> CustomActionModelResponse)?
     private let finalProseResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)?
+    private let generationOverride: (@Sendable (_ event: PendingStorySummary, _ world: WorldReadModel, _ descriptors: [WorldMutationDescriptor]) async throws -> GeneratedStory)?
     private let compatibilityOverride: CompatibilityState?
 
     init(
@@ -342,6 +343,7 @@ actor FoundationModelClient {
         suggestionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)? = nil,
         customActionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> CustomActionModelResponse)? = nil,
         finalProseResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)? = nil,
+        generationOverride: (@Sendable (_ event: PendingStorySummary, _ world: WorldReadModel, _ descriptors: [WorldMutationDescriptor]) async throws -> GeneratedStory)? = nil,
         compatibilityOverride: CompatibilityState? = nil
     ) {
         self.diagnosticsSink = diagnosticsSink
@@ -353,6 +355,7 @@ actor FoundationModelClient {
         self.suggestionResponseOverride = suggestionResponseOverride
         self.customActionResponseOverride = customActionResponseOverride
         self.finalProseResponseOverride = finalProseResponseOverride
+        self.generationOverride = generationOverride
         self.compatibilityOverride = compatibilityOverride
     }
 
@@ -708,6 +711,7 @@ actor FoundationModelClient {
         sampling: ModelSampling? = nil,
         rejectFirstAttempt: Bool? = nil
     ) async throws -> GeneratedStory {
+        if let generationOverride { return try await generationOverride(event, world, descriptors) }
         let sampling = sampling ?? defaultSampling
         let rejectFirstAttempt = rejectFirstAttempt ?? shouldRejectFirstAttempt
         let startedAt = Date()

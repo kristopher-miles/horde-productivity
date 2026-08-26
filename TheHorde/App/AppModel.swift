@@ -243,6 +243,9 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
         guard let coordinator else { return .failed(code: "persistenceFailure") }
         let outcome = await coordinator.resolve(eventID: eventID)
         await reload()
+        if case .failed = outcome {
+            presentedResolution = pendingStories.first { $0.id == eventID }
+        }
         return outcome
     }
 

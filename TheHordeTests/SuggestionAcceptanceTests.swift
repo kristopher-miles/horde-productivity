@@ -178,7 +178,8 @@ struct SuggestionAcceptanceTests {
             StoryResolutionAccessibility.reviseAction,
             StoryResolutionAccessibility.backToSuggestion,
             StoryResolutionAccessibility.retrySuggestion,
-            StoryResolutionAccessibility.close
+            StoryResolutionAccessibility.close,
+            StoryResolutionAccessibility.commitFinalResolution
         ]
         #expect(Set(identifiers).count == identifiers.count)
         #expect(identifiers.allSatisfy { $0.hasPrefix("StoryResolution.") })

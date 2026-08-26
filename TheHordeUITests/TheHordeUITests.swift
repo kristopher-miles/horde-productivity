@@ -9,6 +9,7 @@ final class TheHordeUITests: XCTestCase {
         static let customActionEntry = "StoryResolution.CustomActionEntry"
         static let backToSuggestion = "StoryResolution.BackToSuggestion"
         static let acceptSuggestion = "StoryResolution.AcceptSuggestion"
+        static let commitFinalResolution = "StoryResolution.CommitFinalResolution"
     }
 
     override func setUpWithError() throws { continueAfterFailure = false }
@@ -187,6 +188,17 @@ final class TheHordeUITests: XCTestCase {
         XCTAssertTrue(accepted.contains("Dungeon revision 0"))
         XCTAssertTrue(accepted.contains("Chronicle entries 0"))
         XCTAssertTrue(accepted.contains("Accepted action Guard the ember vault"))
+        XCTAssertTrue(app.buttons[StoryResolutionID.commitFinalResolution].exists)
+
+        app.buttons[StoryResolutionID.close].tap()
+        XCTAssertTrue(app.tabBars.buttons["Today"].waitForExistence(timeout: 3))
+        app.tabBars.buttons["Chronicle"].tap()
+        XCTAssertTrue(app.staticTexts["No tales yet"].waitForExistence(timeout: 3))
+        app.tabBars.buttons["Today"].tap()
+        element(containing: "Story pending", in: app).tap()
+        XCTAssertTrue(app.staticTexts["Final narration"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons[StoryResolutionID.commitFinalResolution].exists)
+        XCTAssertEqual(state.value as? String, accepted)
     }
 
     @MainActor func testOneRealModelGoalReachesExplicitActionReview() throws {

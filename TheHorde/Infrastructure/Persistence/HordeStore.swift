@@ -285,9 +285,11 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         let event = try requireEvent(eventID)
         guard let state = resolutionState(event),
               state.stage == .finalProse,
+              authoritativeAcceptedAction(in: state) != nil,
               state.promptVersions.finalProse == FinalProseModelContract.promptVersion,
-              let prose = state.finalProse else { return nil }
-        return try? FinalProseModelContract.validatedProse(prose)
+              let prose = state.finalProse,
+              (try? FinalProseModelContract.validatedProse(prose)) == prose else { return nil }
+        return prose
     }
 
     func mostRecentFinalProse() throws -> String {
@@ -319,6 +321,10 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         try modelContext.fetch(FetchDescriptor<ChronicleRecord>(sortBy: [SortDescriptor(\.committedAt, order: .reverse)])).map { record in
             ChronicleSummary(id: record.id, eventID: record.eventID, sourceTitle: record.sourceTitle, valence: EventValence(rawValue: record.valenceRaw) ?? .positive, title: record.generatedTitle, finalProse: record.finalProse, summary: record.summary, deltas: try PersistentJSON.decode([WorldDelta].self, from: record.deltasJSON), cue: AnimationCue(rawValue: record.animationCueRaw) ?? .idle, priorRevision: record.priorRevision, committedRevision: record.committedRevision, committedAt: record.committedAt, effort: resolutionEffort(value: record.effortValue, sourceRaw: record.effortSourceRaw), comparisonHistoryIDs: record.comparisonHistoryIDs, acceptedAction: record.acceptedAction, recordedWorld: try PersistentJSON.decode(WorldReadModel.self, from: record.recordedWorldData))
         }
+    }
+
+    func committedResolution(eventID: String) throws -> ChronicleSummary? {
+        try chronicle().first { $0.eventID == eventID }
     }
 
     func claimEvent(_ id: String) throws -> (PendingStorySummary, WorldReadModel) {
@@ -623,8 +629,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
                 var state = resolutionState(event) ?? StagedResolutionState(stage: .effortSelection)
                 guard state.stage == .actionAccepted,
-                      state.effort != nil,
-                      state.acceptedAction?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+                      authoritativeAcceptedAction(in: state) != nil,
                       state.promptVersions.finalProse == nil,
                       state.finalProse == nil,
                       state.finalResult == nil else { throw StoreError.invalidResolutionState }
@@ -670,9 +675,12 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 if let generatedProse = existing.finalProse {
                     guard existing.stage == .finalProse,
                           generatedProse == narration,
-                          existing.acceptedAction == acceptedAction,
+                          authoritativeAcceptedAction(in: existing) == acceptedAction,
+                          existing.suggestedAction == suggestedAction,
+                          existing.customAction == customAction,
+                          existing.interpretedAction == interpretedAction,
                           existing.promptVersions.finalProse == FinalProseModelContract.promptVersion,
-                          promptVersions.finalProse == FinalProseModelContract.promptVersion else {
+                          existing.promptVersions == promptVersions else {
                         throw StoreError.invalidResolutionState
                     }
                 }
@@ -681,6 +689,25 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 let result = StagedFinalResolution(expectedRevision: expectedRevision, world: world, mutations: mutations, deltas: deltas, title: generatedTitle, finalProse: narration, summary: summary, cue: cue)
                 let state = StagedResolutionState(stage: .finalProse, effort: effort, comparisonHistoryIDs: comparisonHistoryIDs, suggestedAction: suggestedAction, customAction: customAction, interpretedAction: interpretedAction, acceptedAction: accepted, promptVersions: promptVersions, finalProse: narration, finalResult: result)
                 try validatePersistedEffort(in: state, matches: existing)
+                try persist(state, on: event)
+                try modelContext.save()
+            }
+        } catch { modelContext.rollback(); throw error }
+    }
+
+    func discardStaleFinalResult(eventID: String) throws {
+        do {
+            try modelContext.transaction {
+                let event = try requireEvent(eventID)
+                guard event.statusRaw != EventStatus.resolved.rawValue,
+                      var state = resolutionState(event),
+                      state.stage == .finalProse,
+                      authoritativeAcceptedAction(in: state) != nil,
+                      state.promptVersions.finalProse == FinalProseModelContract.promptVersion,
+                      let prose = state.finalProse,
+                      (try? FinalProseModelContract.validatedProse(prose)) == prose,
+                      state.finalResult != nil else { throw StoreError.invalidResolutionState }
+                state.finalResult = nil
                 try persist(state, on: event)
                 try modelContext.save()
             }
@@ -922,6 +949,26 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         case .modelEstimated:
             return state.promptVersions.effort == EffortModelContract.promptVersion
         }
+    }
+
+    private func authoritativeAcceptedAction(in state: StagedResolutionState) -> String? {
+        guard hasCurrentEffort(state),
+              state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+              let suggestion = state.suggestedAction,
+              (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+              let acceptedAction = state.acceptedAction else { return nil }
+        if let customAction = state.customAction {
+            guard !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
+                  let interpretation = state.interpretedAction,
+                  (try? CustomActionModelContract.validatedAction(interpretation)) == interpretation,
+                  acceptedAction == interpretation else { return nil }
+            return acceptedAction
+        }
+        guard state.interpretedAction == nil,
+              state.promptVersions.interpretation == nil,
+              acceptedAction == suggestion else { return nil }
+        return acceptedAction
     }
 
     private func validateStagedWorld(_ world: WorldSnapshot, mutations: [WorldMutation], deltas: [WorldDelta], summary: String, current: WorldSnapshot, valence: EventValence, effort: ResolutionEffort?) throws {

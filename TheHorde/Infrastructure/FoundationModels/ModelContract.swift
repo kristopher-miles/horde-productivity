@@ -232,9 +232,9 @@ struct FinalProseModelOutput {
 }
 
 enum HordeModelContract {
-    static let promptVersion = 45
+    static let promptVersion = 46
     static let schemaVersion = 6
-    static let projectionVersion = 18
+    static let projectionVersion = 19
 
     static var instructions: String { ModelPromptRegistry.text(.legacySystemInstructions) }
 

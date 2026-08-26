@@ -133,7 +133,7 @@ struct ModelPromptRegistryTests {
         let failure = ModelPromptRegistry.text(.legacyNegativeOutcomeRule)
         let direction = ModelPromptRegistry.text(.legacySystemInstructions)
 
-        #expect(HordeModelContract.promptVersion == 45)
+        #expect(HordeModelContract.promptVersion == 46)
         #expect(HordeModelContract.schemaVersion == 6)
         #expect(direction.localizedCaseInsensitiveContains("adult epic-fantasy"))
         #expect(direction.localizedCaseInsensitiveContains("accepted action"))

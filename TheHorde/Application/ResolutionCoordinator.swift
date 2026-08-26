@@ -165,8 +165,7 @@ actor ResolutionCoordinator {
             }
             guard let state = event.resolutionState,
                   state.stage == .actionAccepted,
-                  let acceptedAction = state.acceptedAction,
-                  !acceptedAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                  let acceptedAction = authoritativeAcceptedAction(in: state) else {
                 throw StoreError.invalidResolutionState
             }
             let previousProse = try await store.mostRecentFinalProse()
@@ -188,29 +187,67 @@ actor ResolutionCoordinator {
         }
     }
 
-    func resolve(eventID: String) async -> ResolutionOutcome {
+    func resolve(eventID: String, failBeforeCommitSave: Bool = false) async -> ResolutionOutcome {
+        if let committed = try? await store.committedResolution(eventID: eventID) {
+            return .committed(committed)
+        }
         for conflictAttempt in 0...1 {
             do {
                 let (event, world) = try await store.claimEvent(eventID)
+                guard let state = event.resolutionState,
+                      state.stage == .finalProse,
+                      let acceptedAction = authoritativeAcceptedAction(in: state),
+                      state.promptVersions.finalProse == FinalProseModelContract.promptVersion,
+                      let finalProse = state.finalProse,
+                      (try? FinalProseModelContract.validatedProse(finalProse)) == finalProse else {
+                    throw StoreError.invalidResolutionState
+                }
+                if let staged = state.finalResult {
+                    if staged.expectedRevision == world.revision {
+                        return .committed(try await store.commitStagedResolution(
+                            eventID: eventID,
+                            failBeforeSave: failBeforeCommitSave
+                        ))
+                    }
+                    try await store.discardStaleFinalResult(eventID: eventID)
+                }
                 let compatibility = await model.compatibility()
                 guard compatibility == .available else {
                     let code = compatibilityCode(compatibility)
                     try await store.markEventFailed(eventID, code: code)
                     return .failed(code: code)
                 }
-                let history = event.effort == nil && event.sourceEffort == nil
-                    ? try await store.attemptedGoalHistory(for: eventID)
-                    : []
-                let effort = try await evaluateEffortWithTimeout(event: event, history: history)
-                try await store.checkpointEffort(eventID: eventID, result: effort)
                 var consequenceEvent = event
-                consequenceEvent.effort = effort.effort
-                let descriptors = WorldContract.descriptors(for: event.valence, effort: effort.effort, world: world.snapshot)
+                consequenceEvent.effort = state.effort
+                consequenceEvent.comparisonHistoryIDs = state.comparisonHistoryIDs
+                consequenceEvent.acceptedAction = acceptedAction
+                consequenceEvent.finalProse = finalProse
+                let descriptors = WorldContract.descriptors(for: event.valence, effort: state.effort, world: world.snapshot)
                 let generated = try await generateWithTimeout(event: consequenceEvent, world: world, descriptors: descriptors)
                 var (updatedWorld, deltas) = try WorldPatchValidator.applying(generated.mutations, to: world.snapshot, valence: event.valence, descriptors: descriptors)
                 updatedWorld.rollingSummary = String((updatedWorld.rollingSummary + " " + generated.summary).suffix(600))
-                let result = try await store.commitResolution(eventID: eventID, expectedRevision: world.revision, world: updatedWorld, mutations: generated.mutations, deltas: deltas, generatedTitle: generated.title, narration: generated.narration, summary: generated.summary, cue: AnimationCue(rawValue: generated.cue) ?? .idle, effort: effort.effort, comparisonHistoryIDs: effort.comparisonHistoryIDs)
-                return .committed(result)
+                try await store.stageFinalResolution(
+                    eventID: eventID,
+                    expectedRevision: world.revision,
+                    world: updatedWorld,
+                    mutations: generated.mutations,
+                    deltas: deltas,
+                    generatedTitle: generated.title,
+                    narration: finalProse,
+                    summary: generated.summary,
+                    cue: AnimationCue(rawValue: generated.cue) ?? .idle,
+                    effort: state.effort,
+                    comparisonHistoryIDs: state.comparisonHistoryIDs,
+                    suggestedAction: state.suggestedAction,
+                    customAction: state.customAction,
+                    interpretedAction: state.interpretedAction,
+                    acceptedAction: acceptedAction,
+                    promptVersions: state.promptVersions
+                )
+                return .committed(try await store.commitStagedResolution(
+                    eventID: eventID,
+                    failBeforeSave: failBeforeCommitSave
+                ))
             } catch StoreError.staleRevision where conflictAttempt == 0 {
                 try? await store.returnEventToPending(eventID)
                 continue
@@ -225,6 +262,29 @@ actor ResolutionCoordinator {
         }
         try? await store.markEventFailed(eventID, code: "revisionConflict")
         return .failed(code: "revisionConflict")
+    }
+
+    private func authoritativeAcceptedAction(in state: StagedResolutionState) -> String? {
+        guard let effort = state.effort,
+              (effort.source == .userSelected
+                ? state.promptVersions.effort == nil && state.comparisonHistoryIDs.isEmpty
+                : state.promptVersions.effort == EffortModelContract.promptVersion),
+              state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+              let suggestion = state.suggestedAction,
+              (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+              let acceptedAction = state.acceptedAction else { return nil }
+        if let customAction = state.customAction {
+            guard !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
+                  let interpretation = state.interpretedAction,
+                  (try? CustomActionModelContract.validatedAction(interpretation)) == interpretation,
+                  acceptedAction == interpretation else { return nil }
+            return acceptedAction
+        }
+        guard state.interpretedAction == nil,
+              state.promptVersions.interpretation == nil,
+              acceptedAction == suggestion else { return nil }
+        return acceptedAction
     }
 
     private func compatibilityCode(_ state: CompatibilityState) -> String {

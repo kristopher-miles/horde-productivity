@@ -117,7 +117,7 @@ struct ProductExperienceTests {
         #expect(DungeonSceneView.dragonAtlasName(stage: world.dragonVisual.stage, cue: .idle) == "EmberIdle")
         #expect(DungeonSceneView.dragonAtlasName(stage: world.dragonVisual.stage, cue: .concern) == "EmberConcern")
         #expect(DungeonSceneView.dragonAtlasName(stage: .adolescent, cue: .idle) == nil)
-        #expect(HordeModelContract.projectionVersion == 18)
+        #expect(HordeModelContract.projectionVersion == 19)
     }
 
     @Test func koboldAgesPersistProjectAndSelectDistinctIdleArt() throws {

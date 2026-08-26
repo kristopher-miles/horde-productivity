@@ -9,6 +9,7 @@ enum StoryResolutionPhase: Equatable {
     case interpretedActionReady(String)
     case accepted(String)
     case finalProse(action: String, prose: String)
+    case committing(String)
     case committed(ChronicleSummary)
     case failed(String)
 
@@ -162,6 +163,7 @@ enum StoryResolutionAccessibility {
     static let backToSuggestion = "StoryResolution.BackToSuggestion"
     static let retrySuggestion = "StoryResolution.RetrySuggestion"
     static let close = "StoryResolution.Close"
+    static let commitFinalResolution = "StoryResolution.CommitFinalResolution"
     static let state = "StoryResolution.State"
 }
 
@@ -193,6 +195,7 @@ struct StoryResolutionView: View {
                     case .interpretedActionReady(let action): interpretedActionReadyView(action)
                     case .accepted(let action): acceptedView(action)
                     case .finalProse(let action, let prose): finalProseView(action: action, prose: prose)
+                    case .committing(let action): committingView(action)
                     case .committed(let result): committedView(result)
                     case .failed(let code): failureView(code)
                     }
@@ -234,7 +237,7 @@ struct StoryResolutionView: View {
     private var stateAccessibilityValue: String {
         let action: String
         switch phase {
-        case .accepted(let value), .finalProse(let value, _): action = value
+        case .accepted(let value), .finalProse(let value, _), .committing(let value): action = value
         default: action = "none"
         }
         return "Dungeon revision \(app.world?.revision ?? -1); Chronicle entries \(app.chronicle.count); Accepted action \(action)"
@@ -345,8 +348,23 @@ struct StoryResolutionView: View {
             Text("Final narration").font(.headline).foregroundStyle(.secondary)
             Text(prose).textSelection(.enabled)
             Text("The dungeon and Chronicle remain unchanged until the final result is committed.")
+            Button("Continue to Consequence") { Task { await commitFinalResolution(action: action) } }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier(StoryResolutionAccessibility.commitFinalResolution)
+                .accessibilityHint("Generates authorized world effects and atomically commits this exact narration.")
             Button("Close") { dismiss() }.buttonStyle(.borderedProminent).controlSize(.large)
         }
+    }
+
+    private func committingView(_ action: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ProgressView().controlSize(.large)
+            Text("Applying “\(action)”…").font(.title2.bold())
+            Text("The accepted action and final narration are fixed while authorized world effects are prepared.")
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func committedView(_ result: ChronicleSummary) -> some View {
@@ -364,7 +382,7 @@ struct StoryResolutionView: View {
             Label("No dungeon change was applied", systemImage: "arrow.counterclockwise.circle").font(.title2.bold())
             Text(failureMessage(code))
             Text("Your goal completion or expiration is saved. The world is unchanged, and this suggestion remains available to retry.")
-            Button("Retry") { Task { await loadSuggestion() } }
+            Button("Retry") { Task { await retryCurrentStage() } }
                 .buttonStyle(.borderedProminent).controlSize(.large)
                 .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier(StoryResolutionAccessibility.retrySuggestion)
@@ -412,6 +430,26 @@ struct StoryResolutionView: View {
         switch await app.generateFinalProse(eventID: event.id) {
         case .generated(let prose): phase = .finalProse(action: action, prose: prose)
         case .failed(let code): phase = .failed(code)
+        }
+    }
+
+    private func commitFinalResolution(action: String) async {
+        phase = .committing(action)
+        switch await app.resolve(eventID: event.id) {
+        case .committed(let result): phase = .committed(result)
+        case .failed(let code): phase = .failed(code)
+        }
+    }
+
+    private func retryCurrentStage() async {
+        guard let latest = app.pendingStories.first(where: { $0.id == event.id }) else {
+            await loadSuggestion()
+            return
+        }
+        switch StoryResolutionPhase.opening(latest) {
+        case .finalProse(let action, _): await commitFinalResolution(action: action)
+        case .accepted(let action): await resumeFinalProse(action: action)
+        default: await loadSuggestion()
         }
     }
 

@@ -544,6 +544,7 @@ enum ProjectionBuilder {
             "category": event.sourceCategory?.rawValue ?? ModelPromptRegistry.text(.legacyMissingValue),
             "effort": event.effort.map { String($0.value) } ?? event.sourceEffort.map { String($0.rating.rawValue) } ?? ModelPromptRegistry.text(.legacyMissingValue),
             "acceptedAction": String((event.acceptedAction ?? ModelPromptRegistry.text(.legacyMissingValue)).prefix(compact ? 80 : 160)),
+            "finalProse": String((event.finalProse ?? ModelPromptRegistry.text(.legacyMissingValue)).prefix(compact ? 320 : 1_200)),
             "due": event.sourceDueDate?.ISO8601Format() ?? ModelPromptRegistry.text(.legacyMissingValue),
             "includesTime": String(event.sourceIncludesTime),
             "timeZone": event.sourceTimeZoneID ?? ModelPromptRegistry.text(.legacyMissingValue),
