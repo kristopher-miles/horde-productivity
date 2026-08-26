@@ -226,7 +226,7 @@ struct WorldDelta: Codable, Equatable, Sendable, Identifiable {
 }
 
 enum WorldPatchError: Error, Equatable, LocalizedError {
-    case tooManyMutations, tooManyNewRecords, duplicateMutation(String), unknownField(String), deniedOperation(String), wrongValueType(String), outOfBounds(String), deltaExceeded(String), collectionFull(String), duplicateRecord(String), invalidRecord(String), invalidReference(String), catastrophicNegative
+    case tooManyMutations, tooManyNewRecords, duplicateMutation(String), unknownField(String), deniedOperation(String), wrongValueType(String), outOfBounds(String), deltaExceeded(String), collectionFull(String), duplicateRecord(String), invalidRecord(String), invalidReference(String)
 
     var errorDescription: String? {
         switch self {
@@ -242,31 +242,32 @@ enum WorldPatchError: Error, Equatable, LocalizedError {
         case .duplicateRecord(let id): "Record \(id) already exists."
         case .invalidRecord(let id): "Record \(id) is malformed."
         case .invalidReference(let id): "Record \(id) refers to an unknown entity."
-        case .catastrophicNegative: "The negative change exceeds the current authorized mutation budget."
         }
     }
 }
 
 enum WorldContract {
-    static func descriptors(for valence: EventValence) -> [WorldMutationDescriptor] {
-        let maxDelta = valence == .positive ? 4 : 2
+    static let maximumMutations = 4
+    static let maximumAppends = 2
+
+    static func descriptors(for valence: EventValence, effort: ResolutionEffort? = nil) -> [WorldMutationDescriptor] {
+        let effortValue = effort?.value ?? EffortRating.one.rawValue
+        let maxDelta = effortValue * 4
         var result = ["world.morale", "world.integrity", "world.food"].map {
             WorldMutationDescriptor(fieldID: $0, kind: .integer, operations: [.increment], range: 0...100, maxDelta: maxDelta, collectionCap: nil, description: ModelPromptRegistry.text(.legacyScalarDescriptor))
         }
-        if valence == .positive {
-            result += [
-                WorldMutationDescriptor(fieldID: "world.abilities", kind: .ability, operations: [.append, .replace], range: 1...3, maxDelta: nil, collectionCap: 12, description: ModelPromptRegistry.text(.legacyAbilityDescriptor)),
-                WorldMutationDescriptor(fieldID: "world.facts", kind: .fact, operations: [.append], range: nil, maxDelta: nil, collectionCap: 24, description: ModelPromptRegistry.text(.legacyFactDescriptor))
-            ]
-        }
-        result.append(WorldMutationDescriptor(fieldID: "world.activeThreads", kind: .thread, operations: [.append, .replace], range: 1...(valence == .positive ? 4 : 2), maxDelta: nil, collectionCap: 4, description: ModelPromptRegistry.text(.legacyThreadDescriptor)))
+        result += [
+            WorldMutationDescriptor(fieldID: "world.abilities", kind: .ability, operations: valence == .positive ? [.append, .replace] : [.replace], range: 1...3, maxDelta: nil, collectionCap: 12, description: ModelPromptRegistry.text(.legacyAbilityDescriptor)),
+            WorldMutationDescriptor(fieldID: "world.facts", kind: .fact, operations: [.append], range: nil, maxDelta: nil, collectionCap: 24, description: ModelPromptRegistry.text(.legacyFactDescriptor)),
+            WorldMutationDescriptor(fieldID: "world.activeThreads", kind: .thread, operations: [.append, .replace], range: 1...min(4, effortValue + 1), maxDelta: nil, collectionCap: 4, description: ModelPromptRegistry.text(.legacyThreadDescriptor))
+        ]
         return result
     }
 
-    static func descriptors(for valence: EventValence, world: WorldSnapshot) -> [WorldMutationDescriptor] {
+    static func descriptors(for valence: EventValence, effort: ResolutionEffort? = nil, world: WorldSnapshot) -> [WorldMutationDescriptor] {
         let values = ["world.morale": world.morale, "world.integrity": world.integrity, "world.food": world.food]
         let counts = ["world.abilities": world.abilities.count, "world.activeThreads": world.activeThreads.count, "world.facts": world.facts.count]
-        return descriptors(for: valence).compactMap { descriptor in
+        return descriptors(for: valence, effort: effort).compactMap { descriptor in
             if descriptor.kind == .integer, let current = values[descriptor.fieldID], let range = descriptor.range {
                 let available = valence == .positive ? range.upperBound - current : current - range.lowerBound
                 let legalDelta = min(descriptor.maxDelta ?? 0, max(0, available))
@@ -275,9 +276,17 @@ enum WorldContract {
             }
             guard let cap = descriptor.collectionCap else { return descriptor }
             let count = counts[descriptor.fieldID, default: 0]
-            let operations = count >= cap
-                ? descriptor.operations.subtracting([.append])
-                : count == 0 ? descriptor.operations.subtracting([.replace]) : descriptor.operations
+            var operations = descriptor.operations
+            if count >= cap { operations.remove(.append) }
+            let canReplace = switch descriptor.kind {
+            case .ability:
+                world.abilities.contains { valence == .positive ? $0.rank < descriptor.range!.upperBound : $0.rank > descriptor.range!.lowerBound }
+            case .thread:
+                world.activeThreads.contains { valence == .positive ? $0.severity > descriptor.range!.lowerBound : $0.severity < descriptor.range!.upperBound }
+            case .integer, .fact:
+                false
+            }
+            if !canReplace { operations.remove(.replace) }
             guard !operations.isEmpty else { return nil }
             let instruction = operations.contains(.append) && operations.contains(.replace)
                 ? ModelPromptRegistry.text(.legacyAppendOrReplace)
@@ -290,8 +299,8 @@ enum WorldContract {
 enum WorldPatchValidator {
     static func applying(_ mutations: [WorldMutation], to original: WorldSnapshot, valence: EventValence, descriptors: [WorldMutationDescriptor]? = nil) throws -> (WorldSnapshot, [WorldDelta]) {
         let descriptors = descriptors ?? WorldContract.descriptors(for: valence)
-        guard mutations.count <= (valence == .positive ? 4 : 2) else { throw WorldPatchError.tooManyMutations }
-        guard mutations.filter({ $0.operation == .append }).count <= (valence == .positive ? 2 : 1) else { throw WorldPatchError.tooManyNewRecords }
+        guard mutations.count <= WorldContract.maximumMutations else { throw WorldPatchError.tooManyMutations }
+        guard mutations.filter({ $0.operation == .append }).count <= WorldContract.maximumAppends else { throw WorldPatchError.tooManyNewRecords }
         let contract = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.fieldID, $0) })
         var world = original
         var deltas: [WorldDelta] = []
@@ -306,12 +315,11 @@ enum WorldPatchValidator {
             }
             switch descriptor.kind {
             case .integer: try applyInteger(mutation, descriptor: descriptor, world: &world, deltas: &deltas)
-            case .ability: try applyAbility(mutation, descriptor: descriptor, world: &world, deltas: &deltas)
-            case .thread: try applyThread(mutation, descriptor: descriptor, world: &world, deltas: &deltas)
+            case .ability: try applyAbility(mutation, descriptor: descriptor, valence: valence, world: &world, deltas: &deltas)
+            case .thread: try applyThread(mutation, descriptor: descriptor, valence: valence, world: &world, deltas: &deltas)
             case .fact: try applyFact(mutation, descriptor: descriptor, world: &world, deltas: &deltas)
             }
         }
-        if valence == .negative, mutations.contains(where: { $0.operation == .remove || ($0.integerValue ?? 0) < -2 }) { throw WorldPatchError.catastrophicNegative }
         return (world, deltas)
     }
 
@@ -332,12 +340,14 @@ enum WorldPatchValidator {
         return record
     }
 
-    private static func applyAbility(_ mutation: WorldMutation, descriptor: WorldMutationDescriptor, world: inout WorldSnapshot, deltas: inout [WorldDelta]) throws {
+    private static func applyAbility(_ mutation: WorldMutation, descriptor: WorldMutationDescriptor, valence: EventValence, world: inout WorldSnapshot, deltas: inout [WorldDelta]) throws {
         let record = try validatedRecord(mutation, descriptor: descriptor)
         if let index = world.abilities.firstIndex(where: { $0.id == record.id }) {
             guard mutation.operation == .replace else { throw WorldPatchError.duplicateRecord(record.id) }
+            let oldRank = world.abilities[index].rank
+            guard valence == .positive ? record.severityOrRank! > oldRank : record.severityOrRank! < oldRank else { throw WorldPatchError.deltaExceeded(mutation.fieldID) }
             world.abilities[index] = AbilityState(id: record.id, name: record.title, summary: record.summary, rank: record.severityOrRank!)
-            deltas.append(WorldDelta(fieldID: mutation.fieldID, description: "Ability improved: \(record.title)"))
+            deltas.append(WorldDelta(fieldID: mutation.fieldID, description: "Ability changed: \(record.title) (\(oldRank) → \(record.severityOrRank!))"))
         } else {
             guard mutation.operation == .append else { throw WorldPatchError.invalidRecord(record.id) }
             guard world.abilities.count < descriptor.collectionCap! else { throw WorldPatchError.collectionFull(mutation.fieldID) }
@@ -346,13 +356,15 @@ enum WorldPatchValidator {
         }
     }
 
-    private static func applyThread(_ mutation: WorldMutation, descriptor: WorldMutationDescriptor, world: inout WorldSnapshot, deltas: inout [WorldDelta]) throws {
+    private static func applyThread(_ mutation: WorldMutation, descriptor: WorldMutationDescriptor, valence: EventValence, world: inout WorldSnapshot, deltas: inout [WorldDelta]) throws {
         let record = try validatedRecord(mutation, descriptor: descriptor)
         let known = Set([world.dragon.id] + world.residents.map(\.id) + world.locations.map(\.id))
         guard Set(record.involvedEntityIDs).isSubset(of: known) else { throw WorldPatchError.invalidReference(record.id) }
         let thread = ActiveThreadState(id: record.id, title: record.title, severity: record.severityOrRank!, state: "active", involvedEntityIDs: record.involvedEntityIDs, summary: record.summary)
         if let index = world.activeThreads.firstIndex(where: { $0.id == record.id }) {
             guard mutation.operation == .replace else { throw WorldPatchError.duplicateRecord(record.id) }
+            let oldSeverity = world.activeThreads[index].severity
+            guard valence == .positive ? record.severityOrRank! < oldSeverity : record.severityOrRank! > oldSeverity else { throw WorldPatchError.deltaExceeded(mutation.fieldID) }
             world.activeThreads[index] = thread
             deltas.append(WorldDelta(fieldID: mutation.fieldID, description: "Thread changed: \(record.title)"))
         } else {
@@ -514,7 +526,8 @@ enum ProjectionBuilder {
             "sourceTitle": sourceTitle,
             "sourceNotes": sourceNotes,
             "category": event.sourceCategory?.rawValue ?? ModelPromptRegistry.text(.legacyMissingValue),
-            "effort": event.sourceEffort?.rawValue ?? ModelPromptRegistry.text(.legacyMissingValue),
+            "effort": event.effort.map { String($0.value) } ?? event.sourceEffort.map { String($0.rating.rawValue) } ?? ModelPromptRegistry.text(.legacyMissingValue),
+            "acceptedAction": String((event.acceptedAction ?? ModelPromptRegistry.text(.legacyMissingValue)).prefix(compact ? 80 : 160)),
             "due": event.sourceDueDate?.ISO8601Format() ?? ModelPromptRegistry.text(.legacyMissingValue),
             "includesTime": String(event.sourceIncludesTime),
             "timeZone": event.sourceTimeZoneID ?? ModelPromptRegistry.text(.legacyMissingValue),
@@ -536,8 +549,8 @@ enum ProjectionBuilder {
                 ])
             } ?? ModelPromptRegistry.text(.legacyMissingValue),
             "recentSummary": String(world.snapshot.rollingSummary.prefix(compact ? 160 : 400)),
-            "maximumMutations": String(event.valence == .positive ? 4 : 2),
-            "maximumAppends": String(event.valence == .positive ? 2 : 1),
+            "maximumMutations": String(WorldContract.maximumMutations),
+            "maximumAppends": String(WorldContract.maximumAppends),
             "writableContract": contract
         ])
     }

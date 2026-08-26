@@ -398,7 +398,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
                 guard save.revision == expectedRevision, event.expectedRevision == expectedRevision else { throw StoreError.staleRevision }
                 let valence = EventValence(rawValue: event.valenceRaw) ?? .positive
-                try validateStagedWorld(world, mutations: mutations, deltas: deltas, summary: summary, current: decodeWorld(save), valence: valence)
+                try validateStagedWorld(world, mutations: mutations, deltas: deltas, summary: summary, current: decodeWorld(save), valence: valence, effort: effort)
                 let result = StagedFinalResolution(expectedRevision: expectedRevision, world: world, mutations: mutations, deltas: deltas, title: generatedTitle, finalProse: narration, summary: summary, cue: cue)
                 let state = StagedResolutionState(stage: .finalProse, effort: effort, comparisonHistoryIDs: comparisonHistoryIDs, suggestedAction: suggestedAction, customAction: customAction, interpretedAction: interpretedAction, acceptedAction: accepted, promptVersions: promptVersions, finalResult: result)
                 try validatePersistedEffort(in: state, matches: resolutionState(event) ?? StagedResolutionState(stage: .effortSelection))
@@ -449,7 +449,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 }
                 let valence = EventValence(rawValue: event.valenceRaw) ?? .positive
                 if stagedState != nil {
-                    try validateStagedWorld(world, mutations: mutations, deltas: deltas, summary: summary, current: decodeWorld(save), valence: valence)
+                    try validateStagedWorld(world, mutations: mutations, deltas: deltas, summary: summary, current: decodeWorld(save), valence: valence, effort: stagedState?.effort)
                 }
                 let prior = save.revision
                 save.worldData = try PersistentJSON.encode(world)
@@ -630,9 +630,9 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         }
     }
 
-    private func validateStagedWorld(_ world: WorldSnapshot, mutations: [WorldMutation], deltas: [WorldDelta], summary: String, current: WorldSnapshot, valence: EventValence) throws {
+    private func validateStagedWorld(_ world: WorldSnapshot, mutations: [WorldMutation], deltas: [WorldDelta], summary: String, current: WorldSnapshot, valence: EventValence, effort: ResolutionEffort?) throws {
         guard !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw StoreError.invalidResolutionState }
-        var (authorized, validatedDeltas) = try WorldPatchValidator.applying(mutations, to: current, valence: valence, descriptors: WorldContract.descriptors(for: valence, world: current))
+        var (authorized, validatedDeltas) = try WorldPatchValidator.applying(mutations, to: current, valence: valence, descriptors: WorldContract.descriptors(for: valence, effort: effort, world: current))
         authorized.rollingSummary = String((authorized.rollingSummary + " " + summary).suffix(600))
         guard authorized == world, validatedDeltas == deltas else { throw StoreError.invalidResolutionState }
     }

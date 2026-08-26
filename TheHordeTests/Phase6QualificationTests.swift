@@ -401,7 +401,6 @@ struct Phase6QualificationTests {
         #expect(text.localizedCaseInsensitiveContains("dangerous threat"))
         #expect(!text.localizedCaseInsensitiveContains("small"))
         #expect(!text.localizedCaseInsensitiveContains("recoverable"))
-        #expect(!WorldPatchError.catastrophicNegative.localizedDescription.localizedCaseInsensitiveContains("recoverable"))
     }
 
     @Test func cannedDraftNarrationIsQualifiedForBothValences() async {
@@ -441,9 +440,9 @@ struct Phase6QualificationTests {
     @Test func fullCollectionsStopAdvertisingImpossibleAppends() {
         var snapshot = WorldSnapshot.initial()
         snapshot.abilities = (0..<12).map { AbilityState(id: "ability-\($0)", name: "Ability \($0)", summary: "Fixture", rank: 1) }
-        snapshot.activeThreads = (0..<4).map { ActiveThreadState(id: "thread-\($0)", title: "Thread \($0)", severity: 1, state: "active", involvedEntityIDs: ["dragon"], summary: "Fixture") }
+        snapshot.activeThreads = (0..<4).map { ActiveThreadState(id: "thread-\($0)", title: "Thread \($0)", severity: 2, state: "active", involvedEntityIDs: ["dragon"], summary: "Fixture") }
         snapshot.facts = (0..<24).map { WorldFact(id: "fact-\($0)", title: "Fact \($0)", summary: "Fixture") }
-        let descriptors = WorldContract.descriptors(for: .positive, world: snapshot)
+        let descriptors = WorldContract.descriptors(for: .positive, effort: ResolutionEffort(rating: .three, source: .modelEstimated), world: snapshot)
         #expect(!descriptors.contains { $0.fieldID == "world.facts" })
         #expect(descriptors.first { $0.fieldID == "world.abilities" }?.operations == [.replace])
         #expect(descriptors.first { $0.fieldID == "world.activeThreads" }?.operations == [.replace])
@@ -456,7 +455,7 @@ struct Phase6QualificationTests {
     @Test func existingCollectionsPermitUpdatesBeforeTheyAreFullAndUseFullRanges() async throws {
         var snapshot = WorldSnapshot.initial()
         snapshot.abilities = [AbilityState(id: "ember-memory", name: "Ember Memory", summary: "Existing", rank: 1)]
-        let descriptors = WorldContract.descriptors(for: .positive, world: snapshot)
+        let descriptors = WorldContract.descriptors(for: .positive, effort: ResolutionEffort(rating: .three, source: .modelEstimated), world: snapshot)
         #expect(descriptors.first { $0.fieldID == "world.abilities" }?.operations == [.append, .replace])
         #expect(descriptors.first { $0.fieldID == "world.abilities" }?.range == 1...3)
         #expect(descriptors.first { $0.fieldID == "world.activeThreads" }?.range == 1...4)

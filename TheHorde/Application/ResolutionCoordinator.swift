@@ -29,8 +29,10 @@ actor ResolutionCoordinator {
                     : []
                 let effort = try await evaluateEffortWithTimeout(event: event, history: history)
                 try await store.checkpointEffort(eventID: eventID, result: effort)
-                let descriptors = WorldContract.descriptors(for: event.valence, world: world.snapshot)
-                let generated = try await generateWithTimeout(event: event, world: world, descriptors: descriptors)
+                var consequenceEvent = event
+                consequenceEvent.effort = effort.effort
+                let descriptors = WorldContract.descriptors(for: event.valence, effort: effort.effort, world: world.snapshot)
+                let generated = try await generateWithTimeout(event: consequenceEvent, world: world, descriptors: descriptors)
                 var (updatedWorld, deltas) = try WorldPatchValidator.applying(generated.mutations, to: world.snapshot, valence: event.valence, descriptors: descriptors)
                 updatedWorld.rollingSummary = String((updatedWorld.rollingSummary + " " + generated.summary).suffix(600))
                 let result = try await store.commitResolution(eventID: eventID, expectedRevision: world.revision, world: updatedWorld, mutations: generated.mutations, deltas: deltas, generatedTitle: generated.title, narration: generated.narration, summary: generated.summary, cue: AnimationCue(rawValue: generated.cue) ?? .idle, effort: effort.effort, comparisonHistoryIDs: effort.comparisonHistoryIDs)
