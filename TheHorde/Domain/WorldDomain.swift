@@ -139,6 +139,12 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
         "\(dragonName) has recently left the nest and searched for their own lair. After flying far from home, they arrived at an empty cavern extending deep into the rock. They are small now, but they will grow. They settle onto the cold stone, and plan for what's next."
     }
 
+    static func onboardingDragonName(from proposedName: String) -> String {
+        proposedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Ember"
+            : String(proposedName.prefix(40))
+    }
+
     static func initial(dragonName: String = "Ember", dungeonName: String = "The Cinder Vault", dragonColor: RGBColor = .ember) -> WorldSnapshot {
         WorldSnapshot(
             dragon: CharacterState(id: "dragon", name: dragonName, role: "Baby dragon", identity: "A young, small, newly independent dragon who has just claimed an empty cavern. Not yet powerful or established, they face the untamed lair alone.", vitality: 50, bond: 50, conditions: []),

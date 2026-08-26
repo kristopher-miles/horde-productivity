@@ -1,4 +1,5 @@
 import Foundation
+import SpriteKit
 import Testing
 @testable import TheHorde
 
@@ -35,6 +36,57 @@ struct ProductExperienceTests {
         let second = try await store.worldReadModel()
         #expect(second.snapshot.dragon.name == "Cinder")
         #expect(second.dungeonName == "Quiet Keep")
+    }
+
+    @Test func onboardingShowsTheExactNamedEmptyCavernPremise() {
+        let expected = "Vesper has recently left the nest and searched for their own lair. After flying far from home, they arrived at an empty cavern extending deep into the rock. They are small now, but they will grow. They settle onto the cold stone, and plan for what's next."
+
+        #expect(OnboardingView.originNarrative(dragonName: "Vesper") == expected)
+        for trait in ["young dragon", "alone", "dirty", "cold", "unruly", "dangerous", "empty cavern", "no residents", "no furnished home"] {
+            #expect(OnboardingView.emptyCavernPremise.localizedCaseInsensitiveContains(trait))
+        }
+        #expect(!OnboardingView.emptyCavernPremise.localizedCaseInsensitiveContains("kobold"))
+    }
+
+    @Test func onboardingPreviewAndPersistenceNormalizeOptionalNamesIdentically() async throws {
+        for proposedName in ["   ", String(repeating: "V", count: 45)] {
+            let store = try makeStore()
+            try await store.completeOnboarding(dragonName: proposedName, dungeonName: "Unruly Depths")
+            let saved = try await store.worldReadModel().snapshot
+            let expectedName = WorldSnapshot.onboardingDragonName(from: proposedName)
+
+            #expect(saved.dragon.name == expectedName)
+            #expect(saved.rollingSummary == OnboardingView.originNarrative(dragonName: proposedName))
+            #expect(saved.rollingSummary == WorldSnapshot.originNarrative(dragonName: expectedName))
+        }
+    }
+
+    @Test @MainActor func onboardingSceneContainsOnlyTheBabyDragon() throws {
+        let world = WorldReadModel(dungeonName: "Unruly Depths", revision: 0, snapshot: .initial(dragonName: "Vesper"))
+        let scene = PixelDungeonScene(world: world, cue: .idle, reduceMotion: true)
+
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: world, cue: .idle) == nil)
+        #expect(scene.children.count == 1)
+        #expect(scene.children.first?.name == "EmberPrototype")
+        #expect(DungeonSceneView.sceneDescription(for: world).contains("Vesper is alone"))
+    }
+
+    @Test func onboardingCuratedAndCustomColorsSurviveRelaunch() async throws {
+        for color in [CuratedDragonColor.azure.color, RGBColor(red: 17, green: 201, blue: 149)] {
+            let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let url = directory.appending(path: "TheHorde.store")
+
+            do {
+                let store = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+                try await store.completeOnboarding(dragonName: "Vesper", dungeonName: "Unruly Depths", dragonColor: color)
+                #expect(try await store.worldReadModel().snapshot.dragonVisual.color == color)
+            }
+
+            let reopened = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+            #expect(try await reopened.worldReadModel().snapshot.dragonVisual.color == color)
+        }
     }
 
     @Test func exportIsVersionedReadableAndExcludesTransientSessions() async throws {

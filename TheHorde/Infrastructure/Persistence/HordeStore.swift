@@ -82,7 +82,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
     }
 
     func completeOnboarding(dragonName: String, dungeonName: String, dragonColor: RGBColor = .ember) throws {
-        let dragon = dragonName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Ember" : String(dragonName.prefix(40))
+        let dragon = WorldSnapshot.onboardingDragonName(from: dragonName)
         let dungeon = dungeonName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "The Cinder Vault" : String(dungeonName.prefix(60))
         do {
             try modelContext.transaction {

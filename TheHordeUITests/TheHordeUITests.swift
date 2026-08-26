@@ -135,9 +135,11 @@ final class TheHordeUITests: XCTestCase {
         onboarding.launchEnvironment["HORDE_RESET_UI_STATE"] = "1"
         onboarding.launchArguments += ["-onboardingStep", "1"]
         onboarding.launch()
-        XCTAssertTrue(onboarding.staticTexts["Name your little world"].waitForExistence(timeout: 5))
+        XCTAssertTrue(onboarding.staticTexts["Name your dragon and dungeon"].waitForExistence(timeout: 5))
         XCTAssertTrue(onboarding.textFields["Dragon name, optional"].exists)
-        XCTAssertTrue(onboarding.buttons["Enter the Dungeon"].isHittable)
+        let enter = onboarding.buttons["Enter the Dungeon"]
+        if !enter.isHittable { onboarding.swipeUp() }
+        XCTAssertTrue(enter.isHittable)
         onboarding.terminate()
 
         let failure = XCUIApplication()
@@ -147,6 +149,43 @@ final class TheHordeUITests: XCTestCase {
         failure.launch()
         XCTAssertTrue(failure.staticTexts["Local data unavailable"].waitForExistence(timeout: 5))
         XCTAssertTrue(failure.buttons["Try Again"].isHittable)
+    }
+
+    @MainActor func testOnboardingShowsTheEmptyCavernAndUpdatesTheExactNarrative() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["HORDE_BYPASS_COMPATIBILITY"] = "1"
+        app.launchEnvironment["HORDE_RESET_UI_STATE"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["A Young Dragon, Alone"].waitForExistence(timeout: 5))
+        let premise = app.descendants(matching: .any)["Onboarding.EmptyCavernPremise"]
+        XCTAssertEqual(premise.label, "Your young dragon begins alone in a dirty, cold, unruly, and dangerous empty cavern—with no residents, no comforts, and no furnished home.")
+        let narrative = app.descendants(matching: .any)["Onboarding.OriginNarrative"]
+        XCTAssertEqual(narrative.label, "Ember has recently left the nest and searched for their own lair. After flying far from home, they arrived at an empty cavern extending deep into the rock. They are small now, but they will grow. They settle onto the cold stone, and plan for what's next.")
+        let scene = app.descendants(matching: .any)["DungeonScene.DungeonStage1"]
+        XCTAssertTrue(scene.label.contains("Ember is alone"))
+        XCTAssertFalse(scene.label.localizedCaseInsensitiveContains("kobold"))
+
+        let continueButton = app.buttons["Continue"]
+        if !continueButton.isHittable { app.swipeUp() }
+        continueButton.tap()
+        XCTAssertTrue(app.staticTexts["Name your dragon and dungeon"].waitForExistence(timeout: 3))
+        let name = app.textFields["Dragon name, optional"]
+        name.tap()
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 5))
+        name.typeText("Vesper")
+        let updatedNarrative = "Vesper has recently left the nest and searched for their own lair. After flying far from home, they arrived at an empty cavern extending deep into the rock. They are small now, but they will grow. They settle onto the cold stone, and plan for what's next."
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", updatedNarrative), object: narrative)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 3), .completed)
+
+        app.keyboards.buttons["return"].tap()
+        app.swipeUp()
+        let azure = app.buttons["Onboarding.Color.azure"]
+        if !azure.isHittable { app.swipeUp() }
+        XCTAssertTrue(azure.waitForExistence(timeout: 3))
+        azure.tap()
+        XCTAssertEqual(azure.value as? String, "Selected")
+        XCTAssertTrue(app.descendants(matching: .any)["Onboarding.CustomDragonColor"].waitForExistence(timeout: 3))
     }
 
     @MainActor func testExplicitAcceptanceGatePreservesVisibleStateUntilAcceptance() throws {

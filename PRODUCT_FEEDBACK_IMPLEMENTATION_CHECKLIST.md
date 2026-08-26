@@ -77,7 +77,7 @@ Connect the staged services only after their persistence and request contracts a
 
 ## 5. Update first-run, Dungeon, Today, and authored copy
 
-- [ ] 047 — [AP-07 — Replace onboarding with the empty-cavern premise and curated/custom color choice (line 48)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L48)
+- [x] 047 — [AP-07 — Replace onboarding with the empty-cavern premise and curated/custom color choice (line 48)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L48)
 - [ ] 048 — [AP-08 — Add lone-dragon and empty-world presentation states (line 54)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L54)
 - [ ] 049 — [TN-05 — Remove padded tone from visible copy, fixtures, and accessibility text (line 71)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L71)
 

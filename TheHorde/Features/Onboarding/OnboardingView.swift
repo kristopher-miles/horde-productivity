@@ -6,7 +6,11 @@ import AppKit
 #endif
 
 struct OnboardingView: View {
+    nonisolated static let emptyCavernPremise = "Your young dragon begins alone in a dirty, cold, unruly, and dangerous empty cavern—with no residents, no comforts, and no furnished home."
     nonisolated static let startingCavernAccessibilityLabel = "A young, small, newly independent baby dragon has just claimed an empty cavern that is dirty, cold, unruly, and dangerous, and is not yet powerful or established."
+    nonisolated static func originNarrative(dragonName: String) -> String {
+        WorldSnapshot.originNarrative(dragonName: WorldSnapshot.onboardingDragonName(from: dragonName))
+    }
     @Environment(AppModel.self) private var app
     @AppStorage("onboardingStep") private var step = 0
     @State private var dragonName = "Ember"
@@ -19,13 +23,22 @@ struct OnboardingView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     onboardingArt
+                    Text("A Young Dragon, Alone")
+                        .font(.largeTitle.bold())
+                        .multilineTextAlignment(.center)
+                    Text(Self.emptyCavernPremise)
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("Onboarding.EmptyCavernPremise")
+                    Text(Self.originNarrative(dragonName: dragonName))
+                        .multilineTextAlignment(.leading)
+                        .hordeCard()
+                        .accessibilityIdentifier("Onboarding.OriginNarrative")
                     if step == 0 {
-                        Text("Real goals shape a small local dungeon story.").font(.largeTitle.bold()).multilineTextAlignment(.center)
-                        Text("Complete what matters to you. Apple’s on-device model invents a gentle consequence, while the app independently validates every lasting change.").multilineTextAlignment(.center)
+                        Text("Your real goals shape what happens next in the dungeon.").multilineTextAlignment(.center)
                         Label("Your goals and dungeon stay in this app \(PlatformSupport.localDevicePhrase).", systemImage: PlatformSupport.deviceName == "Mac" ? "macbook" : "iphone.and.arrow.forward.inward").font(.subheadline).hordeCard()
                         Button("Continue") { withAnimation { step = 1 } }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity, minHeight: 44)
                     } else {
-                        Text("Name your little world").font(.largeTitle.bold()).multilineTextAlignment(.center)
+                        Text("Name your dragon and dungeon").font(.title.bold()).multilineTextAlignment(.center)
                         Text("These names are optional. You can keep the defaults.").foregroundStyle(.secondary)
                         VStack(spacing: 14) {
                             TextField("Dragon name", text: $dragonName).textFieldStyle(.roundedBorder).accessibilityLabel("Dragon name, optional")
@@ -43,14 +56,15 @@ struct OnboardingView: View {
     }
 
     private var onboardingArt: some View {
-        DungeonSceneView(
-            world: WorldReadModel(
+        DungeonSceneView(world: WorldReadModel(
+            dungeonName: dungeonName,
+            revision: 0,
+            snapshot: .initial(
+                dragonName: WorldSnapshot.onboardingDragonName(from: dragonName),
                 dungeonName: dungeonName,
-                revision: 0,
-                snapshot: .initial(dragonName: dragonName, dungeonName: dungeonName, dragonColor: dragonColor)
-            ),
-            accessibilityDescription: Self.startingCavernAccessibilityLabel
-        )
+                dragonColor: dragonColor
+            )
+        ))
     }
 
     private var dragonColorControls: some View {
@@ -71,6 +85,7 @@ struct OnboardingView: View {
                         .frame(maxWidth: .infinity, minHeight: 52)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("Onboarding.Color.\(choice.rawValue)")
                     .accessibilityLabel("\(choice.name) dragon color")
                     .accessibilityValue(dragonColor == choice.color ? "Selected" : "Not selected")
                 }
@@ -79,6 +94,7 @@ struct OnboardingView: View {
                 get: { Color(dragonColor) },
                 set: { dragonColor = RGBColor($0) }
             ), supportsOpacity: false)
+            .accessibilityIdentifier("Onboarding.CustomDragonColor")
         }
         .hordeCard()
     }
