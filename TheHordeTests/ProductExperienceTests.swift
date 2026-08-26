@@ -65,9 +65,8 @@ struct ProductExperienceTests {
         let world = WorldReadModel(dungeonName: "Unruly Depths", revision: 0, snapshot: .initial(dragonName: "Vesper"))
         let scene = PixelDungeonScene(world: world, cue: .idle, reduceMotion: true)
 
-        #expect(DungeonSceneView.renderedBackgroundAssetName(world: world, cue: .idle) == nil)
-        #expect(scene.children.count == 1)
-        #expect(scene.children.first?.name == "EmberPrototype")
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: world, cue: .idle) == "DungeonStage1")
+        #expect(scene.children.map(\.name) == ["DungeonEnvironment", "EmberPrototype"])
         #expect(DungeonSceneView.sceneDescription(for: world).contains("Vesper is alone"))
     }
 
@@ -160,7 +159,7 @@ struct ProductExperienceTests {
         assertStartingDragon(world)
         #expect(accessibility.allSatisfy { !$0.localizedCaseInsensitiveContains("kobold") })
         #expect(AnimationCue.allCases.allSatisfy {
-            DungeonSceneView.renderedBackgroundAssetName(world: readModel, cue: $0) == nil
+            DungeonSceneView.renderedBackgroundAssetName(world: readModel, cue: $0) == "DungeonStage1"
         })
         for trait in ["young", "small", "newly independent", "just claimed", "empty cavern", "not yet powerful or established"] {
             #expect(projection.localizedCaseInsensitiveContains(trait))
@@ -170,6 +169,34 @@ struct ProductExperienceTests {
         #expect(DungeonSceneView.dragonAtlasName(stage: world.dragonVisual.stage, cue: .concern) == "EmberConcern")
         #expect(DungeonSceneView.dragonAtlasName(stage: .adolescent, cue: .idle) == "EmberAdolescentIdle")
         #expect(HordeModelContract.projectionVersion == 19)
+    }
+
+    @Test func chronicleBackgroundUsesItsRecordedWorldInsteadOfTheCurrentWorld() {
+        let currentWorld = WorldReadModel(dungeonName: "Current", revision: 8, snapshot: .initial())
+        var recordedSnapshot = WorldSnapshot.initial()
+        recordedSnapshot.hoard = 100
+        let recordedWorld = WorldReadModel(dungeonName: "Recorded", revision: 4, snapshot: recordedSnapshot)
+        let entry = ChronicleSummary(
+            id: "entry",
+            eventID: "event",
+            sourceTitle: "Earlier victory",
+            valence: .positive,
+            title: "A Full Hoard",
+            finalProse: "The chamber glittered.",
+            summary: "The hoard reached its height.",
+            deltas: [],
+            cue: .celebrate,
+            priorRevision: 3,
+            committedRevision: 4,
+            committedAt: .distantPast,
+            effort: nil,
+            comparisonHistoryIDs: [],
+            acceptedAction: nil,
+            recordedWorld: recordedWorld
+        )
+
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: currentWorld, cue: entry.cue) == "DungeonStage1")
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: entry.recordedWorld, cue: entry.cue) == "DungeonStage5")
     }
 
     @Test func koboldAgesPersistProjectAndSelectDistinctIdleArt() throws {

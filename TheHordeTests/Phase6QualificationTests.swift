@@ -18,11 +18,53 @@ struct Phase6QualificationTests {
                 #expect(AnimationCue.allCases.allSatisfy {
                     DungeonSceneView.assetName(world: world, cue: $0) == "DungeonStage\(index + 1)"
                 })
+                #expect(AnimationCue.allCases.allSatisfy {
+                    DungeonSceneView.renderedBackgroundAssetName(world: world, cue: $0) == "DungeonStage\(index + 1)"
+                })
             }
         }
 
         for (hoard, expected) in [(-1, 1), (9, 1), (29, 2), (59, 3), (99, 4), (101, 5)] {
             #expect(DungeonBackgroundStage(hoard: hoard).rawValue == expected)
+        }
+    }
+
+    @Test @MainActor func allFiveOpaqueRoomsLoadAtNativeSizeWithNearestFiltering() throws {
+        for (index, hoard) in [0, 10, 30, 60, 100].enumerated() {
+            var snapshot = WorldSnapshot.initial()
+            snapshot.hoard = hoard
+            let world = WorldReadModel(dungeonName: "Vault", revision: index, snapshot: snapshot)
+            let scene = PixelDungeonScene(world: world, cue: .idle, reduceMotion: true)
+            let environment = try #require(scene.childNode(withName: "DungeonEnvironment") as? SKSpriteNode)
+            let texture = try #require(environment.texture)
+            let image = texture.cgImage()
+            let pixels = try rgbaBytes(of: image)
+
+            #expect(DungeonSceneView.renderedBackgroundAssetName(world: world, cue: .idle) == "DungeonStage\(index + 1)")
+            #expect(environment.size == CGSize(width: 320, height: 180))
+            #expect(texture.size() == CGSize(width: 320, height: 180))
+            #expect(texture.filteringMode == .nearest)
+            #expect(image.width == 320)
+            #expect(image.height == 180)
+            #expect(stride(from: 3, to: pixels.count, by: 4).allSatisfy { pixels[$0] == 255 })
+        }
+    }
+
+    @Test @MainActor func savedRoomStageIgnoresPopulationAndTransientCues() throws {
+        var snapshot = WorldSnapshot.initial()
+        snapshot.hoard = 60
+        let emptyWorld = WorldReadModel(dungeonName: "Vault", revision: 6, snapshot: snapshot)
+        snapshot.residents = [koboldResident(0)]
+        let populatedWorld = WorldReadModel(dungeonName: "Vault", revision: 6, snapshot: snapshot)
+
+        for world in [emptyWorld, populatedWorld] {
+            for cue in AnimationCue.allCases {
+                let scene = PixelDungeonScene(world: world, cue: cue, reduceMotion: false)
+                let environment = try #require(scene.childNode(withName: "DungeonEnvironment"))
+                #expect(DungeonSceneView.renderedBackgroundAssetName(world: world, cue: cue) == "DungeonStage4")
+                #expect(cue == .idle ? !environment.hasActions() : environment.hasActions())
+                #expect(world.snapshot.backgroundStage == .four)
+            }
         }
     }
 
@@ -297,7 +339,7 @@ struct Phase6QualificationTests {
             }
 
             #expect(kobolds.count == count)
-            #expect(DungeonSceneView.renderedBackgroundAssetName(world: world, cue: .idle) == nil)
+            #expect(DungeonSceneView.renderedBackgroundAssetName(world: world, cue: .idle) == "DungeonStage1")
             for (index, kobold) in kobolds.enumerated() {
                 #expect(kobold.name == DungeonSceneView.koboldNodeName(residentID: residents[index].id))
                 #expect(kobold.position == DungeonSceneView.koboldScenePositions[index])
@@ -382,9 +424,9 @@ struct Phase6QualificationTests {
         let emptyWorld = WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot)
         let empty = PixelDungeonScene(world: emptyWorld, cue: .idle, reduceMotion: true)
         #expect(Set(one.children.compactMap(\.name)).subtracting(empty.children.compactMap(\.name)) == [DungeonSceneView.koboldNodeName(residentID: residents[0].id)])
-        #expect(empty.children.map(\.name) == ["EmberPrototype"])
-        #expect(DungeonSceneView.renderedBackgroundAssetName(world: oneWorld, cue: .idle) == nil)
-        #expect(DungeonSceneView.renderedBackgroundAssetName(world: emptyWorld, cue: .idle) == nil)
+        #expect(empty.children.map(\.name) == ["DungeonEnvironment", "EmberPrototype"])
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: oneWorld, cue: .idle) == "DungeonStage1")
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: emptyWorld, cue: .idle) == "DungeonStage1")
     }
 
     @Test @MainActor func koboldLayersRequireVisualDataUseFrameOneForReducedMotionAndKeepAtlasesImmutable() throws {

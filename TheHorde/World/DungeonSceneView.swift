@@ -98,7 +98,7 @@ struct DungeonSceneView: View {
     }
 
     nonisolated static func renderedBackgroundAssetName(world: WorldReadModel, cue: AnimationCue) -> String? {
-        nil
+        assetName(world: world, cue: cue)
     }
 }
 
@@ -111,6 +111,7 @@ struct DungeonSceneView: View {
             let texture = SKTexture(imageNamed: assetName)
             texture.filteringMode = .nearest
             let node = SKSpriteNode(texture: texture, size: size)
+            node.name = "DungeonEnvironment"
             addChild(node)
             return node
         }
