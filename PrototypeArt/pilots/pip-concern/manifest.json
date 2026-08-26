@@ -1,0 +1,15 @@
+{
+  "asset": "pip", "cue": "concern", "prototype": true,
+  "frameSize": { "width": 48, "height": 64 }, "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 }, "scenePosition": { "x": 52, "y": 40 },
+  "frames": [
+    { "file": "pip-concern-01.png", "durationMilliseconds": 150 },
+    { "file": "pip-concern-02.png", "durationMilliseconds": 150 },
+    { "file": "pip-concern-03.png", "durationMilliseconds": 150 },
+    { "file": "pip-concern-04.png", "durationMilliseconds": 150 }
+  ],
+  "loop": false, "reduceMotionFrame": "pip-concern-03.png",
+  "source": "PrototypeArt/pilots/pip-concern/pip-concern.pxo",
+  "provenance": { "provider": "Codex built-in ImageGen", "pipeline": "horde-sprite-prototype", "promptFiles": ["prompt-strip-attempt-01.md"] }
+}
+

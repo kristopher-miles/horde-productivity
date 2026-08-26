@@ -1,0 +1,152 @@
+import Foundation
+import SwiftData
+
+@Model final class AppStateRecord {
+    @Attribute(.unique) var id: String
+    var onboardingComplete: Bool
+    init(id: String = "app", onboardingComplete: Bool = false) {
+        self.id = id
+        self.onboardingComplete = onboardingComplete
+    }
+}
+
+@Model final class GameSaveRecord {
+    @Attribute(.unique) var id: String
+    var schemaVersion: Int
+    var revision: Int
+    var dungeonName: String
+    var dragonName: String
+    var morale: Int
+    var integrity: Int
+    var food: Int
+    var rollingSummary: String
+    var worldData: Data
+
+    init(id: String = "primary", schemaVersion: Int = 2, revision: Int = 0, dungeonName: String = "The Cinder Vault", dragonName: String = "Ember", morale: Int = 50, integrity: Int = 50, food: Int = 50, rollingSummary: String = "A young dragon and three kobolds tend a quiet vault.") {
+        self.id = id; self.schemaVersion = schemaVersion; self.revision = revision
+        self.dungeonName = dungeonName; self.dragonName = dragonName
+        self.morale = morale; self.integrity = integrity; self.food = food; self.rollingSummary = rollingSummary
+        self.worldData = (try? JSONEncoder().encode(WorldSnapshot.initial(dragonName: dragonName, dungeonName: dungeonName))) ?? Data()
+    }
+}
+
+@Model final class StoryEventRecord {
+    @Attribute(.unique) var id: String
+    var sourceOccurrenceID: String
+    var sourceTitle: String
+    var sourceNotes: String
+    var sourceCategoryRaw: String?
+    var sourceEffortRaw: String?
+    var valenceRaw: String
+    var statusRaw: String
+    var expectedRevision: Int
+    var committedRevision: Int?
+    var attemptCount: Int
+    var failureCode: String?
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(id: String, sourceOccurrenceID: String, sourceTitle: String, sourceNotes: String = "", sourceCategoryRaw: String? = nil, sourceEffortRaw: String? = nil, valence: EventValence, status: EventStatus = .pending, expectedRevision: Int, createdAt: Date = .now) {
+        self.id = id; self.sourceOccurrenceID = sourceOccurrenceID; self.sourceTitle = sourceTitle
+        self.sourceNotes = sourceNotes; self.sourceCategoryRaw = sourceCategoryRaw; self.sourceEffortRaw = sourceEffortRaw
+        self.valenceRaw = valence.rawValue; self.statusRaw = status.rawValue; self.expectedRevision = expectedRevision
+        self.attemptCount = 0; self.createdAt = createdAt; self.updatedAt = createdAt
+    }
+}
+
+@Model final class GoalDefinitionRecord {
+    @Attribute(.unique) var id: String
+    var title: String
+    var notes: String
+    var categoryRaw: String?
+    var effortRaw: String?
+    var recurrenceRaw: String
+    var weekdays: [Int]
+    var dueDate: Date?
+    var includesTime: Bool
+    var timeZoneID: String
+    var createdAt: Date
+    var updatedAt: Date
+    var archived: Bool
+    var version: Int
+
+    init(id: String = UUID().uuidString, draft: GoalDraft, now: Date = .now, timeZone: TimeZone = .current) {
+        self.id = id; self.title = draft.title; self.notes = draft.notes
+        self.categoryRaw = draft.category?.rawValue; self.effortRaw = draft.effort?.rawValue
+        switch draft.recurrence {
+        case .never: self.recurrenceRaw = "never"; self.weekdays = []
+        case .daily: self.recurrenceRaw = "daily"; self.weekdays = []
+        case .weekdays(let days): self.recurrenceRaw = "weekdays"; self.weekdays = days.sorted()
+        }
+        self.dueDate = draft.dueDate; self.includesTime = draft.includesTime; self.timeZoneID = timeZone.identifier
+        self.createdAt = now; self.updatedAt = now; self.archived = false; self.version = 1
+    }
+
+    var recurrence: RecurrenceRule {
+        switch recurrenceRaw { case "daily": .daily; case "weekdays": .weekdays(Set(weekdays)); default: .never }
+    }
+
+    var draft: GoalDraft {
+        GoalDraft(title: title, notes: notes, dueDate: dueDate, includesTime: includesTime, recurrence: recurrence, category: categoryRaw.flatMap(GoalCategory.init(rawValue:)), effort: effortRaw.flatMap(GoalEffort.init(rawValue:)))
+    }
+
+    var snapshot: GoalSnapshot {
+        GoalSnapshot(title: title, notes: notes, category: categoryRaw.flatMap(GoalCategory.init(rawValue:)), effort: effortRaw.flatMap(GoalEffort.init(rawValue:)), recurrence: recurrence, definitionVersion: version)
+    }
+
+    func update(from draft: GoalDraft, now: Date, timeZone: TimeZone = .current) {
+        title = draft.title; notes = draft.notes; categoryRaw = draft.category?.rawValue; effortRaw = draft.effort?.rawValue
+        switch draft.recurrence {
+        case .never: recurrenceRaw = "never"; weekdays = []
+        case .daily: recurrenceRaw = "daily"; weekdays = []
+        case .weekdays(let days): recurrenceRaw = "weekdays"; weekdays = days.sorted()
+        }
+        dueDate = draft.dueDate; includesTime = draft.includesTime; timeZoneID = timeZone.identifier
+        updatedAt = now; version += 1
+    }
+}
+
+@Model final class GoalOccurrenceRecord {
+    @Attribute(.unique) var id: String
+    var definitionID: String
+    var snapshotData: Data
+    var dueDate: Date?
+    var includesTime: Bool
+    var timeZoneID: String
+    var stateRaw: String
+    var resolvedAt: Date?
+    var notificationID: String?
+    var createdAt: Date
+
+    init(id: String, definitionID: String, snapshot: GoalSnapshot, dueDate: Date?, includesTime: Bool, timeZoneID: String, now: Date = .now) throws {
+        self.id = id; self.definitionID = definitionID; self.snapshotData = try JSONEncoder().encode(snapshot)
+        self.dueDate = dueDate; self.includesTime = includesTime; self.timeZoneID = timeZoneID
+        self.stateRaw = GoalOccurrenceState.pending.rawValue; self.createdAt = now
+    }
+
+    var snapshot: GoalSnapshot { (try? JSONDecoder().decode(GoalSnapshot.self, from: snapshotData)) ?? GoalSnapshot(title: "Unavailable goal", notes: "", category: nil, effort: nil, recurrence: .never, definitionVersion: 0) }
+}
+
+@Model final class ChronicleRecord {
+    @Attribute(.unique) var id: String
+    var eventID: String
+    var sourceTitle: String
+    var valenceRaw: String
+    var generatedTitle: String
+    var narration: String
+    var summary: String
+    var patchJSON: Data
+    var priorRevision: Int
+    var committedRevision: Int
+    var committedAt: Date
+    var deltasJSON: Data
+    var animationCueRaw: String
+    var promptVersion: Int
+
+    init(eventID: String, sourceTitle: String, valence: EventValence, generatedTitle: String, narration: String, summary: String, patchJSON: Data, priorRevision: Int, committedRevision: Int, committedAt: Date = .now, deltasJSON: Data = Data(), animationCue: AnimationCue = .idle, promptVersion: Int = HordeModelContract.promptVersion) {
+        self.id = eventID; self.eventID = eventID; self.sourceTitle = sourceTitle; self.valenceRaw = valence.rawValue
+        self.generatedTitle = generatedTitle; self.narration = narration; self.summary = summary; self.patchJSON = patchJSON
+        self.priorRevision = priorRevision; self.committedRevision = committedRevision; self.committedAt = committedAt
+        self.deltasJSON = deltasJSON; self.animationCueRaw = animationCue.rawValue; self.promptVersion = promptVersion
+    }
+}

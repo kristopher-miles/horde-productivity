@@ -1,0 +1,15 @@
+{
+  "asset": "rill", "cue": "celebrate", "prototype": true,
+  "frameSize": { "width": 48, "height": 64 }, "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 }, "scenePosition": { "x": 269, "y": 40 },
+  "frames": [
+    { "file": "rill-celebrate-01.png", "durationMilliseconds": 100 },
+    { "file": "rill-celebrate-02.png", "durationMilliseconds": 100 },
+    { "file": "rill-celebrate-03.png", "durationMilliseconds": 100 },
+    { "file": "rill-celebrate-04.png", "durationMilliseconds": 100 }
+  ],
+  "loop": false, "reduceMotionFrame": "rill-celebrate-03.png",
+  "source": "PrototypeArt/pilots/rill-celebrate/rill-celebrate.pxo",
+  "provenance": { "provider": "Codex built-in ImageGen", "pipeline": "horde-sprite-prototype", "promptFiles": ["prompt-strip-attempt-01.md"] }
+}
+

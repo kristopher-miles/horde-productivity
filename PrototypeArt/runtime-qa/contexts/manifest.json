@@ -1,0 +1,74 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5EDD7DC1-17F0-439A-B651-97F3619EED11",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "DB011B05-E045-4BE4-A48E-261A3D641786.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Dungeon-recovery_0_6BF8AECE-659B-415F-8BDC-372D19D1CD55.png",
+        "timestamp" : 1787611831.869
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5EDD7DC1-17F0-439A-B651-97F3619EED11",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "788D2815-E154-4582-B5B2-0AE36FAFD926.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Dungeon-hazard_0_830D3CDB-20B5-489D-A223-0FF374A4F0A0.png",
+        "timestamp" : 1787611824.269
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5EDD7DC1-17F0-439A-B651-97F3619EED11",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "2968EC4C-5DE7-45DC-A2D6-0AD817C214C5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Dungeon-normal_0_5E98D08E-6952-4A2B-8D15-A14EDED1F117.png",
+        "timestamp" : 1787611816.583
+      }
+    ],
+    "testIdentifier" : "TheHordeUITests/testAuthoredNormalHazardAndRecoveryGraphics()",
+    "testIdentifierURL" : "test://com.apple.xcode/TheHorde/TheHordeUITests/TheHordeUITests/testAuthoredNormalHazardAndRecoveryGraphics"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5EDD7DC1-17F0-439A-B651-97F3619EED11",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "F7FABCA8-7234-4E7F-86B7-71238604BF8E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Consequence-negative_0_536817FC-24A7-42CB-9DAD-3ECFAF0224B4.png",
+        "timestamp" : 1787611846.691
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5EDD7DC1-17F0-439A-B651-97F3619EED11",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "6EF129EA-2D01-4426-9DA7-D02683B58A13.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Consequence-positive_0_C47E2B35-E6D8-4707-846B-363661ECEE4E.png",
+        "timestamp" : 1787611841.076
+      }
+    ],
+    "testIdentifier" : "TheHordeUITests/testPositiveAndNegativeStoryConsequencesHaveDistinctVisualResponses()",
+    "testIdentifierURL" : "test://com.apple.xcode/TheHorde/TheHordeUITests/TheHordeUITests/testPositiveAndNegativeStoryConsequencesHaveDistinctVisualResponses"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5EDD7DC1-17F0-439A-B651-97F3619EED11",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "3B16B764-99B4-49CC-AEE4-D92850EB143F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Today-showcase_0_946EE71A-737B-4A66-BF11-805181924F0D.png",
+        "timestamp" : 1787611856.001
+      }
+    ],
+    "testIdentifier" : "TheHordeUITests/testShowcaseCoversTodayDungeonChronicleAndSettings()",
+    "testIdentifierURL" : "test://com.apple.xcode/TheHorde/TheHordeUITests/TheHordeUITests/testShowcaseCoversTodayDungeonChronicleAndSettings"
+  }
+]

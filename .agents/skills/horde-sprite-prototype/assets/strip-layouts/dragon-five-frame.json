@@ -1,0 +1,6 @@
+{
+  "canvas": { "width": 1024, "height": 1024 },
+  "strip": { "frames": 5, "slotWidth": 192, "slotHeight": 192, "alignment": "center" },
+  "nativeFrame": { "width": 96, "height": 80 },
+  "anchor": { "x": 0.5, "y": 0.0 }
+}

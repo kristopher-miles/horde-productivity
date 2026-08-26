@@ -1,0 +1,18 @@
+{
+  "asset": "lantern-flame",
+  "cue": "idle",
+  "prototype": true,
+  "frameSize": { "width": 8, "height": 16 },
+  "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "scenePosition": { "x": 43, "y": 100 },
+  "frames": [
+    { "file": "lantern-flame-idle-01.png", "durationMilliseconds": 220 },
+    { "file": "lantern-flame-idle-02.png", "durationMilliseconds": 220 }
+  ],
+  "loop": true,
+  "reduceMotionFrame": "lantern-flame-idle-01.png",
+  "source": "PrototypeArt/pilots/lantern-flame-idle/lantern-flame-idle.pxo",
+  "provenance": { "provider": "Codex built-in ImageGen", "pipeline": "horde-sprite-prototype", "promptFiles": ["prompt-strip-attempt-01.md"] }
+}
+

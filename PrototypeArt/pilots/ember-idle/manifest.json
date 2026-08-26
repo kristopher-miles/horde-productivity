@@ -1,0 +1,27 @@
+{
+  "asset": "ember",
+  "cue": "idle",
+  "prototype": true,
+  "frameSize": { "width": 96, "height": 80 },
+  "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "scenePosition": { "x": 184, "y": 40 },
+  "frames": [
+    { "file": "ember-idle-01.png", "durationMilliseconds": 180 },
+    { "file": "ember-idle-02.png", "durationMilliseconds": 180 },
+    { "file": "ember-idle-03.png", "durationMilliseconds": 180 },
+    { "file": "ember-idle-04.png", "durationMilliseconds": 180 }
+  ],
+  "loop": true,
+  "reduceMotionFrame": "ember-idle-01.png",
+  "source": "PrototypeArt/pilots/ember-idle/ember-idle.pxo",
+  "provenance": {
+    "provider": "Codex built-in ImageGen",
+    "pipeline": "OpenAI sprite-pipeline plus documented rectangular adaptation",
+    "promptFiles": [
+      "prompt-seed.md",
+      "prompt-strip-attempt-01.md",
+      "prompt-strip-attempt-02.md"
+    ]
+  }
+}

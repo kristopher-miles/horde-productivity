@@ -1,0 +1,17 @@
+{
+  "asset": "room", "cue": "resource-change", "prototype": true,
+  "frameSize": { "width": 320, "height": 180 }, "safetyInsetPixels": 0,
+  "contentScale": 0.6,
+  "anchor": { "x": 0.0, "y": 0.0 }, "scenePosition": { "x": 0, "y": 0 },
+  "frames": [
+    { "file": "room-resource-change-01.png", "durationMilliseconds": 90 },
+    { "file": "room-resource-change-02.png", "durationMilliseconds": 90 },
+    { "file": "room-resource-change-03.png", "durationMilliseconds": 90 },
+    { "file": "room-resource-change-04.png", "durationMilliseconds": 90 },
+    { "file": "room-resource-change-05.png", "durationMilliseconds": 90 },
+    { "file": "room-resource-change-06.png", "durationMilliseconds": 90 }
+  ],
+  "loop": false, "reduceMotionFrame": "room-resource-change-04.png",
+  "source": "PrototypeArt/pilots/room-resource-change/room-resource-change.pxo",
+  "provenance": { "provider": "Codex built-in ImageGen", "pipeline": "horde-sprite-prototype", "promptFiles": ["prompt-strip-attempt-01.md"] }
+}

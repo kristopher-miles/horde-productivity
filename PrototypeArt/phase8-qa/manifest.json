@@ -1,0 +1,14 @@
+{
+  "prototype": true,
+  "runtime": false,
+  "frameSize": { "width": 320, "height": 180 },
+  "compositions": [
+    { "name": "normal", "file": "normal.png" },
+    { "name": "hazard", "file": "hazard.png" },
+    { "name": "recovery", "file": "recovery.png" },
+    { "name": "resource-change", "file": "resource-change.png" }
+  ],
+  "contactSheet": "phase8-state-contact-sheet.png",
+  "source": ".agents/skills/horde-sprite-prototype/scripts/render_phase8_compositions.py"
+}
+

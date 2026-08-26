@@ -1,0 +1,20 @@
+{
+  "asset": "hearth-fire",
+  "cue": "idle",
+  "prototype": true,
+  "frameSize": { "width": 32, "height": 32 },
+  "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "scenePosition": { "x": 112, "y": 73 },
+  "frames": [
+    { "file": "hearth-fire-idle-01.png", "durationMilliseconds": 140 },
+    { "file": "hearth-fire-idle-02.png", "durationMilliseconds": 140 },
+    { "file": "hearth-fire-idle-03.png", "durationMilliseconds": 140 },
+    { "file": "hearth-fire-idle-04.png", "durationMilliseconds": 140 }
+  ],
+  "loop": true,
+  "reduceMotionFrame": "hearth-fire-idle-01.png",
+  "source": "PrototypeArt/pilots/hearth-fire-idle/hearth-fire-idle.pxo",
+  "provenance": { "provider": "Codex built-in ImageGen", "pipeline": "horde-sprite-prototype", "promptFiles": ["prompt-strip-attempt-01.md"] }
+}
+

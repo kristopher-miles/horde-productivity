@@ -1,0 +1,20 @@
+{
+  "asset": "replace-me",
+  "cue": "replace-me",
+  "prototype": true,
+  "frameSize": { "width": 96, "height": 80 },
+  "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "scenePosition": { "x": 184, "y": 40 },
+  "frames": [
+    { "file": "replace-me-replace-me-01.png", "durationMilliseconds": 100 }
+  ],
+  "loop": false,
+  "reduceMotionFrame": "replace-me-replace-me-01.png",
+  "source": "PrototypeArt/pilots/replace-me-replace-me/replace-me-replace-me.pxo",
+  "provenance": {
+    "provider": "Codex built-in ImageGen",
+    "pipeline": "horde-sprite-prototype",
+    "promptFiles": ["prompt-strip-attempt-01.md"]
+  }
+}

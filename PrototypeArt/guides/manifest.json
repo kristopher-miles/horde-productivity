@@ -1,0 +1,12 @@
+{
+  "prototype": true,
+  "runtime": false,
+  "palette": "PrototypeArt/references/palette.png",
+  "files": [
+    { "file": "room-320x180.png", "width": 320, "height": 180, "anchor": { "x": 0.0, "y": 0.0 } },
+    { "file": "dragon-96x80.png", "width": 96, "height": 80, "anchor": { "x": 0.5, "y": 0.0 } },
+    { "file": "kobold-48x64.png", "width": 48, "height": 64, "anchor": { "x": 0.5, "y": 0.0 } }
+  ],
+  "source": ".agents/skills/horde-sprite-prototype/scripts/render_layout_guides.py"
+}
+

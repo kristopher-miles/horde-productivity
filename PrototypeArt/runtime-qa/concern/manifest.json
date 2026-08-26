@@ -1,0 +1,26 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5EDD7DC1-17F0-439A-B651-97F3619EED11",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "0C90606E-1726-401B-B2D6-B9479BFF4F2A.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Consequence-negative_0_1C590476-D948-4CC2-9DA5-B2F07E7BDA01.png",
+        "timestamp" : 1787612129.065
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5EDD7DC1-17F0-439A-B651-97F3619EED11",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "9CBA2190-3E3D-4B2F-BBFE-83A1509DC0C6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Consequence-positive_0_EDA0A0AE-4AA7-44AD-9B37-2F6CB9D0B7CB.png",
+        "timestamp" : 1787612123.464
+      }
+    ],
+    "testIdentifier" : "TheHordeUITests/testPositiveAndNegativeStoryConsequencesHaveDistinctVisualResponses()",
+    "testIdentifierURL" : "test://com.apple.xcode/TheHorde/TheHordeUITests/TheHordeUITests/testPositiveAndNegativeStoryConsequencesHaveDistinctVisualResponses"
+  }
+]

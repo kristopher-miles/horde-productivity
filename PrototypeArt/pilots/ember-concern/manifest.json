@@ -1,0 +1,23 @@
+{
+  "asset": "ember",
+  "cue": "concern",
+  "prototype": true,
+  "frameSize": { "width": 96, "height": 80 },
+  "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "scenePosition": { "x": 184, "y": 40 },
+  "frames": [
+    { "file": "ember-concern-01.png", "durationMilliseconds": 140 },
+    { "file": "ember-concern-02.png", "durationMilliseconds": 140 },
+    { "file": "ember-concern-03.png", "durationMilliseconds": 140 },
+    { "file": "ember-concern-04.png", "durationMilliseconds": 140 }
+  ],
+  "loop": false,
+  "reduceMotionFrame": "ember-concern-04.png",
+  "source": "PrototypeArt/pilots/ember-concern/ember-concern.pxo",
+  "provenance": {
+    "provider": "Codex built-in ImageGen",
+    "pipeline": "Proven Ember idle workflow",
+    "promptFiles": ["prompt-strip-attempt-01.md"]
+  }
+}

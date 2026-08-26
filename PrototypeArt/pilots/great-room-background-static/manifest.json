@@ -1,0 +1,21 @@
+{
+  "asset": "great-room-background",
+  "cue": "static",
+  "prototype": true,
+  "frameSize": { "width": 320, "height": 180 },
+  "opaque": true,
+  "safetyInsetPixels": 0,
+  "anchor": { "x": 0.0, "y": 0.0 },
+  "scenePosition": { "x": 0, "y": 0 },
+  "frames": [
+    { "file": "great-room-background-static-01.png", "durationMilliseconds": 1000 }
+  ],
+  "loop": false,
+  "reduceMotionFrame": "great-room-background-static-01.png",
+  "source": "PrototypeArt/pilots/great-room-background-static/great-room-background-static.pxo",
+  "provenance": {
+    "provider": "Codex built-in ImageGen",
+    "pipeline": "horde-sprite-prototype",
+    "promptFiles": ["prompt-attempt-01.md", "prompt-attempt-02.md"]
+  }
+}

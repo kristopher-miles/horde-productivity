@@ -1,0 +1,13 @@
+{
+  "asset": "room", "cue": "recovery-glow", "prototype": true,
+  "frameSize": { "width": 320, "height": 180 }, "safetyInsetPixels": 0,
+  "anchor": { "x": 0.0, "y": 0.0 }, "scenePosition": { "x": 0, "y": 0 },
+  "frames": [
+    { "file": "room-recovery-glow-01.png", "durationMilliseconds": 180 },
+    { "file": "room-recovery-glow-02.png", "durationMilliseconds": 180 }
+  ],
+  "loop": false, "reduceMotionFrame": "room-recovery-glow-02.png",
+  "source": "PrototypeArt/pilots/room-recovery-glow/room-recovery-glow.pxo",
+  "provenance": { "provider": "Codex built-in ImageGen", "pipeline": "horde-sprite-prototype", "promptFiles": ["prompt-strip-attempt-01.md"] }
+}
+

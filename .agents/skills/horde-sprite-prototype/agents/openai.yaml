@@ -1,0 +1,4 @@
+interface:
+  display_name: "Horde Sprite Prototype"
+  short_description: "Build validated Horde pixel-art animation assets"
+  default_prompt: "Use $horde-sprite-prototype to create and validate a prototype animation from this asset brief."

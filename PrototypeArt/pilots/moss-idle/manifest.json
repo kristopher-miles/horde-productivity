@@ -1,0 +1,15 @@
+{
+  "asset": "moss", "cue": "idle", "prototype": true,
+  "frameSize": { "width": 48, "height": 64 }, "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 }, "scenePosition": { "x": 104, "y": 40 },
+  "frames": [
+    { "file": "moss-idle-01.png", "durationMilliseconds": 200 },
+    { "file": "moss-idle-02.png", "durationMilliseconds": 200 },
+    { "file": "moss-idle-03.png", "durationMilliseconds": 200 },
+    { "file": "moss-idle-04.png", "durationMilliseconds": 200 }
+  ],
+  "loop": true, "reduceMotionFrame": "moss-idle-01.png",
+  "source": "PrototypeArt/pilots/moss-idle/moss-idle.pxo",
+  "provenance": { "provider": "Codex built-in ImageGen", "pipeline": "horde-sprite-prototype", "promptFiles": ["prompt-strip-attempt-01.md"] }
+}
+
