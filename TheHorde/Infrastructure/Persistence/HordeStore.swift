@@ -467,18 +467,108 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         } catch { modelContext.rollback(); throw error }
     }
 
+    func acceptInterpretedAction(eventID: String) throws -> String {
+        do {
+            var acceptedAction: String?
+            try modelContext.transaction {
+                let event = try requireEvent(eventID)
+                guard event.statusRaw != EventStatus.resolved.rawValue,
+                      var state = resolutionState(event),
+                      state.stage == .interpretedActionReview || state.stage == .actionAccepted,
+                      hasCurrentEffort(state),
+                      state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+                      let suggestion = state.suggestedAction,
+                      (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+                      let customAction = state.customAction,
+                      !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
+                      let interpretation = state.interpretedAction,
+                      (try? CustomActionModelContract.validatedAction(interpretation)) == interpretation,
+                      state.promptVersions.finalProse == nil,
+                      state.finalProse == nil,
+                      state.finalResult == nil else { throw StoreError.invalidResolutionState }
+                if state.stage == .actionAccepted {
+                    guard state.acceptedAction == interpretation else { throw StoreError.invalidResolutionState }
+                    acceptedAction = interpretation
+                    return
+                }
+                guard state.acceptedAction == nil else { throw StoreError.invalidResolutionState }
+                state.stage = .actionAccepted
+                state.acceptedAction = interpretation
+                try persist(state, on: event)
+                try modelContext.save()
+                acceptedAction = interpretation
+            }
+            guard let acceptedAction else { throw StoreError.invalidResolutionState }
+            return acceptedAction
+        } catch { modelContext.rollback(); throw error }
+    }
+
+    func reviseInterpretedAction(eventID: String) throws -> (customAction: String, suggestedAction: String) {
+        do {
+            var result: (customAction: String, suggestedAction: String)?
+            try modelContext.transaction {
+                let event = try requireEvent(eventID)
+                guard event.statusRaw != EventStatus.resolved.rawValue,
+                      var state = resolutionState(event),
+                      state.stage == .interpretedActionReview || state.stage == .customActionEntry,
+                      hasCurrentEffort(state),
+                      state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+                      let suggestion = state.suggestedAction,
+                      (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+                      let customAction = state.customAction,
+                      !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      state.acceptedAction == nil,
+                      state.promptVersions.finalProse == nil,
+                      state.finalProse == nil,
+                      state.finalResult == nil else { throw StoreError.invalidResolutionState }
+                if state.stage == .customActionEntry {
+                    guard state.interpretedAction == nil,
+                          state.promptVersions.interpretation == nil else { throw StoreError.invalidResolutionState }
+                    result = (customAction, suggestion)
+                    return
+                }
+                guard state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
+                      let interpretation = state.interpretedAction,
+                      (try? CustomActionModelContract.validatedAction(interpretation)) == interpretation else {
+                    throw StoreError.invalidResolutionState
+                }
+                state.stage = .customActionEntry
+                state.interpretedAction = nil
+                state.promptVersions.interpretation = nil
+                try persist(state, on: event)
+                try modelContext.save()
+                result = (customAction, suggestion)
+            }
+            guard let result else { throw StoreError.invalidResolutionState }
+            return result
+        } catch { modelContext.rollback(); throw error }
+    }
+
     func checkpointCustomActionEntry(eventID: String, customAction: String) throws {
+        guard !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw StoreError.invalidResolutionState
+        }
         do {
             try modelContext.transaction {
                 let event = try requireEvent(eventID)
                 guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
                 var state = resolutionState(event) ?? StagedResolutionState(stage: .effortSelection)
                 if state.stage == .customActionEntry {
-                    guard state.effort != nil,
+                    guard hasCurrentEffort(state),
                           state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
                           let suggestion = state.suggestedAction,
-                          (try? ActionSuggestionModelContract.validatedAction(suggestion)) != nil,
-                          state.customAction == customAction else { throw StoreError.invalidResolutionState }
+                          (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+                          state.customAction != nil,
+                          state.interpretedAction == nil,
+                          state.acceptedAction == nil,
+                          state.promptVersions.interpretation == nil,
+                          state.promptVersions.finalProse == nil,
+                          state.finalProse == nil,
+                          state.finalResult == nil else { throw StoreError.invalidResolutionState }
+                    state.customAction = customAction
+                    try persist(state, on: event)
+                    try modelContext.save()
                     return
                 }
                 guard state.stage == .actionSuggestion,
@@ -819,6 +909,18 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
               state.comparisonHistoryIDs == existing.comparisonHistoryIDs,
               state.promptVersions.effort == existing.promptVersions.effort else {
             throw StoreError.invalidResolutionState
+        }
+    }
+
+    private func hasCurrentEffort(_ state: StagedResolutionState) -> Bool {
+        guard let effort = state.effort,
+              Set(state.comparisonHistoryIDs).count == state.comparisonHistoryIDs.count,
+              state.comparisonHistoryIDs.count <= AttemptedGoalHistory.maximumCount else { return false }
+        switch effort.source {
+        case .userSelected:
+            return state.promptVersions.effort == nil && state.comparisonHistoryIDs.isEmpty
+        case .modelEstimated:
+            return state.promptVersions.effort == EffortModelContract.promptVersion
         }
     }
 

@@ -20,6 +20,11 @@ enum CustomActionInterpretationOutcome: Sendable, Equatable {
     case failed(code: String)
 }
 
+enum CustomActionRevisionOutcome: Sendable, Equatable {
+    case revised(draft: String, suggestion: String)
+    case failed(code: String)
+}
+
 enum FinalProseOutcome: Sendable, Equatable {
     case generated(String)
     case failed(code: String)
@@ -75,6 +80,23 @@ actor ResolutionCoordinator {
         }
     }
 
+    func acceptInterpretedAction(eventID: String) async -> ActionAcceptanceOutcome {
+        do {
+            return .accepted(try await store.acceptInterpretedAction(eventID: eventID))
+        } catch {
+            return .failed(code: classify(error))
+        }
+    }
+
+    func reviseCustomAction(eventID: String) async -> CustomActionRevisionOutcome {
+        do {
+            let state = try await store.reviseInterpretedAction(eventID: eventID)
+            return .revised(draft: state.customAction, suggestion: state.suggestedAction)
+        } catch {
+            return .failed(code: classify(error))
+        }
+    }
+
     func interpretCustomAction(eventID: String, customAction: String) async -> CustomActionInterpretationOutcome {
         do {
             if let action = try await store.persistedActionInterpretation(eventID: eventID, customAction: customAction) {
@@ -90,8 +112,7 @@ actor ResolutionCoordinator {
             guard let state = event.resolutionState,
                   state.stage == .actionSuggestion || state.stage == .customActionEntry,
                   let effort = state.effort,
-                  let fallbackAction = state.suggestedAction,
-                  state.customAction == nil || state.customAction == customAction else {
+                  let fallbackAction = state.suggestedAction else {
                 throw StoreError.invalidResolutionState
             }
             try await store.checkpointCustomActionEntry(eventID: eventID, customAction: customAction)

@@ -174,6 +174,8 @@ struct SuggestionAcceptanceTests {
             StoryResolutionAccessibility.interpretCustomAction,
             StoryResolutionAccessibility.interpretingCustomAction,
             StoryResolutionAccessibility.interpretedActionReady,
+            StoryResolutionAccessibility.acceptInterpretedAction,
+            StoryResolutionAccessibility.reviseAction,
             StoryResolutionAccessibility.backToSuggestion,
             StoryResolutionAccessibility.retrySuggestion,
             StoryResolutionAccessibility.close
@@ -216,7 +218,7 @@ struct SuggestionAcceptanceTests {
             promptVersion: CustomActionModelContract.promptVersion
         ))
         let interpreted = try #require(await store.pendingStories().first { $0.id == eventID })
-        #expect(StoryResolutionPhase.opening(interpreted) == .interpretedActionReady)
+        #expect(StoryResolutionPhase.opening(interpreted) == .interpretedActionReady("Circle the lower vault"))
         #expect(interpreted.resolutionState?.acceptedAction == nil)
         #expect(try await store.chronicle().isEmpty)
     }

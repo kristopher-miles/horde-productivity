@@ -6,7 +6,7 @@ enum StoryResolutionPhase: Equatable {
     case accepting(String)
     case customActionEntry(String)
     case interpretingCustomAction(String)
-    case interpretedActionReady
+    case interpretedActionReady(String)
     case accepted(String)
     case committed(ChronicleSummary)
     case failed(String)
@@ -16,40 +16,104 @@ enum StoryResolutionPhase: Equatable {
             return event.status == .failedRetryable ? .failed(event.failureCode ?? "modelFailure") : .loading
         }
         if state.stage == .actionAccepted {
-            guard state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+            guard hasCurrentEffort(state),
+                  state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
                   let suggestion = state.suggestedAction,
-                  let action = try? ActionSuggestionModelContract.validatedAction(suggestion),
-                  state.acceptedAction == action else { return .failed("persistenceFailure") }
-            return .accepted(action)
+                  (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+                  state.promptVersions.finalProse == nil,
+                  state.finalProse == nil,
+                  state.finalResult == nil else { return .failed("persistenceFailure") }
+            if let customAction = state.customAction {
+                guard !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
+                      let interpretation = state.interpretedAction,
+                      (try? CustomActionModelContract.validatedAction(interpretation)) == interpretation,
+                      state.acceptedAction == interpretation else { return .failed("persistenceFailure") }
+                return .accepted(interpretation)
+            }
+            guard state.interpretedAction == nil,
+                  state.promptVersions.interpretation == nil,
+                  state.acceptedAction == suggestion else { return .failed("persistenceFailure") }
+            return .accepted(suggestion)
         }
         if state.stage == .interpretedActionReview,
-           state.effort != nil,
+           hasCurrentEffort(state),
            state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
            state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
            let suggestion = state.suggestedAction,
-           (try? ActionSuggestionModelContract.validatedAction(suggestion)) != nil,
-           state.customAction != nil,
+           (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+           let customAction = state.customAction,
+           !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            let interpretation = state.interpretedAction,
-           (try? CustomActionModelContract.validatedAction(interpretation)) != nil {
-            return .interpretedActionReady
+           (try? CustomActionModelContract.validatedAction(interpretation)) == interpretation,
+           state.acceptedAction == nil,
+           state.promptVersions.finalProse == nil,
+           state.finalProse == nil,
+           state.finalResult == nil {
+            return .interpretedActionReady(interpretation)
         }
         if state.stage == .customActionEntry,
+           hasCurrentEffort(state),
            state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
            let suggestion = state.suggestedAction,
-           let action = try? ActionSuggestionModelContract.validatedAction(suggestion) {
-            return .customActionEntry(action)
+           (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+           let customAction = state.customAction,
+           !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           state.interpretedAction == nil,
+           state.acceptedAction == nil,
+           state.promptVersions.interpretation == nil,
+           state.promptVersions.finalProse == nil,
+           state.finalProse == nil,
+           state.finalResult == nil {
+            return .customActionEntry(suggestion)
         }
         if state.stage == .actionSuggestion,
+           hasCurrentEffort(state),
            state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
            let suggestion = state.suggestedAction,
-           let action = try? ActionSuggestionModelContract.validatedAction(suggestion) {
-            return .suggestion(action)
+           (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+           state.customAction == nil,
+           state.interpretedAction == nil,
+           state.acceptedAction == nil,
+           state.promptVersions.interpretation == nil,
+           state.promptVersions.finalProse == nil,
+           state.finalProse == nil,
+           state.finalResult == nil {
+            return .suggestion(suggestion)
         }
-        return event.status == .failedRetryable ? .failed(event.failureCode ?? "modelFailure") : .loading
+        if state.stage == .effortSelection,
+           state.suggestedAction == nil,
+           state.customAction == nil,
+           state.interpretedAction == nil,
+           state.acceptedAction == nil,
+           state.promptVersions.suggestion == nil,
+           state.promptVersions.interpretation == nil,
+           state.promptVersions.finalProse == nil,
+           state.finalProse == nil,
+           state.finalResult == nil,
+           hasCurrentOrPendingEffort(state) {
+            return event.status == .failedRetryable ? .failed(event.failureCode ?? "modelFailure") : .loading
+        }
+        return .failed("persistenceFailure")
     }
 
     static func customActionDraft(opening event: PendingStorySummary) -> String {
         event.resolutionState?.customAction ?? ""
+    }
+
+    private static func hasCurrentEffort(_ state: StagedResolutionState) -> Bool {
+        guard let effort = state.effort,
+              Set(state.comparisonHistoryIDs).count == state.comparisonHistoryIDs.count,
+              state.comparisonHistoryIDs.count <= AttemptedGoalHistory.maximumCount else { return false }
+        return effort.source == .userSelected
+            ? state.promptVersions.effort == nil && state.comparisonHistoryIDs.isEmpty
+            : state.promptVersions.effort == EffortModelContract.promptVersion
+    }
+
+    private static func hasCurrentOrPendingEffort(_ state: StagedResolutionState) -> Bool {
+        state.effort == nil
+            ? state.promptVersions.effort == nil && state.comparisonHistoryIDs.isEmpty
+            : hasCurrentEffort(state)
     }
 
     mutating func openCustomActionEntry() {
@@ -78,6 +142,8 @@ enum StoryResolutionAccessibility {
     static let interpretCustomAction = "StoryResolution.InterpretCustomAction"
     static let interpretingCustomAction = "StoryResolution.InterpretingCustomAction"
     static let interpretedActionReady = "StoryResolution.InterpretedActionReady"
+    static let acceptInterpretedAction = "StoryResolution.AcceptInterpretedAction"
+    static let reviseAction = "StoryResolution.ReviseAction"
     static let backToSuggestion = "StoryResolution.BackToSuggestion"
     static let retrySuggestion = "StoryResolution.RetrySuggestion"
     static let close = "StoryResolution.Close"
@@ -108,12 +174,13 @@ struct StoryResolutionView: View {
                     case .accepting(let action): acceptingView(action)
                     case .customActionEntry(let action): customActionEntry(action)
                     case .interpretingCustomAction: interpretingCustomActionView
-                    case .interpretedActionReady: interpretedActionReadyView
+                    case .interpretedActionReady(let action): interpretedActionReadyView(action)
                     case .accepted(let action): acceptedView(action)
                     case .committed(let result): committedView(result)
                     case .failed(let code): failureView(code)
                     }
-                }.padding(DesignTokens.margin)
+                }
+                .padding(DesignTokens.margin)
             }
             .navigationTitle("Choose an Action")
             .hordeInlineNavigationTitle()
@@ -208,13 +275,24 @@ struct StoryResolutionView: View {
         .accessibilityIdentifier(StoryResolutionAccessibility.interpretingCustomAction)
     }
 
-    private var interpretedActionReadyView: some View {
+    private func interpretedActionReadyView(_ action: String) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("Action ready for review", systemImage: "checkmark.circle").font(.title2.bold())
-            Text("Your action was interpreted. Nothing has been accepted, and the dungeon remains unchanged.")
+            Text(action).font(.largeTitle.bold()).textSelection(.enabled)
+                .accessibilityIdentifier(StoryResolutionAccessibility.interpretedActionReady)
+                .accessibilityLabel("Interpreted action: \(action)")
+            Button("Accept & Continue") { Task { await acceptInterpretedAction(action) } }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier(StoryResolutionAccessibility.acceptInterpretedAction)
+                .accessibilityHint("Accepts this exact interpreted action without changing the dungeon.")
+            Button("Revise Action") { Task { await reviseCustomAction() } }
+                .controlSize(.large)
+                .keyboardShortcut("e", modifiers: .command)
+                .accessibilityIdentifier(StoryResolutionAccessibility.reviseAction)
+                .accessibilityHint("Returns to your exact custom draft without changing the dungeon.")
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(StoryResolutionAccessibility.interpretedActionReady)
+        .accessibilityElement(children: .contain)
     }
 
     private func acceptedView(_ action: String) -> some View {
@@ -271,9 +349,27 @@ struct StoryResolutionView: View {
               case .interpretingCustomAction(let suggestion) = phase else { return }
         Task {
             switch await app.interpretCustomAction(eventID: event.id, customAction: exactAction) {
-            case .interpreted: phase = .interpretedActionReady
+            case .interpreted(let action): phase = .interpretedActionReady(action)
             case .failed: phase = .customActionEntry(suggestion)
             }
+        }
+    }
+
+    private func acceptInterpretedAction(_ action: String) async {
+        phase = .accepting(action)
+        switch await app.acceptInterpretedAction(eventID: event.id) {
+        case .accepted(let accepted): phase = .accepted(accepted)
+        case .failed(let code): phase = .failed(code)
+        }
+    }
+
+    private func reviseCustomAction() async {
+        switch await app.reviseCustomAction(eventID: event.id) {
+        case .revised(let draft, let suggestion):
+            customAction = draft
+            phase = .customActionEntry(suggestion)
+        case .failed(let code):
+            phase = .failed(code)
         }
     }
 
