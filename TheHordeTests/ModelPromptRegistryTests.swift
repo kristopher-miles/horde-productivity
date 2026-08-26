@@ -86,30 +86,37 @@ struct ModelPromptRegistryTests {
         #expect(rendered == "GOAL <user-goal>literal {{history}} marker</user-goal>")
     }
 
-    @Test func systemInstructionsRejectCushioningAndContractSupportsMeaningfulOutcomes() {
-        let prohibitedCushioning = ["gentle", "harmless", "modest", "calm", "recoverable", "slight"]
-        let systemInstructions = ModelPromptRegistry.editorEntries.filter { $0.kind == .systemInstructions }
-        for component in systemInstructions {
+    @Test func everyModelVisibleContractRejectsCushioningAndSupportsMeaningfulOutcomes() {
+        let prohibitedCushioning = ["gentle", "harmless", "modest", "calm", "recoverable", "slight", "minor", "mild", "little"]
+        let tool = StageMutationTool(stager: PatchStager())
+        let modelVisibleText = ModelPromptRegistry.editorEntries.map { ($0.id.rawValue, $0.defaultText) } + [
+            ("positive generated schema", LegacyModelSchemas.story(for: .positive).debugDescription),
+            ("negative generated schema", LegacyModelSchemas.story(for: .negative).debugDescription),
+            ("tool description", tool.description),
+            ("tool generated schema", tool.parameters.debugDescription),
+            ("correction rejection", HordeModelContract.correctedPrompt("", rejection: ModelClientError.valenceMismatch.localizedDescription))
+        ]
+        for component in modelVisibleText {
             for term in prohibitedCushioning {
-                #expect(!component.defaultText.localizedCaseInsensitiveContains(term))
+                #expect(!component.1.localizedCaseInsensitiveContains(term), Comment(rawValue: "\(component.0) contains \(term)"))
             }
         }
 
         let success = ModelPromptRegistry.text(.legacyPositiveOutcomeRule)
         let failure = ModelPromptRegistry.text(.legacyNegativeOutcomeRule)
         let direction = ModelPromptRegistry.text(.legacySystemInstructions)
-        for term in prohibitedCushioning {
-            #expect(!success.localizedCaseInsensitiveContains(term))
-            #expect(!failure.localizedCaseInsensitiveContains(term))
-        }
 
-        #expect(HordeModelContract.promptVersion == 42)
+        #expect(HordeModelContract.promptVersion == 43)
+        #expect(HordeModelContract.schemaVersion == 6)
         #expect(direction.localizedCaseInsensitiveContains("adult epic-fantasy"))
         #expect(direction.localizedCaseInsensitiveContains("accepted action"))
         #expect(direction.localizedCaseInsensitiveContains("established world"))
         #expect(direction.localizedCaseInsensitiveContains("effort rating"))
         #expect(direction.localizedCaseInsensitiveContains("real, lasting consequences"))
         #expect(success.localizedCaseInsensitiveContains("meaningful success"))
+        for stake in ["danger", "loss", "conflict", "lasting"] {
+            #expect(success.localizedCaseInsensitiveContains(stake))
+        }
         #expect(failure.localizedCaseInsensitiveContains("meaningful failure"))
         #expect(failure.localizedCaseInsensitiveContains("epic-fantasy threat"))
     }

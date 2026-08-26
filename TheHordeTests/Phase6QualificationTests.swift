@@ -350,7 +350,7 @@ struct Phase6QualificationTests {
         #expect(snapshot.1.first?.accepted == false)
     }
 
-    @Test func negativeThreadTextIsQualifiedBeforeValidation() async throws {
+    @Test func invalidNegativeThreadTextUsesConsequentialFallbackBeforeValidation() async throws {
         let world = WorldSnapshot.initial()
         let descriptors = WorldContract.descriptors(for: .negative, world: world)
         let stager = PatchStager(world: world, valence: .negative, descriptors: descriptors)
@@ -358,9 +358,8 @@ struct Phase6QualificationTests {
         _ = try await stager.stage(arguments: arguments)
         let snapshot = await stager.snapshot()
         let record = snapshot.0.first?.record
-        #expect(record?.title.localizedCaseInsensitiveContains("boost") == false)
-        #expect(record?.summary.localizedCaseInsensitiveContains("calm") == false)
-        #expect(record?.summary.localizedCaseInsensitiveContains("unsettled") == true)
+        #expect(record?.title == "A Lasting Threat")
+        #expect(record?.summary == "A ruthless enemy exploits the failure, bringing danger, loss, and lasting conflict.")
         #expect(snapshot.1.first?.recordSummary == "The residents restored calm.")
 
         let titleOnlyMarker = StageMutationArguments(fieldID: "world.activeThreads", operation: "append", integerValue: 0, recordID: "title-only-thread", recordTitle: "Supply Concern", recordSummary: "The hallway remains quiet.", severityOrRank: 1, involvedEntityIDs: ["dragon"])
@@ -368,9 +367,8 @@ struct Phase6QualificationTests {
         _ = try await secondStager.stage(arguments: titleOnlyMarker)
         let secondSnapshot = await secondStager.snapshot()
         let secondRecord = secondSnapshot.0.first?.record
-        #expect(secondRecord?.summary.localizedCaseInsensitiveContains("threat") == true)
-        #expect(secondRecord?.summary.localizedCaseInsensitiveContains("small") == false)
-        #expect(secondRecord?.summary.localizedCaseInsensitiveContains("recoverable") == false)
+        #expect(secondRecord?.title == "A Lasting Threat")
+        #expect(secondRecord?.summary == "A ruthless enemy exploits the failure, bringing danger, loss, and lasting conflict.")
     }
 
     @Test func consequentialThreatPassesQualificationAndWorldValidationUnsoftened() async throws {
@@ -393,14 +391,47 @@ struct Phase6QualificationTests {
         #expect(qualified.summary == story.summary)
     }
 
+    @Test func hardWonSuccessWithDangerLossAndConflictPassesQualificationUnchanged() async {
+        let story = ModelStoryFields(
+            title: "Victory at the Ash Gate",
+            narration: "Completing the watch saves the cavern, though the battle brings danger, loss, and open conflict.",
+            summary: "The goal succeeds at lasting cost.",
+            cue: "celebrate",
+            receiptID: "receipt"
+        )
+        let qualified = await FoundationModelClient().qualifiedNarrative(story, valence: .positive, sourceTitle: "Complete the watch")
+
+        #expect(qualified.title == story.title)
+        #expect(qualified.narration == story.narration)
+        #expect(qualified.summary == story.summary)
+    }
+
     @Test func unrecognizedThreatVocabularyFallsBackWithoutHarmlessPadding() async {
         let story = ModelStoryFields(title: "Black Banners", narration: "Black banners gather beyond the cavern mouth.", summary: "Armored foes mass beyond the boundary.", cue: "concern", receiptID: "receipt")
         let qualified = await FoundationModelClient().qualifiedNarrative(story, valence: .negative, sourceTitle: "Miss the watch")
         let text = "\(qualified.title) \(qualified.narration) \(qualified.summary)"
 
-        #expect(text.localizedCaseInsensitiveContains("dangerous threat"))
-        #expect(!text.localizedCaseInsensitiveContains("small"))
-        #expect(!text.localizedCaseInsensitiveContains("recoverable"))
+        for consequence in ["danger", "loss", "lasting conflict"] {
+            #expect(text.localizedCaseInsensitiveContains(consequence))
+        }
+        for cushioning in ["small", "recoverable", "minor", "slight"] {
+            #expect(!text.localizedCaseInsensitiveContains(cushioning))
+        }
+    }
+
+    @Test func benignMarkerSubstringsDoNotPassAsANegativeConsequence() async {
+        let story = ModelStoryFields(
+            title: "A Skilled Reward",
+            narration: "The dragon's skill earns a reward through fearless work.",
+            summary: "Skill earns a reward.",
+            cue: "celebrate",
+            receiptID: "receipt"
+        )
+        let qualified = await FoundationModelClient().qualifiedNarrative(story, valence: .negative, sourceTitle: "Miss the watch")
+
+        #expect(qualified.narration != story.narration)
+        #expect(qualified.summary.localizedCaseInsensitiveContains("danger"))
+        #expect(qualified.summary.localizedCaseInsensitiveContains("lasting conflict"))
     }
 
     @Test func cannedDraftNarrationIsQualifiedForBothValences() async {
@@ -411,12 +442,12 @@ struct Phase6QualificationTests {
         #expect(positive.narration.localizedCaseInsensitiveContains("draft") == false)
         #expect(positive.narration.localizedCaseInsensitiveContains("tax return") == true)
         #expect(positive.narration.localizedCaseInsensitiveContains("kobold") == false)
-        #expect(positive.summary.localizedCaseInsensitiveContains("benefit") == true)
+        #expect(positive.summary.localizedCaseInsensitiveContains("lasting victory") == true)
 
         let negative = await client.qualifiedNarrative(raw, valence: .negative, sourceTitle: "Wash the dishes")
         #expect(negative.narration.localizedCaseInsensitiveContains("wash the dishes") == true)
-        #expect(negative.narration.localizedCaseInsensitiveContains("dangerous threat") == true)
-        #expect(negative.summary.localizedCaseInsensitiveContains("setback") == true)
+        #expect(negative.narration.localizedCaseInsensitiveContains("lasting conflict") == true)
+        #expect(negative.summary.localizedCaseInsensitiveContains("danger") == true)
 
         let expandingSummary = "A draft needs attention. " + String(repeating: "Care ", count: 25) + "repair."
         #expect(expandingSummary.count <= 160)

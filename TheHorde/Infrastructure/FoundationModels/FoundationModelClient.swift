@@ -1,6 +1,36 @@
 import Foundation
 import FoundationModels
 
+private let negativeConsequenceWords: Set<String> = [
+    "attack", "attacks", "attacked", "attacking", "besiege", "besieges", "besieged", "besieging",
+    "blood", "bloody", "burn", "burns", "burned", "burning", "casualty", "casualties", "cold",
+    "conflict", "conflicts", "crack", "cracks", "cracked", "curse", "curses", "cursed", "damage",
+    "damages", "damaged", "danger", "dangerous", "dead", "death", "defeat", "defeats", "defeated",
+    "delay", "delays", "delayed", "deplete", "depletes", "depleted", "destroy", "destroys", "destroyed",
+    "destruction", "difficult", "difficulty", "difficulties", "disrupt", "disrupts", "disrupted", "disruption",
+    "enemy", "enemies", "expire", "expired", "fail", "fails", "failed", "failure", "famine", "fear",
+    "fears", "fearful", "fracture", "fractures", "fractured", "hazard", "hazards", "invade", "invades",
+    "invaded", "invasion", "invasions", "kill", "kills", "killed", "killing", "loss", "losses", "lost",
+    "miss", "missed", "plague", "raid", "raids", "raided", "ruin", "ruins", "ruined", "scar", "scars",
+    "scarred", "setback", "setbacks", "shortage", "shortages", "siege", "sieges", "terror", "threat",
+    "threats", "threatened", "war", "wars", "warband", "warbands", "warfare", "wound", "wounds", "wounded"
+]
+
+private func containsNegativeConsequence(_ text: String) -> Bool {
+    !negativeConsequenceWords.isDisjoint(with: text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
+}
+
+private let negativeOutcomeContradictions = [
+    "accepted action succeeds", "action succeeds", "completed goal", "completed the goal", "goal ends in triumph",
+    "goal ends in victory", "goal is completed", "goal is victorious", "goal succeeded", "goal triumph",
+    "goal victory", "goal was completed", "positive outcome", "successful completion", "successfully completes"
+]
+
+private let positiveOutcomeContradictions = [
+    "could not complete", "did not complete", "expired goal", "failed goal", "failed to complete", "failure to complete",
+    "goal expired", "goal failed", "goal was missed", "missed goal", "unable to complete", "was not completed", "was not successful"
+]
+
 struct GeneratedStory: Codable, Sendable {
     let title: String
     let narration: String
@@ -243,27 +273,10 @@ actor PatchStager {
         var title = arguments.recordTitle
         var summary = arguments.recordSummary
         if valence == .negative, arguments.fieldID == "world.activeThreads" {
-            let replacements = [
-                ("restoring calm", "leaving a little unease"), ("more secure", "less settled"),
-                ("increase in morale", "dip in morale"), ("morale increase", "morale dip"),
-                ("increased", "dipped"), ("increase", "dip"), ("improved", "became strained"),
-                ("boosted", "slightly lowered"), ("boost", "small dip"), ("benefit", "minor disruption"),
-                ("success", "setback"), ("repaired", "jostled"), ("repair", "disturbance"),
-                ("restored", "left unsettled"), ("calm", "unease"), ("thriving", "struggling"),
-                ("thrive", "struggle"), ("rose", "dipped"), ("lifted", "lowered"),
-                ("stronger", "strained"), ("secure", "unsettled"), ("safe", "uncertain"),
-                ("happy", "worried"), ("harmony", "strain"), ("grows", "slips"), ("grew", "slipped")
-            ]
-            for replacement in replacements {
-                title = title.replacingOccurrences(of: replacement.0, with: replacement.1, options: .caseInsensitive)
-                summary = summary.replacingOccurrences(of: replacement.0, with: replacement.1, options: .caseInsensitive)
-            }
-            let markers = ["attack", "besieg", "concern", "crack", "damp", "danger", "declin", "decreas", "delay", "deplet", "difficult", "dip", "disrupt", "distract", "draft", "drop", "enemy", "hazard", "invasion", "issue", "leak", "less", "loose", "loss", "lower", "problem", "raid", "scarce", "setback", "shortage", "shortfall", "siege", "slip", "strain", "struggl", "tension", "threat", "trouble", "uncertain", "unease", "unsett", "warband", "weaken", "worry"]
-            if !markers.contains(where: { summary.lowercased().contains($0) }) {
-                let addition = "An unresolved threat demands the dragon's attention."
-                var words = summary.split(whereSeparator: \.isWhitespace).map(String.init)
-                while !words.isEmpty, words.joined(separator: " ").count + 1 + addition.count > 240 { words.removeLast() }
-                summary = words.isEmpty ? addition : words.joined(separator: " ") + " " + addition
+            let text = "\(title) \(summary)".lowercased()
+            if negativeOutcomeContradictions.contains(where: text.contains) || !containsNegativeConsequence(text) {
+                title = "A Lasting Threat"
+                summary = "A ruthless enemy exploits the failure, bringing danger, loss, and lasting conflict."
             }
         }
         return GeneratedRecord(id: arguments.recordID, title: String(title.prefix(80)), summary: String(summary.prefix(240)), severityOrRank: arguments.severityOrRank, involvedEntityIDs: arguments.involvedEntityIDs)
@@ -674,68 +687,40 @@ actor FoundationModelClient {
         return !forbidden.contains { text.localizedCaseInsensitiveContains($0) }
     }
 
-    private var negativeOppositeMarkers: [String] {
-        ["benefit", "boost", "better", "calm", "grew", "grows", "happy", "harmon", "improv", "increas", "lifted", "more secure", "positive outcome", "repair", "restor", "rose", "safe", "secure", "stronger", "success", "thriv"]
-    }
-
-    private var positiveOppositeMarkers: [String] {
-        ["causes a mild draft", "declin", "decreas", "deplet", "difficult", "dip", "disrupt", "drop", "expired", "failed", "loss", "lower", "missed", "setback", "shortage", "shortfall", "slip", "strain", "struggl", "trouble", "weaken", "worry"]
-    }
-
     private func matchesValence(title: String, narration: String, summary: String, valence: EventValence) -> Bool {
         if valence == .positive {
             let text = "\(narration) \(summary)".lowercased()
-            return !positiveOppositeMarkers.contains(where: text.contains)
+            return !positiveOutcomeContradictions.contains(where: text.contains)
         }
         let text = "\(title) \(narration) \(summary)".lowercased()
-        let setback = ["attack", "besieg", "cold", "concern", "crack", "damp", "danger", "declin", "decreas", "delay", "deplet", "difficult", "dim", "dip", "disrupt", "distract", "draft", "drop", "dwindl", "enemy", "expired", "failed", "flicker", "hazard", "invasion", "issue", "leak", "less", "loose", "loss", "lower", "missed", "problem", "raid", "reduc", "scarce", "setback", "shortage", "shortfall", "siege", "slip", "spoiled", "strain", "struggl", "stumble", "tension", "threat", "tired", "trouble", "uncertain", "unease", "unfinished", "unsett", "warband", "weaken", "worry"]
-        return !negativeOppositeMarkers.contains(where: text.contains)
-            && setback.contains(where: narration.lowercased().contains)
-            && setback.contains(where: summary.lowercased().contains)
+        return !negativeOutcomeContradictions.contains(where: text.contains)
+            && containsNegativeConsequence(text)
     }
 
     func qualifiedNarrative(_ content: ModelStoryFields, valence: EventValence, sourceTitle: String) -> ModelStoryFields {
         let cannedNarration = content.narration.caseInsensitiveCompare("A loose stone causes a mild draft.") == .orderedSame
         if valence == .positive {
             guard matchesValence(title: content.title, narration: content.narration, summary: content.summary, valence: valence), !cannedNarration else {
-                let label = safeGoalLabel(sourceTitle, avoiding: positiveOppositeMarkers)
+                let label = safeGoalLabel(sourceTitle, avoiding: positiveOutcomeContradictions)
                 return ModelStoryFields(
-                    title: "\(label) — A Small Success",
-                    narration: "Completing \(label) gives the vault a modest lift. The dragon makes a little welcome progress.",
-                    summary: "Completing \(label) gives the dungeon a modest benefit.",
+                    title: "\(label) — A Hard-Won Victory",
+                    narration: "Completing \(label) breaks the obstacle before the dragon. The victory changes the vault and opens a perilous path ahead.",
+                    summary: "Completing \(label) wins a lasting victory.",
                     cue: content.cue,
                     receiptID: content.receiptID
                 )
             }
             return content
         }
-        let replacements = [
-            ("restoring calm", "leaving a little unease"), ("became more secure", "became a little less settled"),
-            ("more secure", "less settled"), ("increase in morale", "dip in morale"), ("morale increase", "morale dip"),
-            ("increased", "dipped"), ("increase", "dip"), ("improved", "became strained"),
-            ("improvement", "strain"), ("boosted", "slightly lowered"), ("boost", "small dip"),
-            ("benefited", "was mildly disrupted"), ("benefit", "minor disruption"),
-            ("successfully", "with some difficulty"), ("success", "setback"), ("repaired", "jostled"),
-            ("repair", "disturbance"), ("restored", "left unsettled"), ("calm", "unease"),
-            ("thriving", "struggling"), ("thrive", "struggle"), ("rose", "dipped"), ("lifted", "lowered"),
-            ("stronger", "strained"), ("secure", "unsettled"), ("safe", "uncertain"),
-            ("happy", "worried"), ("harmony", "strain"), ("harmonious", "strained"),
-            ("grows", "slips"), ("grew", "slipped")
-        ]
-        func rewrite(_ source: String) -> String {
-            replacements.reduce(source) { text, replacement in
-                text.replacingOccurrences(of: replacement.0, with: replacement.1, options: .caseInsensitive)
-            }
-        }
-        var title = rewrite(content.title)
-        var narration = rewrite(content.narration)
-        var summary = rewrite(content.summary)
-        if cannedNarration || !matchesValence(title: title, narration: narration, summary: summary, valence: .negative) {
-            let label = safeGoalLabel(sourceTitle, avoiding: negativeOppositeMarkers)
-            let suffix = " — A Dire Setback"
+        var title = content.title
+        var narration = content.narration
+        var summary = content.summary
+        if cannedNarration || !matchesValence(title: content.title, narration: content.narration, summary: content.summary, valence: .negative) {
+            let label = safeGoalLabel(sourceTitle, avoiding: negativeOutcomeContradictions)
+            let suffix = " — A Lasting Defeat"
             title = String(label.prefix(max(1, 70 - suffix.count))) + suffix
-            narration = "Missing \(label) leaves the vault exposed to a dangerous threat. The dragon must answer the consequence."
-            summary = "Missing \(label) creates a consequential setback."
+            narration = "Failure to complete \(label) opens the vault to a ruthless enemy. The loss scars the dungeon and kindles a lasting conflict."
+            summary = "Failure to complete \(label) brings danger, loss, and lasting conflict."
         }
         return ModelStoryFields(
             title: boundedText(title, limit: 70),
@@ -744,14 +729,6 @@ actor FoundationModelClient {
             cue: content.cue,
             receiptID: content.receiptID
         )
-    }
-
-    private func boundedAppend(_ addition: String, to source: String, limit: Int) -> String {
-        let combined = source.isEmpty ? addition : source + " " + addition
-        guard combined.count > limit else { return combined }
-        var words = source.split(whereSeparator: \.isWhitespace).map(String.init)
-        while !words.isEmpty, words.joined(separator: " ").count + 1 + addition.count > limit { words.removeLast() }
-        return words.isEmpty ? String(addition.prefix(limit)) : words.joined(separator: " ") + " " + addition
     }
 
     private func boundedText(_ source: String, limit: Int) -> String {
