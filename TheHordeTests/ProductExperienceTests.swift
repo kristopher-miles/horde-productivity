@@ -4,6 +4,8 @@ import Testing
 
 @Suite("Complete product experience")
 struct ProductExperienceTests {
+    private static let cinderOrigin = "Cinder has recently left the nest and searched for their own lair. After flying far from home, they arrived at an empty cavern extending deep into the rock. They are small now, but they will grow. They settle onto the cold stone, and plan for what's next."
+
     @Test func notificationRoutingTargetsPendingResolvedAndStaleStatesExactly() {
         let occurrence = GoalOccurrenceSummary(id: "occurrence", definitionID: "definition", snapshot: GoalSnapshot(title: "Goal", notes: "", category: nil, effort: nil, recurrence: .never, definitionVersion: 1), dueDate: .distantFuture, includesTime: true, state: .pending, resolvedAt: nil, hasPendingStory: false)
         let pending = PendingStorySummary(id: "occurrence:positive", sourceTitle: "Goal", valence: .positive, status: .pending, failureCode: nil, createdAt: .distantPast)
@@ -23,6 +25,7 @@ struct ProductExperienceTests {
         let first = try await store.worldReadModel()
         #expect(first.snapshot.dragon.name == "Cinder")
         #expect(first.dungeonName == "Quiet Keep")
+        #expect(first.snapshot.rollingSummary == Self.cinderOrigin)
         #expect(first.snapshot.morale == 5)
         #expect(first.snapshot.integrity == 1)
         #expect(first.snapshot.food == 0)
@@ -77,15 +80,31 @@ struct ProductExperienceTests {
     }
 
     @Test func newGameSaveUsesTheReleaseSchemaVersion() {
-        let save = GameSaveRecord()
+        let save = GameSaveRecord(dragonName: "Cinder")
         #expect(save.schemaVersion == 3)
         #expect(save.morale == 5)
         #expect(save.integrity == 1)
         #expect(save.food == 0)
-        #expect(!save.rollingSummary.localizedCaseInsensitiveContains("kobold"))
+        #expect(save.rollingSummary == Self.cinderOrigin)
         let world = try? PersistentJSON.decode(WorldSnapshot.self, from: save.worldData)
         #expect(world != nil)
-        if let world { assertEmptyStartingWorld(world) }
+        if let world {
+            #expect(world.rollingSummary == Self.cinderOrigin)
+            assertEmptyStartingWorld(world)
+        }
+    }
+
+    @Test func resetRestoresTheExactNamedOriginNarrative() async throws {
+        let store = try makeStore()
+        _ = try await store.prepareAppState()
+        try await store.completeOnboarding(dragonName: "Cinder", dungeonName: "Quiet Keep")
+        var changed = try await store.worldReadModel().snapshot
+        changed.rollingSummary = "A later story."
+        try await store.installWorldFixture(changed, dungeonName: "Quiet Keep", revision: 4)
+
+        try await store.resetDungeon()
+
+        #expect(try await store.worldReadModel().snapshot.rollingSummary == Self.cinderOrigin)
     }
 
     @Test func initialStatsRetainTheirFullUpwardProgressionRange() throws {

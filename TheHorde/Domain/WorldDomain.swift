@@ -89,6 +89,10 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
     var facts: [WorldFact]
     var rollingSummary: String
 
+    static func originNarrative(dragonName: String) -> String {
+        "\(dragonName) has recently left the nest and searched for their own lair. After flying far from home, they arrived at an empty cavern extending deep into the rock. They are small now, but they will grow. They settle onto the cold stone, and plan for what's next."
+    }
+
     static func initial(dragonName: String = "Ember", dungeonName: String = "The Cinder Vault") -> WorldSnapshot {
         WorldSnapshot(
             dragon: CharacterState(id: "dragon", name: dragonName, role: "Young dragon", identity: "A thoughtful ember-scaled dragon learning to care for a small underground home.", vitality: 50, bond: 50, conditions: []),
@@ -100,7 +104,7 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
             abilities: [],
             activeThreads: [],
             facts: [],
-            rollingSummary: "\(dragonName) stands alone in an empty cavern."
+            rollingSummary: originNarrative(dragonName: dragonName)
         )
     }
 }

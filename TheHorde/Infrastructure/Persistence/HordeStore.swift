@@ -63,7 +63,8 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 if try modelContext.fetch(FetchDescriptor<GameSaveRecord>()).isEmpty {
                     modelContext.insert(GameSaveRecord(dungeonName: dungeon, dragonName: dragon))
                 } else if let save = try modelContext.fetch(FetchDescriptor<GameSaveRecord>()).first, !state.onboardingComplete {
-                    save.dungeonName = dungeon; save.dragonName = dragon; save.worldData = try PersistentJSON.encode(WorldSnapshot.initial(dragonName: dragon, dungeonName: dungeon))
+                    let world = WorldSnapshot.initial(dragonName: dragon, dungeonName: dungeon)
+                    save.dungeonName = dungeon; save.dragonName = dragon; save.rollingSummary = world.rollingSummary; save.worldData = try PersistentJSON.encode(world)
                 }
                 state.onboardingComplete = true
                 try modelContext.save()
