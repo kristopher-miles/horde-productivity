@@ -7,7 +7,7 @@ struct PersistenceContractTests {
     @Test func visualContractsEncodeDeterministicallyAndRoundTrip() throws {
         var world = WorldSnapshot.initial(dragonName: "Cinder", dungeonName: "Deep Vault")
         world.dragonVisual = DragonVisualState(stage: .greatWyrm, color: RGBColor(red: 17, green: 34, blue: 51))
-        world.backgroundStage = .five
+        world.hoard = 100
         world.residents = KoboldAgeStage.allCases.enumerated().map { index, age in
             CharacterState(
                 id: "kobold-\(age.rawValue)",
@@ -46,6 +46,7 @@ struct PersistenceContractTests {
         let reopened = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
         let world = try await reopened.worldReadModel()
         #expect(world.revision == 2)
+        #expect(world.snapshot.hoard == 100)
         #expect(world.snapshot.dragonVisual == DragonVisualState(stage: .greatWyrm, color: RGBColor(red: 201, green: 45, blue: 88)))
         #expect(world.snapshot.backgroundStage == .five)
         #expect(world.snapshot.residents.map(\.koboldVisual?.age) == [.baby, .kid, .adult])
@@ -57,6 +58,7 @@ struct PersistenceContractTests {
         #expect(event.acceptedAction == "Claim the crystal forge")
         #expect(event.finalProse == "Cinder claims the crystal forge and calls its ancient fire back to life.")
         #expect(event.recordedWorld?.revision == 1)
+        #expect(event.recordedWorld?.snapshot.hoard == 60)
         #expect(event.recordedWorld?.snapshot.dragonVisual == DragonVisualState(stage: .elder, color: RGBColor(red: 12, green: 90, blue: 140)))
         #expect(event.recordedWorld?.snapshot.backgroundStage == .four)
         #expect(event.recordedWorld?.snapshot.residents.map(\.koboldVisual?.age) == [.baby, .kid, .adult])
@@ -105,7 +107,7 @@ struct PersistenceContractTests {
 
         var committedWorld = before.snapshot
         committedWorld.dragonVisual = DragonVisualState(stage: .elder, color: RGBColor(red: 12, green: 90, blue: 140))
-        committedWorld.backgroundStage = .four
+        committedWorld.hoard = 60
         committedWorld.residents = [
             kobold(id: "baby", age: .baby, red: 11),
             kobold(id: "kid", age: .kid, red: 21),
@@ -128,7 +130,7 @@ struct PersistenceContractTests {
         )
         var laterWorld = committedWorld
         laterWorld.dragonVisual = DragonVisualState(stage: .greatWyrm, color: RGBColor(red: 201, green: 45, blue: 88))
-        laterWorld.backgroundStage = .five
+        laterWorld.hoard = 100
         try await store.installWorldFixture(laterWorld, dungeonName: before.dungeonName, revision: 2)
         return eventID
     }

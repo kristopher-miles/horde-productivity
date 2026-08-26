@@ -6,15 +6,24 @@ import UIKit
 
 @Suite("Bounded model contract and product verification")
 struct Phase6QualificationTests {
-    @Test func authoredScenesAndEveryCueMapToShippingAssets() throws {
-        let normal = try #require(ProductVerificationFixture.named("normal"))
-        let hazard = try #require(ProductVerificationFixture.named("hazard"))
-        let recovery = try #require(ProductVerificationFixture.named("recovery"))
-        #expect(DungeonSceneView.assetName(world: normal.world, cue: .idle) == "DungeonNormal")
-        #expect(DungeonSceneView.assetName(world: hazard.world, cue: .idle) == "DungeonHazard")
-        #expect(DungeonSceneView.assetName(world: recovery.world, cue: .idle) == "DungeonRecovery")
-        #expect(Set(AnimationCue.allCases.map { DungeonSceneView.assetName(world: normal.world, cue: $0) }) == ["DungeonNormal", "DungeonHazard", "DungeonRecovery"])
-        for name in ["DungeonNormal", "DungeonHazard", "DungeonRecovery"] { #expect(UIImage(named: name) != nil) }
+    @Test func hoardSelectsFiveRoomsIndependentlyFromDragonAndCue() {
+        let thresholds = [0, 10, 30, 60, 100]
+        for (index, hoard) in thresholds.enumerated() {
+            for dragonStage in DragonStage.allCases {
+                var snapshot = WorldSnapshot.initial()
+                snapshot.hoard = hoard
+                snapshot.dragonVisual.stage = dragonStage
+                let world = WorldReadModel(dungeonName: "Vault", revision: index, snapshot: snapshot)
+                #expect(snapshot.backgroundStage.rawValue == index + 1)
+                #expect(AnimationCue.allCases.allSatisfy {
+                    DungeonSceneView.assetName(world: world, cue: $0) == "DungeonStage\(index + 1)"
+                })
+            }
+        }
+
+        for (hoard, expected) in [(-1, 1), (9, 1), (29, 2), (59, 3), (99, 4), (101, 5)] {
+            #expect(DungeonBackgroundStage(hoard: hoard).rawValue == expected)
+        }
     }
 
     @Test func emberIdleAtlasMatchesPrototypeContract() {

@@ -6,6 +6,16 @@ enum DragonStage: String, Codable, Equatable, Sendable, CaseIterable {
 
 enum DungeonBackgroundStage: Int, Codable, Equatable, Sendable, CaseIterable {
     case one = 1, two, three, four, five
+
+    init(hoard: Int) {
+        self = switch hoard {
+        case 100...: .five
+        case 60...: .four
+        case 30...: .three
+        case 10...: .two
+        default: .one
+        }
+    }
 }
 
 enum KoboldAgeStage: String, Codable, Equatable, Sendable, CaseIterable {
@@ -79,7 +89,8 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
     var dragon: CharacterState
     var dragonVisual: DragonVisualState
     var residents: [CharacterState]
-    var backgroundStage: DungeonBackgroundStage
+    var hoard: Int
+    var backgroundStage: DungeonBackgroundStage { DungeonBackgroundStage(hoard: hoard) }
     var morale: Int
     var integrity: Int
     var food: Int
@@ -98,7 +109,7 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
             dragon: CharacterState(id: "dragon", name: dragonName, role: "Baby dragon", identity: "A young, small, newly independent ember-scaled dragon who has just claimed an empty cavern. Not yet powerful or established, they face the untamed lair alone.", vitality: 50, bond: 50, conditions: []),
             dragonVisual: DragonVisualState(stage: .baby, color: .ember),
             residents: [],
-            backgroundStage: .one,
+            hoard: 0,
             morale: 5, integrity: 1, food: 0,
             locations: [LocationState(id: "empty-cavern", name: "Empty Cavern", status: "Untamed", summary: "A dirty, cold, empty, and unruly cavern where unstable stone and dark passages make every step dangerous.")],
             abilities: [],

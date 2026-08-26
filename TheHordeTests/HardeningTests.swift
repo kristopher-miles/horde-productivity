@@ -4,15 +4,16 @@ import Testing
 
 @Suite("Hardening and release")
 struct HardeningTests {
-    @Test func dungeonArtMapsNormalHazardAndRecoveryStates() {
+    @Test func dungeonArtSelectionIgnoresTransientCuesAndStats() {
         var snapshot = WorldSnapshot.initial()
         let normal = WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot)
-        #expect(DungeonSceneView.assetName(world: normal, cue: .idle) == "DungeonNormal")
-        #expect(DungeonSceneView.assetName(world: normal, cue: .celebrate) == "DungeonRecovery")
+        #expect(AnimationCue.allCases.allSatisfy { DungeonSceneView.assetName(world: normal, cue: $0) == "DungeonStage1" })
         snapshot.activeThreads = [ActiveThreadState(id: "loose-stones", title: "Loose Stones", severity: 2, state: "active", involvedEntityIDs: ["dragon"], summary: "A recoverable concern.")]
+        snapshot.morale = 100
+        snapshot.integrity = 100
+        snapshot.food = 100
         let hazard = WorldReadModel(dungeonName: "Vault", revision: 1, snapshot: snapshot)
-        #expect(DungeonSceneView.assetName(world: hazard, cue: .idle) == "DungeonHazard")
-        #expect(DungeonSceneView.assetName(world: normal, cue: .concern) == "DungeonHazard")
+        #expect(AnimationCue.allCases.allSatisfy { DungeonSceneView.assetName(world: hazard, cue: $0) == "DungeonStage1" })
     }
 
     @Test func thousandEntryChronicleRemainsReadableAndOrdered() async throws {

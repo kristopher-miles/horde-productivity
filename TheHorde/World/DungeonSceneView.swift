@@ -52,15 +52,8 @@ struct DungeonSceneView: View {
         }
     }
 
-    nonisolated static func assetName(world: WorldReadModel, cue: AnimationCue) -> String {
-        switch cue {
-        case .celebrate, .recover, .resourceChanges: "DungeonRecovery"
-        case .concern, .hazardAppears: "DungeonHazard"
-        case .idle:
-            if world.snapshot.activeThreads.contains(where: { $0.severity >= 2 }) { "DungeonHazard" }
-            else if max(world.snapshot.morale, world.snapshot.integrity, world.snapshot.food) >= 55 { "DungeonRecovery" }
-            else { "DungeonNormal" }
-        }
+    nonisolated static func assetName(world: WorldReadModel, cue _: AnimationCue) -> String {
+        "DungeonStage\(world.snapshot.backgroundStage.rawValue)"
     }
 
     nonisolated static func renderedBackgroundAssetName(world: WorldReadModel, cue: AnimationCue) -> String? {

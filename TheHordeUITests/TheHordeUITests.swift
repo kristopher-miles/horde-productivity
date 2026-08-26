@@ -35,7 +35,7 @@ final class TheHordeUITests: XCTestCase {
         for label in ["Story pending", "Overdue", "Due Today", "Upcoming"] {
             XCTAssertTrue(app.staticTexts[label].waitForExistence(timeout: 5), "Missing Today state: \(label)")
         }
-        XCTAssertTrue(app.descendants(matching: .any)["DungeonScene.DungeonRecovery"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["DungeonScene.DungeonStage1"].exists)
         keepScreenshot(of: app, name: "Today-showcase")
         app.staticTexts["Review the project plan"].tap()
         XCTAssertTrue(app.navigationBars["Goal Detail"].waitForExistence(timeout: 3))
@@ -67,25 +67,25 @@ final class TheHordeUITests: XCTestCase {
         }
     }
 
-    @MainActor func testAuthoredNormalHazardAndRecoveryGraphics() throws {
-        for (scenario, asset) in [("normal", "DungeonNormal"), ("hazard", "DungeonHazard"), ("recovery", "DungeonRecovery")] {
+    @MainActor func testTransientScenariosPreserveTheCommittedRoomStage() throws {
+        for scenario in ["normal", "hazard", "recovery"] {
             let app = launch(scenario: scenario)
             app.tabBars.buttons["Dungeon"].tap()
-            let scene = app.descendants(matching: .any)["DungeonScene.\(asset)"]
-            XCTAssertTrue(scene.waitForExistence(timeout: 5), "Missing authored \(scenario) graphic")
+            let scene = app.descendants(matching: .any)["DungeonScene.DungeonStage1"]
+            XCTAssertTrue(scene.waitForExistence(timeout: 5), "\(scenario) changed the committed room stage")
             XCTAssertTrue(scene.label.contains("Ember"))
-            XCTAssertTrue(scene.label.contains("3 kobolds"))
+            XCTAssertTrue(scene.label.contains("Ember is alone"))
             keepScreenshot(of: app, name: "Dungeon-\(scenario)")
             app.terminate()
         }
     }
 
-    @MainActor func testPositiveAndNegativeStoryConsequencesHaveDistinctVisualResponses() throws {
+    @MainActor func testStoryCuesPreserveTheRecordedRoomStage() throws {
         let app = launch(scenario: "showcase")
         app.tabBars.buttons["Chronicle"].tap()
         app.staticTexts["The Lantern Ledger"].tap()
         XCTAssertTrue(app.navigationBars["Story Result"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["DungeonScene.DungeonRecovery"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["DungeonScene.DungeonStage1"].exists)
         XCTAssertTrue(app.staticTexts["Completed goal"].exists)
         XCTAssertTrue(app.staticTexts["Morale: 59 → 63"].exists)
         keepScreenshot(of: app, name: "Consequence-positive")
@@ -96,7 +96,7 @@ final class TheHordeUITests: XCTestCase {
         search.typeText("Rain at the Door")
         app.staticTexts["Rain at the Door"].tap()
         XCTAssertTrue(app.navigationBars["Story Result"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["DungeonScene.DungeonHazard"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["DungeonScene.DungeonStage1"].exists)
         XCTAssertTrue(app.staticTexts["Expired goal"].exists)
         XCTAssertTrue(app.staticTexts["New thread: Damp Tool Rack"].exists)
         keepScreenshot(of: app, name: "Consequence-negative")
