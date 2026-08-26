@@ -29,6 +29,7 @@ struct ProductExperienceTests {
         #expect(first.snapshot.morale == 5)
         #expect(first.snapshot.integrity == 1)
         #expect(first.snapshot.food == 0)
+        assertStartingDragon(first.snapshot)
         assertEmptyStartingWorld(first.snapshot)
         try await store.completeOnboarding(dragonName: "Overwrite", dungeonName: "Overwrite")
         let second = try await store.worldReadModel()
@@ -66,6 +67,7 @@ struct ProductExperienceTests {
         #expect(world.morale == 5)
         #expect(world.integrity == 1)
         #expect(world.food == 0)
+        assertStartingDragon(world)
         assertEmptyStartingWorld(world)
     }
 
@@ -90,8 +92,28 @@ struct ProductExperienceTests {
         #expect(world != nil)
         if let world {
             #expect(world.rollingSummary == Self.cinderOrigin)
+            assertStartingDragon(world)
             assertEmptyStartingWorld(world)
         }
+    }
+
+    @Test func startingDragonRecordProjectsAndSelectsBabyArtConsistently() throws {
+        let save = GameSaveRecord(dragonName: "Cinder")
+        let world = try PersistentJSON.decode(WorldSnapshot.self, from: save.worldData)
+        let event = PendingStorySummary(id: "baby-dragon", sourceTitle: "Survey the cavern", valence: .positive, status: .pending, failureCode: nil, createdAt: .distantPast)
+        let readModel = WorldReadModel(dungeonName: "The Cinder Vault", revision: 0, snapshot: world)
+        let projection = ProjectionBuilder.projection(event: event, world: readModel, descriptors: WorldContract.descriptors(for: .positive, world: world))
+        let accessibility = [DungeonSceneView.sceneDescription(for: readModel), OnboardingView.startingCavernAccessibilityLabel]
+
+        assertStartingDragon(world)
+        for trait in ["young", "small", "newly independent", "just claimed", "empty cavern", "not yet powerful or established"] {
+            #expect(projection.localizedCaseInsensitiveContains(trait))
+            #expect(accessibility.allSatisfy { $0.localizedCaseInsensitiveContains(trait) })
+        }
+        #expect(DungeonSceneView.dragonAtlasName(stage: world.dragonVisual.stage, cue: .idle) == "EmberIdle")
+        #expect(DungeonSceneView.dragonAtlasName(stage: world.dragonVisual.stage, cue: .concern) == "EmberConcern")
+        #expect(DungeonSceneView.dragonAtlasName(stage: .adolescent, cue: .idle) == nil)
+        #expect(HordeModelContract.projectionVersion == 13)
     }
 
     @Test func resetRestoresTheExactNamedOriginNarrative() async throws {
@@ -179,5 +201,13 @@ struct ProductExperienceTests {
         #expect(world.facts.isEmpty, sourceLocation: sourceLocation)
         #expect(world.activeThreads.isEmpty, sourceLocation: sourceLocation)
         #expect(!world.rollingSummary.localizedCaseInsensitiveContains("kobold"), sourceLocation: sourceLocation)
+    }
+
+    private func assertStartingDragon(_ world: WorldSnapshot, sourceLocation: SourceLocation = #_sourceLocation) {
+        #expect(world.dragonVisual.stage == .baby, sourceLocation: sourceLocation)
+        let record = world.dragon.role + " " + world.dragon.identity
+        for trait in ["young", "Baby", "small", "newly independent", "just claimed", "empty cavern", "not yet powerful or established"] {
+            #expect(record.localizedCaseInsensitiveContains(trait), sourceLocation: sourceLocation)
+        }
     }
 }

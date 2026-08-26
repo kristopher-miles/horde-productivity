@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct OnboardingView: View {
-    nonisolated static let startingCavernAccessibilityLabel = "A small dragon rests alone in a dirty, cold, empty, unruly, and dangerous cavern."
+    nonisolated static let startingCavernAccessibilityLabel = "A young, small, newly independent baby dragon has just claimed an empty cavern that is dirty, cold, unruly, and dangerous, and is not yet powerful or established."
     @Environment(AppModel.self) private var app
     @AppStorage("onboardingStep") private var step = 0
     @State private var dragonName = "Ember"

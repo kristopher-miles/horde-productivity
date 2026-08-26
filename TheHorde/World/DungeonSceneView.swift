@@ -36,7 +36,12 @@ struct DungeonSceneView: View {
             ? "\(world.snapshot.dragon.name) is alone"
             : "\(world.snapshot.dragon.name) and \(world.snapshot.residents.count) kobolds are gathered"
         let place = world.snapshot.locations.first.map { "in \($0.name). \($0.status). \($0.summary)" } ?? "in an unmapped cavern."
-        return "\(world.dungeonName). \(population) \(place) Morale \(world.snapshot.morale), integrity \(world.snapshot.integrity), food \(world.snapshot.food). \(thread.map { "Active concern: \($0.title), severity \($0.severity)." } ?? "There is no active concern.")"
+        return "\(world.dungeonName). \(population). \(world.snapshot.dragon.role). \(world.snapshot.dragon.identity) \(place) Morale \(world.snapshot.morale), integrity \(world.snapshot.integrity), food \(world.snapshot.food). \(thread.map { "Active concern: \($0.title), severity \($0.severity)." } ?? "There is no active concern.")"
+    }
+
+    nonisolated static func dragonAtlasName(stage: DragonStage, cue: AnimationCue) -> String? {
+        guard stage == .baby else { return nil }
+        return cue == .concern || cue == .hazardAppears ? "EmberConcern" : "EmberIdle"
     }
 
     nonisolated static func assetName(world: WorldReadModel, cue: AnimationCue) -> String {
@@ -61,7 +66,7 @@ struct DungeonSceneView: View {
         texture.filteringMode = .nearest
         let art = SKSpriteNode(texture: texture, size: size)
         addChild(art)
-        addEmber(cue: cue, reduceMotion: reduceMotion)
+        addEmber(world: world, cue: cue, reduceMotion: reduceMotion)
         if !reduceMotion { animate(cue, art: art) }
         #if os(iOS)
         NotificationCenter.default.addObserver(self, selector: #selector(pauseForBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
@@ -79,9 +84,10 @@ struct DungeonSceneView: View {
     @objc private func pauseForBackground() { isPaused = true }
     @objc private func resumeFromBackground() { isPaused = false }
 
-    private func addEmber(cue: AnimationCue, reduceMotion: Bool) {
+    private func addEmber(world: WorldReadModel, cue: AnimationCue, reduceMotion: Bool) {
         let concerned = cue == .concern || cue == .hazardAppears
-        let atlas = SKTextureAtlas(named: concerned ? "EmberConcern" : "EmberIdle")
+        guard let atlasName = DungeonSceneView.dragonAtlasName(stage: world.snapshot.dragonVisual.stage, cue: cue) else { return }
+        let atlas = SKTextureAtlas(named: atlasName)
         let names = concerned ? DungeonSceneView.emberConcernFrameNames : DungeonSceneView.emberIdleFrameNames
         let frames = names.map { name in
             let texture = atlas.textureNamed(name)

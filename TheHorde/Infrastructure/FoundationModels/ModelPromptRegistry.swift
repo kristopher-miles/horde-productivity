@@ -278,7 +278,7 @@ private extension ModelPromptComponentID {
             SOURCE TITLE <user-title>{{sourceTitle}}</user-title>
             SOURCE NOTES <user-notes>{{sourceNotes}}</user-notes>
             SOURCE CONTEXT category={{category}} effort={{effort}} due={{due}} includesTime={{includesTime}} timeZone={{timeZone}}
-            WORLD dungeon={{dungeonName}} dragon={{dragonName}} morale={{morale}} integrity={{integrity}} food={{food}}
+            WORLD dungeon={{dungeonName}} dragon={{dragonName}} role={{dragonRole}} identity={{dragonIdentity}} visualStage={{dragonStage}} morale={{morale}} integrity={{integrity}} food={{food}}
             RESIDENTS {{residents}}
             LOCATIONS {{locations}}
             ALLOWED ENTITY REFERENCES {{referenceIDs}}

@@ -95,7 +95,7 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
 
     static func initial(dragonName: String = "Ember", dungeonName: String = "The Cinder Vault") -> WorldSnapshot {
         WorldSnapshot(
-            dragon: CharacterState(id: "dragon", name: dragonName, role: "Young dragon", identity: "A thoughtful ember-scaled dragon alone in an untamed cavern.", vitality: 50, bond: 50, conditions: []),
+            dragon: CharacterState(id: "dragon", name: dragonName, role: "Baby dragon", identity: "A young, small, newly independent ember-scaled dragon who has just claimed an empty cavern. Not yet powerful or established, they face the untamed lair alone.", vitality: 50, bond: 50, conditions: []),
             dragonVisual: DragonVisualState(stage: .baby, color: .ember),
             residents: [],
             backgroundStage: .one,
@@ -398,6 +398,9 @@ enum ProjectionBuilder {
             "timeZone": event.sourceTimeZoneID ?? ModelPromptRegistry.text(.legacyMissingValue),
             "dungeonName": world.dungeonName,
             "dragonName": world.snapshot.dragon.name,
+            "dragonRole": world.snapshot.dragon.role,
+            "dragonIdentity": world.snapshot.dragon.identity,
+            "dragonStage": world.snapshot.dragonVisual.stage.rawValue,
             "morale": String(world.snapshot.morale),
             "integrity": String(world.snapshot.integrity),
             "food": String(world.snapshot.food),
