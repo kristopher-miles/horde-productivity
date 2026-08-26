@@ -104,7 +104,7 @@ Complete the environment set before scene-wide character composition is finalize
 
 - [x] 058 — [QA-06 — Enforce prompt-registry completeness and exact log fidelity (line 188)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L188)
 - [x] 059 — [QA-03 — Replace obsolete populated-home and gentle-story fixtures (line 185)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L185)
-- [ ] 060 — [QA-04 — Cover overrides, 10-match context, Cancel/Fail, and staged resolution end to end (line 186)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L186)
+- [x] 060 — [QA-04 — Cover overrides, 10-match context, Cancel/Fail, and staged resolution end to end (line 186)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L186)
 - [ ] 061 — [QA-05 — Verify the complete room, dragon, recolor, and kobold visual matrix (line 187)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L187)
 
 ## Completion rule

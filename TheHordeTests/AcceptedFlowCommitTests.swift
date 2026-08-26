@@ -45,6 +45,42 @@ struct AcceptedFlowCommitTests {
         #expect(resolved.resolutionState?.finalProse == finalProse)
     }
 
+    @Test func expiredAndExplicitlyFailedGoalsAlsoCommitBothAcceptedActionPathsExactlyOnce() async throws {
+        for sourceOutcome in [GoalOccurrenceState.expired, .failed] {
+            for path in Path.allCases {
+                let store = HordeStore(modelContainer: try HordeStore.makeContainer(inMemory: true))
+                let probe = ConsequenceGenerationProbe()
+                let finalProse = Self.paragraph("The failed defense leaves the threshold open beneath hostile banners")
+                let coordinator = ResolutionCoordinator(store: store, model: Self.client(finalProse: finalProse, probe: probe))
+                let eventID = try await Self.prepareFinalProse(
+                    path: path,
+                    sourceOutcome: sourceOutcome,
+                    store: store,
+                    coordinator: coordinator
+                )
+                let originalWorld = try await store.worldReadModel()
+
+                guard case .committed(let committed) = await coordinator.resolve(eventID: eventID) else {
+                    Issue.record("Expected \(sourceOutcome.rawValue) \(path) flow to commit")
+                    continue
+                }
+                #expect(committed.valence == .negative)
+                #expect(committed.finalProse == finalProse)
+                #expect(committed.priorRevision == originalWorld.revision)
+                #expect(committed.committedRevision == originalWorld.revision + 1)
+                #expect(try await store.worldReadModel().revision == originalWorld.revision + 1)
+                #expect(try await store.chronicle().count == 1)
+                #expect(try await store.allStoryEvents().first { $0.id == eventID }?.sourceOutcome == sourceOutcome)
+                #expect(await probe.callCount == 1)
+
+                #expect(await coordinator.resolve(eventID: eventID) == .committed(committed))
+                #expect(try await store.worldReadModel().revision == originalWorld.revision + 1)
+                #expect(try await store.chronicle().count == 1)
+                #expect(await probe.callCount == 1)
+            }
+        }
+    }
+
     @Test func pendingOrSuggestedEventsCannotInvokeConsequenceGenerationOrCommit() async throws {
         let store = HordeStore(modelContainer: try HordeStore.makeContainer(inMemory: true))
         try await store.bootstrapForProof()
@@ -164,16 +200,31 @@ struct AcceptedFlowCommitTests {
 
     private static func prepareFinalProse(
         path: Path,
+        sourceOutcome: GoalOccurrenceState = .completed,
         store: HordeStore,
         coordinator: ResolutionCoordinator
     ) async throws -> String {
         try await store.bootstrapForProof()
-        var draft = GoalDraft(title: "Guard the basalt crossing")
+        let base = Date(timeIntervalSince1970: 1_800_000_000)
+        var draft = GoalDraft(
+            title: "Guard the basalt crossing",
+            dueDate: sourceOutcome == .expired ? base.addingTimeInterval(10) : nil,
+            includesTime: sourceOutcome == .expired
+        )
         draft.effort = .medium
-        let definitionID = try await store.createGoal(draft)
+        let definitionID = try await store.createGoal(draft, now: base)
         let occurrence = try #require(await store.definitionSummary(id: definitionID)?.history.first)
-        try await store.completeOccurrence(id: occurrence.id)
-        let eventID = occurrence.id + ":positive"
+        switch sourceOutcome {
+        case .completed:
+            try await store.completeOccurrence(id: occurrence.id, now: base.addingTimeInterval(20))
+        case .expired:
+            #expect(try await store.reconcileDeadlines(now: base.addingTimeInterval(20)) == 1)
+        case .failed:
+            try await store.failOccurrence(id: occurrence.id, now: base.addingTimeInterval(20))
+        case .pending, .cancelled:
+            throw StoreError.invalidResolutionState
+        }
+        let eventID = occurrence.id + (sourceOutcome == .completed ? ":positive" : ":negative")
         #expect(await coordinator.suggestAction(eventID: eventID) == .suggested("Guard the basalt crossing"))
         switch path {
         case .suggested:
@@ -230,7 +281,7 @@ private actor ConsequenceGenerationProbe {
               event.finalProse == event.resolutionState?.finalProse else {
             throw StoreError.invalidResolutionState
         }
-        let mutation = WorldMutation.increment("world.morale", by: 1)
+        let mutation = WorldMutation.increment("world.morale", by: event.valence == .positive ? 1 : -1)
         _ = try WorldPatchValidator.applying([mutation], to: world.snapshot, valence: event.valence, descriptors: descriptors)
         let now = Date(timeIntervalSince1970: 1)
         return GeneratedStory(
