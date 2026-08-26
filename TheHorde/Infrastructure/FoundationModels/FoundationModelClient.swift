@@ -252,9 +252,9 @@ actor PatchStager {
                 title = title.replacingOccurrences(of: replacement.0, with: replacement.1, options: .caseInsensitive)
                 summary = summary.replacingOccurrences(of: replacement.0, with: replacement.1, options: .caseInsensitive)
             }
-            let markers = ["concern", "crack", "damp", "declin", "decreas", "delay", "deplet", "difficult", "dip", "disrupt", "distract", "draft", "drop", "hazard", "issue", "leak", "less", "loose", "loss", "lower", "problem", "scarce", "setback", "shortage", "shortfall", "slip", "strain", "struggl", "tension", "trouble", "uncertain", "unease", "unsett", "weaken", "worry"]
+            let markers = ["attack", "besieg", "concern", "crack", "damp", "danger", "declin", "decreas", "delay", "deplet", "difficult", "dip", "disrupt", "distract", "draft", "drop", "enemy", "hazard", "invasion", "issue", "leak", "less", "loose", "loss", "lower", "problem", "raid", "scarce", "setback", "shortage", "shortfall", "siege", "slip", "strain", "struggl", "tension", "threat", "trouble", "uncertain", "unease", "unsett", "warband", "weaken", "worry"]
             if !markers.contains(where: { summary.lowercased().contains($0) }) {
-                let addition = "A small recoverable setback needs attention."
+                let addition = "An unresolved threat demands the dragon's attention."
                 var words = summary.split(whereSeparator: \.isWhitespace).map(String.init)
                 while !words.isEmpty, words.joined(separator: " ").count + 1 + addition.count > 240 { words.removeLast() }
                 summary = words.isEmpty ? addition : words.joined(separator: " ") + " " + addition
@@ -548,7 +548,7 @@ actor FoundationModelClient {
             return !positiveOppositeMarkers.contains(where: text.contains)
         }
         let text = "\(title) \(narration) \(summary)".lowercased()
-        let setback = ["cold", "concern", "crack", "damp", "declin", "decreas", "delay", "deplet", "difficult", "dim", "dip", "disrupt", "distract", "draft", "drop", "dwindl", "expired", "failed", "flicker", "hazard", "issue", "leak", "less", "loose", "loss", "lower", "missed", "problem", "reduc", "scarce", "setback", "shortage", "shortfall", "slip", "spoiled", "strain", "struggl", "stumble", "tension", "tired", "trouble", "uncertain", "unease", "unfinished", "unsett", "weaken", "worry"]
+        let setback = ["attack", "besieg", "cold", "concern", "crack", "damp", "danger", "declin", "decreas", "delay", "deplet", "difficult", "dim", "dip", "disrupt", "distract", "draft", "drop", "dwindl", "enemy", "expired", "failed", "flicker", "hazard", "invasion", "issue", "leak", "less", "loose", "loss", "lower", "missed", "problem", "raid", "reduc", "scarce", "setback", "shortage", "shortfall", "siege", "slip", "spoiled", "strain", "struggl", "stumble", "tension", "threat", "tired", "trouble", "uncertain", "unease", "unfinished", "unsett", "warband", "weaken", "worry"]
         return !negativeOppositeMarkers.contains(where: text.contains)
             && setback.contains(where: narration.lowercased().contains)
             && setback.contains(where: summary.lowercased().contains)
@@ -592,10 +592,10 @@ actor FoundationModelClient {
         var summary = rewrite(content.summary)
         if cannedNarration || !matchesValence(title: title, narration: narration, summary: summary, valence: .negative) {
             let label = safeGoalLabel(sourceTitle, avoiding: negativeOppositeMarkers)
-            let suffix = " — A Small Setback"
+            let suffix = " — A Dire Setback"
             title = String(label.prefix(max(1, 70 - suffix.count))) + suffix
-            narration = "Missing \(label) leaves a small, recoverable delay in the vault. The kobolds can address the setback next time."
-            summary = "Missing \(label) creates a small, recoverable setback."
+            narration = "Missing \(label) leaves the vault exposed to a dangerous threat. The dragon must answer the consequence."
+            summary = "Missing \(label) creates a consequential setback."
         }
         return ModelStoryFields(
             title: boundedText(title, limit: 70),
@@ -670,7 +670,7 @@ enum ModelClientError: Error, LocalizedError {
         case .invalidCue: "The animation cue was not permitted."
         case .textTooLong: "A narrative field exceeded its bound."
         case .unsafeNarrative: "Narrative text contained executable or authority-like markup."
-        case .valenceMismatch: "The narrative did not explicitly describe a small recoverable setback for an expired or missed goal; rewrite it with a clear minor problem, loss, decline, delay, draft, shortage, or disruption and no benefit."
+        case .valenceMismatch: "The narrative did not clearly describe a negative outcome for an expired or missed goal; rewrite it with a clear problem, loss, danger, threat, or conflict and no benefit."
         case .evaluationRejected: "The evaluation hook rejected the first patch."
         case .contextOverflow: "The bounded story projection does not fit the model context."
         case .timeout: "Generation exceeded the 60-second limit."

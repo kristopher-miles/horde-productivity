@@ -119,6 +119,16 @@ struct ProductExperienceTests {
         #expect(try upperBound("world.food") - world.food == 100)
     }
 
+    @Test func cleanWorldContainsNoSeededTutorialThreat() throws {
+        let save = GameSaveRecord(dragonName: "Ember")
+        let text = String(decoding: save.worldData, as: UTF8.self)
+        let world = try PersistentJSON.decode(WorldSnapshot.self, from: save.worldData)
+
+        #expect(!text.localizedCaseInsensitiveContains("A Draft in the West " + "Passage"))
+        #expect(!text.localizedCaseInsensitiveContains("harmless"))
+        #expect(world.activeThreads.isEmpty)
+    }
+
     @Test func startingLairIsUntamedInPersistenceModelContextAndAccessibility() throws {
         let world = WorldSnapshot.initial(dragonName: "Cinder")
         let location = try #require(world.locations.first)

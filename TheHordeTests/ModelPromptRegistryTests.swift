@@ -84,6 +84,20 @@ struct ModelPromptRegistryTests {
         #expect(rendered == "GOAL <user-goal>literal {{history}} marker</user-goal>")
     }
 
+    @Test func legacyContractPermitsConsequentialEpicFantasyThreats() {
+        let threatComponents: [ModelPromptComponentID] = [
+            .legacySystemInstructions, .legacyNegativeOutcomeRule, .legacyThreadDescriptor,
+            .legacyNegativeTitleGuide, .legacyNegativeNarrationGuide, .legacyNegativeSummaryGuide
+        ]
+        let text = threatComponents.map { ModelPromptRegistry.text($0) }.joined(separator: " ")
+
+        #expect(HordeModelContract.promptVersion == 36)
+        #expect(text.localizedCaseInsensitiveContains("consequential"))
+        #expect(text.localizedCaseInsensitiveContains("epic-fantasy threat"))
+        #expect(!text.localizedCaseInsensitiveContains("no threats"))
+        #expect(!text.localizedCaseInsensitiveContains("recoverable"))
+    }
+
     private func assertStage(_ stage: ModelRequestStageID, contains ids: Set<ModelPromptComponentID>) {
         #expect(Set(ModelPromptRegistry.components(for: stage).map(\.id)) == ids)
     }

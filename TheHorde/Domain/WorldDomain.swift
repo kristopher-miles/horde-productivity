@@ -164,7 +164,7 @@ enum WorldPatchError: Error, Equatable, LocalizedError {
         case .duplicateRecord(let id): "Record \(id) already exists."
         case .invalidRecord(let id): "Record \(id) is malformed."
         case .invalidReference(let id): "Record \(id) refers to an unknown entity."
-        case .catastrophicNegative: "Negative events must remain small and recoverable."
+        case .catastrophicNegative: "The negative change exceeds the current authorized mutation budget."
         }
     }
 }

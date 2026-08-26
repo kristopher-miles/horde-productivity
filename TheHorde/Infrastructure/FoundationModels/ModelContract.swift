@@ -1,7 +1,7 @@
 import Foundation
 
 enum HordeModelContract {
-    static let promptVersion = 35
+    static let promptVersion = 36
     static let schemaVersion = 5
     static let projectionVersion = 12
 

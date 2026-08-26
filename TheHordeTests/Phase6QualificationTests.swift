@@ -148,7 +148,40 @@ struct Phase6QualificationTests {
         _ = try await secondStager.stage(arguments: titleOnlyMarker)
         let secondSnapshot = await secondStager.snapshot()
         let secondRecord = secondSnapshot.0.first?.record
-        #expect(secondRecord?.summary.localizedCaseInsensitiveContains("setback") == true)
+        #expect(secondRecord?.summary.localizedCaseInsensitiveContains("threat") == true)
+        #expect(secondRecord?.summary.localizedCaseInsensitiveContains("small") == false)
+        #expect(secondRecord?.summary.localizedCaseInsensitiveContains("recoverable") == false)
+    }
+
+    @Test func consequentialThreatPassesQualificationAndWorldValidationUnsoftened() async throws {
+        let world = WorldSnapshot.initial()
+        let descriptors = WorldContract.descriptors(for: .negative, world: world)
+        let stager = PatchStager(world: world, valence: .negative, descriptors: descriptors)
+        let threat = "An enemy warband lays siege to the Empty Cavern and vows to seize it."
+        let arguments = StageMutationArguments(fieldID: "world.activeThreads", operation: "append", integerValue: 0, recordID: "warband-siege", recordTitle: "Warband at the Gate", recordSummary: threat, severityOrRank: 2, involvedEntityIDs: ["dragon", "empty-cavern"])
+
+        _ = try await stager.stage(arguments: arguments)
+        let mutation = try #require(await stager.snapshot().0.first)
+        #expect(mutation.record?.summary == threat)
+        let applied = try WorldPatchValidator.applying([mutation], to: world, valence: .negative, descriptors: descriptors)
+        #expect(applied.0.activeThreads.first?.summary == threat)
+
+        let story = ModelStoryFields(title: "Warband at the Gate", narration: threat, summary: "Enemy warband threatens the cavern.", cue: "concern", receiptID: "receipt")
+        let qualified = await FoundationModelClient().qualifiedNarrative(story, valence: .negative, sourceTitle: "Miss the watch")
+        #expect(qualified.title == story.title)
+        #expect(qualified.narration == story.narration)
+        #expect(qualified.summary == story.summary)
+    }
+
+    @Test func unrecognizedThreatVocabularyFallsBackWithoutHarmlessPadding() async {
+        let story = ModelStoryFields(title: "Black Banners", narration: "Black banners gather beyond the cavern mouth.", summary: "Armored foes mass beyond the boundary.", cue: "concern", receiptID: "receipt")
+        let qualified = await FoundationModelClient().qualifiedNarrative(story, valence: .negative, sourceTitle: "Miss the watch")
+        let text = "\(qualified.title) \(qualified.narration) \(qualified.summary)"
+
+        #expect(text.localizedCaseInsensitiveContains("dangerous threat"))
+        #expect(!text.localizedCaseInsensitiveContains("small"))
+        #expect(!text.localizedCaseInsensitiveContains("recoverable"))
+        #expect(!WorldPatchError.catastrophicNegative.localizedDescription.localizedCaseInsensitiveContains("recoverable"))
     }
 
     @Test func cannedDraftNarrationIsQualifiedForBothValences() async {
@@ -162,7 +195,7 @@ struct Phase6QualificationTests {
 
         let negative = await client.qualifiedNarrative(raw, valence: .negative, sourceTitle: "Wash the dishes")
         #expect(negative.narration.localizedCaseInsensitiveContains("wash the dishes") == true)
-        #expect(negative.narration.localizedCaseInsensitiveContains("setback") == true)
+        #expect(negative.narration.localizedCaseInsensitiveContains("dangerous threat") == true)
         #expect(negative.summary.localizedCaseInsensitiveContains("setback") == true)
 
         let expandingSummary = "A draft needs attention. " + String(repeating: "Care ", count: 25) + "repair."
