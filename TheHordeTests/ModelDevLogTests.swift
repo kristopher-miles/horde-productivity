@@ -115,8 +115,57 @@ struct ModelDevLogTests {
         #expect(entries.last?.errorText == "receipt mismatch")
     }
 
+    @Test func browserSearchLocatesEveryStageAndRetryForOneResolution() {
+        let resolutionEntries = [
+            makeEntry(id: "effort", eventID: "resolution-A", goalTitle: "Defeat the dragon", stage: .effortEvaluation),
+            makeEntry(id: "suggestion", eventID: "resolution-A", goalTitle: "Defeat the dragon", stage: .actionSuggestion),
+            makeEntry(id: "custom", eventID: "resolution-A", goalTitle: "Defeat the dragon", stage: .customActionInterpretation),
+            makeEntry(id: "prose-1", eventID: "resolution-A", goalTitle: "Defeat the dragon", stage: .finalProse, attempt: 1, outcome: .failed),
+            makeEntry(id: "prose-2", eventID: "resolution-A", goalTitle: "Defeat the dragon", stage: .finalProse, attempt: 2)
+        ]
+        let entries = resolutionEntries + [makeEntry(id: "other", eventID: "resolution-B", goalTitle: "Other goal")]
+
+        let matches = ModelDevLogBrowserContent.filtered(entries, query: "resolution-a")
+
+        #expect(matches.map(\.id) == resolutionEntries.map(\.id))
+        #expect(Set(matches.map(\.stage)) == Set([
+            .effortEvaluation,
+            .actionSuggestion,
+            .customActionInterpretation,
+            .finalProse
+        ]))
+        #expect(ModelDevLogBrowserContent.filtered(entries, query: "Attempt 2").map(\.id) == ["prose-2"])
+        #expect(ModelDevLogBrowserContent.filtered(entries, query: "Final Prose").map(\.id) == ["prose-1", "prose-2"])
+        #expect(ModelDevLogBrowserContent.filtered(entries, query: "failed").map(\.id) == ["prose-1"])
+    }
+
+    @Test func detailCompositionPreservesEveryStoredTextExactly() throws {
+        let entry = makeEntry(
+            instructions: "  instructions\n🐉\u{0000}",
+            prompt: "prompt\r\nwith trailing space ",
+            request: "{\"request\":\"exact\\ntext\"}",
+            response: "{\"response\":\"café\"}",
+            material: "{\"toolCall\":true}",
+            transcript: "[\"exact transcript\"]",
+            error: "failure details"
+        )
+
+        let sections = Dictionary(uniqueKeysWithValues: ModelDevLogBrowserContent.textSections(for: entry).map { ($0.title, $0.text) })
+
+        #expect(try #require(sections["Full Request"]) == entry.requestText)
+        #expect(try #require(sections["Raw Response"]) == entry.responseText)
+        #expect(try #require(sections["Response Material"]) == entry.responseMaterial)
+        #expect(try #require(sections["Instructions"]) == entry.instructionsText)
+        #expect(try #require(sections["Prompt"]) == entry.promptText)
+        #expect(try #require(sections["Attempt Transcript"]) == entry.attemptTranscript)
+        #expect(try #require(sections["Error"]) == entry.errorText)
+    }
+
     private func makeEntry(
         id: String = "entry",
+        eventID: String = "event",
+        goalTitle: String = "Goal",
+        stage: ModelRequestStageID = .legacyConsequence,
         attempt: Int = 1,
         outcome: ModelAttemptOutcome = .succeeded,
         instructions: String = "instructions",
@@ -124,14 +173,15 @@ struct ModelDevLogTests {
         request: String? = "request material",
         response: String? = "response",
         material: String? = "response material",
+        transcript: String? = "attempt transcript",
         error: String? = nil
     ) -> ModelDevLogEntry {
         ModelDevLogEntry(
             id: id,
             timestamp: Date(timeIntervalSince1970: Double(attempt)),
-            eventID: "event",
-            goalTitle: "Goal",
-            stage: .legacyConsequence,
+            eventID: eventID,
+            goalTitle: goalTitle,
+            stage: stage,
             attempt: attempt,
             outcome: outcome,
             instructionsText: instructions,
@@ -139,7 +189,7 @@ struct ModelDevLogTests {
             requestText: request,
             responseText: response,
             responseMaterial: material,
-            attemptTranscript: "attempt transcript",
+            attemptTranscript: transcript,
             errorText: error
         )
     }

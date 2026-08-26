@@ -90,8 +90,7 @@ private struct DeveloperSurfaceView: View {
             case .promptEditor:
                 ModelPromptEditorView()
             case .modelLogs:
-                ContentUnavailableView(surface.title, systemImage: surface.systemImage, description: Text("This developer surface is ready for its implementation."))
-                    .navigationTitle(surface.title)
+                ModelDevLogBrowserView()
             }
         } else {
             ContentUnavailableView("Developer Mode Off", systemImage: "lock")
