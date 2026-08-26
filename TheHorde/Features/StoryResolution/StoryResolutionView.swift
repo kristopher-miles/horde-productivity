@@ -5,6 +5,8 @@ enum StoryResolutionPhase: Equatable {
     case suggestion(String)
     case accepting(String)
     case customActionEntry(String)
+    case interpretingCustomAction(String)
+    case interpretedActionReady
     case accepted(String)
     case committed(ChronicleSummary)
     case failed(String)
@@ -19,6 +21,17 @@ enum StoryResolutionPhase: Equatable {
                   let action = try? ActionSuggestionModelContract.validatedAction(suggestion),
                   state.acceptedAction == action else { return .failed("persistenceFailure") }
             return .accepted(action)
+        }
+        if state.stage == .interpretedActionReview,
+           state.effort != nil,
+           state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+           state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
+           let suggestion = state.suggestedAction,
+           (try? ActionSuggestionModelContract.validatedAction(suggestion)) != nil,
+           state.customAction != nil,
+           let interpretation = state.interpretedAction,
+           (try? CustomActionModelContract.validatedAction(interpretation)) != nil {
+            return .interpretedActionReady
         }
         if state.stage == .customActionEntry,
            state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
@@ -35,9 +48,25 @@ enum StoryResolutionPhase: Equatable {
         return event.status == .failedRetryable ? .failed(event.failureCode ?? "modelFailure") : .loading
     }
 
+    static func customActionDraft(opening event: PendingStorySummary) -> String {
+        event.resolutionState?.customAction ?? ""
+    }
+
     mutating func openCustomActionEntry() {
         guard case .suggestion(let action) = self else { return }
         self = .customActionEntry(action)
+    }
+
+    mutating func beginInterpreting(customAction: String) -> String? {
+        guard case .customActionEntry(let suggestion) = self,
+              !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        self = .interpretingCustomAction(suggestion)
+        return customAction
+    }
+
+    mutating func returnToSuggestion() {
+        guard case .customActionEntry(let suggestion) = self else { return }
+        self = .suggestion(suggestion)
     }
 }
 
@@ -46,6 +75,9 @@ enum StoryResolutionAccessibility {
     static let acceptSuggestion = "StoryResolution.AcceptSuggestion"
     static let customAction = "StoryResolution.CustomAction"
     static let customActionEntry = "StoryResolution.CustomActionEntry"
+    static let interpretCustomAction = "StoryResolution.InterpretCustomAction"
+    static let interpretingCustomAction = "StoryResolution.InterpretingCustomAction"
+    static let interpretedActionReady = "StoryResolution.InterpretedActionReady"
     static let backToSuggestion = "StoryResolution.BackToSuggestion"
     static let retrySuggestion = "StoryResolution.RetrySuggestion"
     static let close = "StoryResolution.Close"
@@ -56,10 +88,13 @@ struct StoryResolutionView: View {
     @Environment(\.dismiss) private var dismiss
     let event: PendingStorySummary
     @State private var phase: StoryResolutionPhase
+    @State private var customAction: String
+    @FocusState private var customActionFocused: Bool
 
     init(event: PendingStorySummary) {
         self.event = event
         _phase = State(initialValue: .opening(event))
+        _customAction = State(initialValue: StoryResolutionPhase.customActionDraft(opening: event))
     }
 
     var body: some View {
@@ -72,6 +107,8 @@ struct StoryResolutionView: View {
                     case .suggestion(let action): suggestionView(action)
                     case .accepting(let action): acceptingView(action)
                     case .customActionEntry(let action): customActionEntry(action)
+                    case .interpretingCustomAction: interpretingCustomActionView
+                    case .interpretedActionReady: interpretedActionReadyView
                     case .accepted(let action): acceptedView(action)
                     case .committed(let result): committedView(result)
                     case .failed(let code): failureView(code)
@@ -135,14 +172,49 @@ struct StoryResolutionView: View {
     private func customActionEntry(_ suggestion: String) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Label("Write your own action", systemImage: "square.and.pencil").font(.largeTitle.bold())
-            Text("Custom action entry is the next step. The suggestion has not been accepted, and the dungeon is unchanged.")
-            Button("Back to Suggestion") { phase = .suggestion(suggestion) }
+            Text("Describe what the dragon should do. Your exact text will be interpreted before you review it.")
+            TextEditor(text: $customAction)
+                .frame(minHeight: 120)
+                .padding(8)
+                .background(.background, in: RoundedRectangle(cornerRadius: DesignTokens.radius))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.radius).stroke(.secondary.opacity(0.4)))
+                .focused($customActionFocused)
+                .accessibilityIdentifier(StoryResolutionAccessibility.customActionEntry)
+                .accessibilityLabel("Custom story action")
+                .accessibilityHint("Enter the action to interpret. Your text is submitted exactly as written.")
+            Button("Interpret Action") { submitCustomAction() }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .disabled(customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier(StoryResolutionAccessibility.interpretCustomAction)
+                .accessibilityHint("Submits this exact text for interpretation without accepting an action or changing the dungeon.")
+            Button("Back to Suggestion") { phase.returnToSuggestion() }
                 .keyboardShortcut("[", modifiers: .command)
                 .accessibilityIdentifier(StoryResolutionAccessibility.backToSuggestion)
                 .accessibilityHint("Returns without accepting or submitting an action.")
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(StoryResolutionAccessibility.customActionEntry)
+        .onAppear { customActionFocused = true }
+    }
+
+    private var interpretingCustomActionView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ProgressView().controlSize(.large)
+            Text("Interpreting your action…").font(.title2.bold())
+            Text("No story or dungeon change is being generated yet.")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(StoryResolutionAccessibility.interpretingCustomAction)
+    }
+
+    private var interpretedActionReadyView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Action ready for review", systemImage: "checkmark.circle").font(.title2.bold())
+            Text("Your action was interpreted. Nothing has been accepted, and the dungeon remains unchanged.")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(StoryResolutionAccessibility.interpretedActionReady)
     }
 
     private func acceptedView(_ action: String) -> some View {
@@ -191,6 +263,17 @@ struct StoryResolutionView: View {
         switch await app.acceptSuggestedAction(eventID: event.id) {
         case .accepted(let accepted): phase = .accepted(accepted)
         case .failed(let code): phase = .failed(code)
+        }
+    }
+
+    private func submitCustomAction() {
+        guard let exactAction = phase.beginInterpreting(customAction: customAction),
+              case .interpretingCustomAction(let suggestion) = phase else { return }
+        Task {
+            switch await app.interpretCustomAction(eventID: event.id, customAction: exactAction) {
+            case .interpreted: phase = .interpretedActionReady
+            case .failed: phase = .customActionEntry(suggestion)
+            }
         }
     }
 

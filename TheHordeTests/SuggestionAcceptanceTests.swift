@@ -154,6 +154,12 @@ struct SuggestionAcceptanceTests {
         #expect(phase == .suggestion("Map the ember tunnels"))
         phase.openCustomActionEntry()
         #expect(phase == .customActionEntry("Map the ember tunnels"))
+        phase.returnToSuggestion()
+        #expect(phase == .suggestion("Map the ember tunnels"))
+        phase.openCustomActionEntry()
+        let exactAction = "  Circle the lower vault\nby torchlight  "
+        #expect(phase.beginInterpreting(customAction: exactAction) == exactAction)
+        #expect(phase == .interpretingCustomAction("Map the ember tunnels"))
         let unchanged = try #require(await store.pendingStories().first { $0.id == eventID })
         #expect(unchanged.resolutionState?.stage == .actionSuggestion)
         #expect(unchanged.resolutionState?.acceptedAction == nil)
@@ -165,12 +171,54 @@ struct SuggestionAcceptanceTests {
             StoryResolutionAccessibility.acceptSuggestion,
             StoryResolutionAccessibility.customAction,
             StoryResolutionAccessibility.customActionEntry,
+            StoryResolutionAccessibility.interpretCustomAction,
+            StoryResolutionAccessibility.interpretingCustomAction,
+            StoryResolutionAccessibility.interpretedActionReady,
             StoryResolutionAccessibility.backToSuggestion,
             StoryResolutionAccessibility.retrySuggestion,
             StoryResolutionAccessibility.close
         ]
         #expect(Set(identifiers).count == identifiers.count)
         #expect(identifiers.allSatisfy { $0.hasPrefix("StoryResolution.") })
+    }
+
+    @Test func customActionPhaseRejectsOnlyWhitespaceAndRestoresPersistedStages() async throws {
+        var phase = StoryResolutionPhase.customActionEntry("Map the ember tunnels")
+        #expect(phase.beginInterpreting(customAction: " \n\t ") == nil)
+        #expect(phase == .customActionEntry("Map the ember tunnels"))
+
+        let store = HordeStore(modelContainer: try HordeStore.makeContainer(inMemory: true))
+        try await store.bootstrapForProof()
+        var draft = GoalDraft(title: "Map the ember tunnels")
+        draft.effort = .small
+        let definitionID = try await store.createGoal(draft)
+        let occurrence = try #require(await store.definitionSummary(id: definitionID)?.history.first)
+        try await store.completeOccurrence(id: occurrence.id)
+        let eventID = occurrence.id + ":positive"
+        try await store.checkpointEffort(eventID: eventID, result: EffortEvaluationResult(
+            effort: ResolutionEffort(rating: .one, source: .userSelected),
+            comparisonHistoryIDs: [],
+            promptVersion: nil
+        ))
+        try await store.checkpointSuggestion(eventID: eventID, result: ActionSuggestionResult(
+            action: "Map the ember tunnels",
+            promptVersion: ActionSuggestionModelContract.promptVersion
+        ))
+        let exactAction = "  Circle the lower vault\nby torchlight  "
+        try await store.checkpointCustomActionEntry(eventID: eventID, customAction: exactAction)
+        let savedDraft = try #require(await store.pendingStories().first { $0.id == eventID })
+        #expect(savedDraft.resolutionState?.customAction == exactAction)
+        #expect(StoryResolutionPhase.opening(savedDraft) == .customActionEntry("Map the ember tunnels"))
+        #expect(StoryResolutionPhase.customActionDraft(opening: savedDraft) == exactAction)
+
+        try await store.checkpointInterpretation(eventID: eventID, result: CustomActionInterpretationResult(
+            action: "Circle the lower vault",
+            promptVersion: CustomActionModelContract.promptVersion
+        ))
+        let interpreted = try #require(await store.pendingStories().first { $0.id == eventID })
+        #expect(StoryResolutionPhase.opening(interpreted) == .interpretedActionReady)
+        #expect(interpreted.resolutionState?.acceptedAction == nil)
+        #expect(try await store.chronicle().isEmpty)
     }
 }
 
