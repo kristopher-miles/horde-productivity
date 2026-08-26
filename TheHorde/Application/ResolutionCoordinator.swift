@@ -15,6 +15,11 @@ enum ActionAcceptanceOutcome: Sendable, Equatable {
     case failed(code: String)
 }
 
+enum AcceptedActionFinalProseOutcome: Sendable, Equatable {
+    case generated(action: String, prose: String)
+    case failed(code: String)
+}
+
 enum CustomActionInterpretationOutcome: Sendable, Equatable {
     case interpreted(String)
     case failed(code: String)
@@ -86,6 +91,16 @@ actor ResolutionCoordinator {
         } catch {
             return .failed(code: classify(error))
         }
+    }
+
+    func acceptSuggestedActionAndGenerateFinalProse(eventID: String) async -> AcceptedActionFinalProseOutcome {
+        let acceptance = await acceptSuggestedAction(eventID: eventID)
+        return await generateFinalProse(after: acceptance, eventID: eventID)
+    }
+
+    func acceptInterpretedActionAndGenerateFinalProse(eventID: String) async -> AcceptedActionFinalProseOutcome {
+        let acceptance = await acceptInterpretedAction(eventID: eventID)
+        return await generateFinalProse(after: acceptance, eventID: eventID)
     }
 
     func reviseCustomAction(eventID: String) async -> CustomActionRevisionOutcome {
@@ -319,6 +334,21 @@ actor ResolutionCoordinator {
             let result = try await group.next()!
             group.cancelAll()
             return result
+        }
+    }
+
+    private func generateFinalProse(
+        after acceptance: ActionAcceptanceOutcome,
+        eventID: String
+    ) async -> AcceptedActionFinalProseOutcome {
+        switch acceptance {
+        case .failed(let code):
+            return .failed(code: code)
+        case .accepted(let action):
+            switch await generateFinalProse(eventID: eventID) {
+            case .generated(let prose): return .generated(action: action, prose: prose)
+            case .failed(let code): return .failed(code: code)
+            }
         }
     }
 }

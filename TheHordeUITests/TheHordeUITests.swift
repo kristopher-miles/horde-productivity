@@ -1,6 +1,16 @@
 import XCTest
 
 final class TheHordeUITests: XCTestCase {
+    private enum StoryResolutionID {
+        static let state = "StoryResolution.State"
+        static let suggestion = "StoryResolution.Suggestion"
+        static let close = "StoryResolution.Close"
+        static let customAction = "StoryResolution.CustomAction"
+        static let customActionEntry = "StoryResolution.CustomActionEntry"
+        static let backToSuggestion = "StoryResolution.BackToSuggestion"
+        static let acceptSuggestion = "StoryResolution.AcceptSuggestion"
+    }
+
     override func setUpWithError() throws { continueAfterFailure = false }
 
     @MainActor func testFirstUsefulFlowAndGoalManagementAreReachable() throws {
@@ -135,7 +145,48 @@ final class TheHordeUITests: XCTestCase {
         XCTAssertTrue(failure.buttons["Try Again"].isHittable)
     }
 
-    @MainActor func testOneRealModelGoalToChronicleFlow() throws {
+    @MainActor func testExplicitAcceptanceGatePreservesVisibleStateUntilAcceptance() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["HORDE_BYPASS_COMPATIBILITY"] = "1"
+        app.launchEnvironment["HORDE_AUTOMATE_ONBOARDING"] = "1"
+        app.launchEnvironment["HORDE_RESET_UI_STATE"] = "1"
+        app.launchEnvironment["HORDE_RF08_UI_FIXTURE"] = "1"
+        app.launch()
+
+        let state = app.descendants(matching: .any)[StoryResolutionID.state]
+        let suggestion = app.staticTexts[StoryResolutionID.suggestion]
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
+        let baseline = try XCTUnwrap(state.value as? String)
+        XCTAssertTrue(baseline.contains("Chronicle entries 0"))
+        XCTAssertTrue(baseline.contains("Accepted action none"))
+
+        app.buttons[StoryResolutionID.close].tap()
+        XCTAssertTrue(app.tabBars.buttons["Today"].waitForExistence(timeout: 3))
+        app.tabBars.buttons["Chronicle"].tap()
+        XCTAssertTrue(app.staticTexts["No tales yet"].waitForExistence(timeout: 3))
+        app.tabBars.buttons["Today"].tap()
+        element(containing: "Story pending", in: app).tap()
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 3))
+        XCTAssertEqual(state.value as? String, baseline)
+
+        app.buttons[StoryResolutionID.customAction].tap()
+        let editor = app.textViews[StoryResolutionID.customActionEntry]
+        XCTAssertTrue(editor.waitForExistence(timeout: 3))
+        editor.tap()
+        editor.typeText("Circle the vault at dawn")
+        app.buttons[StoryResolutionID.backToSuggestion].tap()
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 3))
+        XCTAssertEqual(state.value as? String, baseline)
+
+        app.buttons[StoryResolutionID.acceptSuggestion].tap()
+        XCTAssertTrue(app.staticTexts["Final narration"].waitForExistence(timeout: 10))
+        let accepted = try XCTUnwrap(state.value as? String)
+        XCTAssertTrue(accepted.contains("Dungeon revision 0"))
+        XCTAssertTrue(accepted.contains("Chronicle entries 0"))
+        XCTAssertTrue(accepted.contains("Accepted action Guard the ember vault"))
+    }
+
+    @MainActor func testOneRealModelGoalReachesExplicitActionReview() throws {
         let app = launch()
         app.buttons["Add"].firstMatch.tap()
         let title = app.textFields["Goal title, required"]
@@ -143,18 +194,17 @@ final class TheHordeUITests: XCTestCase {
         title.typeText("File the workshop notes")
         app.navigationBars["Add Goal"].buttons["Add"].tap()
         app.buttons["Complete File the workshop notes"].tap()
-        XCTAssertTrue(app.navigationBars["Dungeon Consequence"].waitForExistence(timeout: 5))
-        let committed = app.buttons["Continue"]
+        XCTAssertTrue(app.navigationBars["Choose an Action"].waitForExistence(timeout: 5))
+        let suggestion = app.buttons[StoryResolutionID.acceptSuggestion]
         let failed = app.staticTexts["No dungeon change was applied"]
-        let finished = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in committed.exists || failed.exists }, object: nil)
+        let finished = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in suggestion.exists || failed.exists }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 70), .completed)
         if failed.exists {
             app.buttons["Retry"].tap()
-            XCTAssertTrue(committed.waitForExistence(timeout: 70))
+            XCTAssertTrue(suggestion.waitForExistence(timeout: 70))
         }
-        committed.tap()
-        app.tabBars.buttons["Chronicle"].tap()
-        XCTAssertTrue(app.staticTexts["File the workshop notes"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons[StoryResolutionID.customAction].exists)
+        XCTAssertTrue(app.buttons[StoryResolutionID.close].exists)
     }
 
     @MainActor private func launch(scenario: String? = nil, contentSize: String? = nil) -> XCUIApplication {

@@ -25,7 +25,7 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
     var exportURL: URL?
     var errorMessage: String?
     var notificationPermissionOccurrence: GoalOccurrenceSummary?
-    private let modelClient = FoundationModelClient()
+    private let modelClient = AppModel.makeModelClient()
     private var store: HordeStore?
     private var coordinator: ResolutionCoordinator?
     private var started = false
@@ -86,7 +86,13 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
                 #endif
                 if onboardingComplete {
                     try await store?.bootstrapForProof()
+                    #if DEBUG
+                    if Self.rf08UIFixtureEnabled { try await prepareRF08UIFixture() }
+                    #endif
                     try await reconcileAndReload()
+                    #if DEBUG
+                    if Self.rf08UIFixtureEnabled { presentedResolution = pendingStories.first }
+                    #endif
                 }
                 rootReady = true
             } catch {
@@ -209,17 +215,17 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
         return outcome
     }
 
-    func acceptSuggestedAction(eventID: String) async -> ActionAcceptanceOutcome {
+    func acceptSuggestedAction(eventID: String) async -> AcceptedActionFinalProseOutcome {
         guard let coordinator else { return .failed(code: "persistenceFailure") }
-        let outcome = await coordinator.acceptSuggestedAction(eventID: eventID)
+        let outcome = await coordinator.acceptSuggestedActionAndGenerateFinalProse(eventID: eventID)
         await reload()
         presentedResolution = pendingStories.first { $0.id == eventID }
         return outcome
     }
 
-    func acceptInterpretedAction(eventID: String) async -> ActionAcceptanceOutcome {
+    func acceptInterpretedAction(eventID: String) async -> AcceptedActionFinalProseOutcome {
         guard let coordinator else { return .failed(code: "persistenceFailure") }
-        let outcome = await coordinator.acceptInterpretedAction(eventID: eventID)
+        let outcome = await coordinator.acceptInterpretedActionAndGenerateFinalProse(eventID: eventID)
         await reload()
         presentedResolution = pendingStories.first { $0.id == eventID }
         return outcome
@@ -316,6 +322,40 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
     }
 
     #if DEBUG
+    private nonisolated static var rf08UIFixtureEnabled: Bool {
+        ProcessInfo.processInfo.environment["HORDE_RF08_UI_FIXTURE"] == "1"
+    }
+
+    private nonisolated static func makeModelClient() -> FoundationModelClient {
+        guard rf08UIFixtureEnabled else { return FoundationModelClient() }
+        let prose = (["The", "dragon", "guards", "the", "ember", "vault"]
+            + Array(repeating: "steadfastly", count: 44)).joined(separator: " ")
+        return FoundationModelClient(
+            finalProseResponseOverride: { _, _ in prose },
+            compatibilityOverride: .available
+        )
+    }
+
+    private func prepareRF08UIFixture() async throws {
+        guard let store else { throw StoreError.invalidResolutionState }
+        let eventID = "rf08-ui-event"
+        try await store.insertProofEvent(
+            id: eventID,
+            occurrenceID: "rf08-ui-occurrence",
+            title: "Guard the ember vault",
+            valence: .positive
+        )
+        try await store.checkpointEffort(eventID: eventID, result: EffortEvaluationResult(
+            effort: ResolutionEffort(rating: .two, source: .userSelected),
+            comparisonHistoryIDs: [],
+            promptVersion: nil
+        ))
+        try await store.checkpointSuggestion(eventID: eventID, result: ActionSuggestionResult(
+            action: "Guard the ember vault",
+            promptVersion: ActionSuggestionModelContract.promptVersion
+        ))
+    }
+
     private nonisolated static var productVerificationFixture: ProductVerificationFixture? {
         ProcessInfo.processInfo.environment["HORDE_PRODUCT_SCENARIO"].flatMap(ProductVerificationFixture.named)
     }
@@ -330,6 +370,12 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
         case "unknown": .unknown
         default: nil
         }
+    }
+    #endif
+
+    #if !DEBUG
+    private nonisolated static func makeModelClient() -> FoundationModelClient {
+        FoundationModelClient()
     }
     #endif
 

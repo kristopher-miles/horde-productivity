@@ -8,6 +8,7 @@ enum StoryResolutionPhase: Equatable {
     case interpretingCustomAction(String)
     case interpretedActionReady(String)
     case accepted(String)
+    case finalProse(action: String, prose: String)
     case committed(ChronicleSummary)
     case failed(String)
 
@@ -15,26 +16,20 @@ enum StoryResolutionPhase: Equatable {
         guard let state = event.resolutionState else {
             return event.status == .failedRetryable ? .failed(event.failureCode ?? "modelFailure") : .loading
         }
+        if state.stage == .finalProse {
+            guard let action = authoritativeAcceptedAction(in: state),
+                  state.promptVersions.finalProse == FinalProseModelContract.promptVersion,
+                  let prose = state.finalProse,
+                  (try? FinalProseModelContract.validatedProse(prose)) == prose,
+                  state.finalResult == nil else { return .failed("persistenceFailure") }
+            return .finalProse(action: action, prose: prose)
+        }
         if state.stage == .actionAccepted {
-            guard hasCurrentEffort(state),
-                  state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
-                  let suggestion = state.suggestedAction,
-                  (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+            guard let action = authoritativeAcceptedAction(in: state),
                   state.promptVersions.finalProse == nil,
                   state.finalProse == nil,
                   state.finalResult == nil else { return .failed("persistenceFailure") }
-            if let customAction = state.customAction {
-                guard !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                      state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
-                      let interpretation = state.interpretedAction,
-                      (try? CustomActionModelContract.validatedAction(interpretation)) == interpretation,
-                      state.acceptedAction == interpretation else { return .failed("persistenceFailure") }
-                return .accepted(interpretation)
-            }
-            guard state.interpretedAction == nil,
-                  state.promptVersions.interpretation == nil,
-                  state.acceptedAction == suggestion else { return .failed("persistenceFailure") }
-            return .accepted(suggestion)
+            return .accepted(action)
         }
         if state.stage == .interpretedActionReview,
            hasCurrentEffort(state),
@@ -110,6 +105,26 @@ enum StoryResolutionPhase: Equatable {
             : state.promptVersions.effort == EffortModelContract.promptVersion
     }
 
+    private static func authoritativeAcceptedAction(in state: StagedResolutionState) -> String? {
+        guard hasCurrentEffort(state),
+              state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+              let suggestion = state.suggestedAction,
+              (try? ActionSuggestionModelContract.validatedAction(suggestion)) == suggestion,
+              let acceptedAction = state.acceptedAction else { return nil }
+        if let customAction = state.customAction {
+            guard !customAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  state.promptVersions.interpretation == CustomActionModelContract.promptVersion,
+                  let interpretation = state.interpretedAction,
+                  (try? CustomActionModelContract.validatedAction(interpretation)) == interpretation,
+                  acceptedAction == interpretation else { return nil }
+            return acceptedAction
+        }
+        guard state.interpretedAction == nil,
+              state.promptVersions.interpretation == nil,
+              acceptedAction == suggestion else { return nil }
+        return acceptedAction
+    }
+
     private static func hasCurrentOrPendingEffort(_ state: StagedResolutionState) -> Bool {
         state.effort == nil
             ? state.promptVersions.effort == nil && state.comparisonHistoryIDs.isEmpty
@@ -147,6 +162,7 @@ enum StoryResolutionAccessibility {
     static let backToSuggestion = "StoryResolution.BackToSuggestion"
     static let retrySuggestion = "StoryResolution.RetrySuggestion"
     static let close = "StoryResolution.Close"
+    static let state = "StoryResolution.State"
 }
 
 struct StoryResolutionView: View {
@@ -176,12 +192,15 @@ struct StoryResolutionView: View {
                     case .interpretingCustomAction: interpretingCustomActionView
                     case .interpretedActionReady(let action): interpretedActionReadyView(action)
                     case .accepted(let action): acceptedView(action)
+                    case .finalProse(let action, let prose): finalProseView(action: action, prose: prose)
                     case .committed(let result): committedView(result)
                     case .failed(let code): failureView(code)
                     }
                 }
                 .padding(DesignTokens.margin)
             }
+            .accessibilityIdentifier(StoryResolutionAccessibility.state)
+            .accessibilityValue(stateAccessibilityValue)
             .navigationTitle("Choose an Action")
             .hordeInlineNavigationTitle()
             .toolbar {
@@ -193,7 +212,13 @@ struct StoryResolutionView: View {
             }
         }
         .interactiveDismissDisabled(false)
-        .task { if phase == .loading { await loadSuggestion() } }
+        .task {
+            switch phase {
+            case .loading: await loadSuggestion()
+            case .accepted(let action): await resumeFinalProse(action: action)
+            default: break
+            }
+        }
     }
 
     private var loading: some View {
@@ -204,6 +229,15 @@ struct StoryResolutionView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Preparing a suggested action. No dungeon change has been applied.")
+    }
+
+    private var stateAccessibilityValue: String {
+        let action: String
+        switch phase {
+        case .accepted(let value), .finalProse(let value, _): action = value
+        default: action = "none"
+        }
+        return "Dungeon revision \(app.world?.revision ?? -1); Chronicle entries \(app.chronicle.count); Accepted action \(action)"
     }
 
     private func suggestionView(_ action: String) -> some View {
@@ -299,7 +333,18 @@ struct StoryResolutionView: View {
         VStack(alignment: .leading, spacing: 16) {
             Label("Action accepted", systemImage: "checkmark.circle.fill").font(.title2.bold()).foregroundStyle(DesignTokens.positive)
             Text(action).font(.largeTitle.bold()).textSelection(.enabled)
-            Text("The action is saved. No final story or dungeon change has been generated yet.")
+            ProgressView().controlSize(.large)
+            Text("The saved action is now authoritative. Preparing final narration from this exact action…")
+        }
+    }
+
+    private func finalProseView(action: String, prose: String) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Accepted action").font(.headline).foregroundStyle(.secondary)
+            Text(action).font(.title2.bold()).textSelection(.enabled)
+            Text("Final narration").font(.headline).foregroundStyle(.secondary)
+            Text(prose).textSelection(.enabled)
+            Text("The dungeon and Chronicle remain unchanged until the final result is committed.")
             Button("Close") { dismiss() }.buttonStyle(.borderedProminent).controlSize(.large)
         }
     }
@@ -339,7 +384,7 @@ struct StoryResolutionView: View {
     private func acceptSuggestion(_ action: String) async {
         phase = .accepting(action)
         switch await app.acceptSuggestedAction(eventID: event.id) {
-        case .accepted(let accepted): phase = .accepted(accepted)
+        case .generated(let accepted, let prose): phase = .finalProse(action: accepted, prose: prose)
         case .failed(let code): phase = .failed(code)
         }
     }
@@ -358,7 +403,14 @@ struct StoryResolutionView: View {
     private func acceptInterpretedAction(_ action: String) async {
         phase = .accepting(action)
         switch await app.acceptInterpretedAction(eventID: event.id) {
-        case .accepted(let accepted): phase = .accepted(accepted)
+        case .generated(let accepted, let prose): phase = .finalProse(action: accepted, prose: prose)
+        case .failed(let code): phase = .failed(code)
+        }
+    }
+
+    private func resumeFinalProse(action: String) async {
+        switch await app.generateFinalProse(eventID: event.id) {
+        case .generated(let prose): phase = .finalProse(action: action, prose: prose)
         case .failed(let code): phase = .failed(code)
         }
     }
