@@ -313,11 +313,55 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
     }
 
     func checkpointResolution(eventID: String, state: StagedResolutionState) throws {
-        try validateCheckpoint(state)
         do {
             try modelContext.transaction {
                 let event = try requireEvent(eventID)
                 guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
+                try validateCheckpoint(state)
+                let existing = resolutionState(event) ?? StagedResolutionState(stage: .effortSelection)
+                if state.stage == .effortSelection {
+                    guard existing.effort == nil, state.effort == nil else { throw StoreError.invalidResolutionState }
+                } else {
+                    try validatePersistedEffort(in: state, matches: existing)
+                }
+                try persist(state, on: event)
+                try modelContext.save()
+            }
+        } catch { modelContext.rollback(); throw error }
+    }
+
+    func checkpointEffort(eventID: String, result: EffortEvaluationResult) throws {
+        guard Set(result.comparisonHistoryIDs).count == result.comparisonHistoryIDs.count,
+              result.comparisonHistoryIDs.count <= AttemptedGoalHistory.maximumCount else {
+            throw StoreError.invalidResolutionState
+        }
+        switch result.effort.source {
+        case .userSelected:
+            guard result.comparisonHistoryIDs.isEmpty, result.promptVersion == nil else {
+                throw StoreError.invalidResolutionState
+            }
+        case .modelEstimated:
+            guard result.promptVersion == EffortModelContract.promptVersion else {
+                throw StoreError.invalidResolutionState
+            }
+        }
+        do {
+            try modelContext.transaction {
+                let event = try requireEvent(eventID)
+                guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
+                var state = resolutionState(event) ?? StagedResolutionState(stage: .effortSelection)
+                guard state.stage == .effortSelection else { throw StoreError.invalidResolutionState }
+                if let existing = state.effort {
+                    guard existing == result.effort,
+                          state.comparisonHistoryIDs == result.comparisonHistoryIDs,
+                          state.promptVersions.effort == result.promptVersion else {
+                        throw StoreError.invalidResolutionState
+                    }
+                    return
+                }
+                state.effort = result.effort
+                state.comparisonHistoryIDs = result.comparisonHistoryIDs
+                state.promptVersions.effort = result.promptVersion
                 try persist(state, on: event)
                 try modelContext.save()
             }
@@ -343,7 +387,8 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         promptVersions: ResolutionPromptVersions
     ) throws {
         let accepted = acceptedAction.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !accepted.isEmpty,
+        guard effort != nil,
+              !accepted.isEmpty,
               !generatedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !narration.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw StoreError.invalidResolutionState }
         do {
@@ -356,6 +401,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 try validateStagedWorld(world, mutations: mutations, deltas: deltas, summary: summary, current: decodeWorld(save), valence: valence)
                 let result = StagedFinalResolution(expectedRevision: expectedRevision, world: world, mutations: mutations, deltas: deltas, title: generatedTitle, finalProse: narration, summary: summary, cue: cue)
                 let state = StagedResolutionState(stage: .finalProse, effort: effort, comparisonHistoryIDs: comparisonHistoryIDs, suggestedAction: suggestedAction, customAction: customAction, interpretedAction: interpretedAction, acceptedAction: accepted, promptVersions: promptVersions, finalResult: result)
+                try validatePersistedEffort(in: state, matches: resolutionState(event) ?? StagedResolutionState(stage: .effortSelection))
                 try persist(state, on: event)
                 try modelContext.save()
             }
@@ -366,6 +412,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         let event = try requireEvent(eventID)
         guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
         guard let state = resolutionState(event), state.stage == .finalProse,
+              state.effort != nil,
               state.acceptedAction?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
               let result = state.finalResult else { throw StoreError.invalidResolutionState }
         return try commitResolution(
@@ -394,6 +441,12 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 let save = try requireSave()
                 guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
                 guard save.revision == expectedRevision, event.expectedRevision == expectedRevision else { throw StoreError.staleRevision }
+                if let checkpoint = resolutionState(event), let checkpointEffort = checkpoint.effort {
+                    guard effort == checkpointEffort,
+                          comparisonHistoryIDs == checkpoint.comparisonHistoryIDs else {
+                        throw StoreError.invalidResolutionState
+                    }
+                }
                 let valence = EventValence(rawValue: event.valenceRaw) ?? .positive
                 if stagedState != nil {
                     try validateStagedWorld(world, mutations: mutations, deltas: deltas, summary: summary, current: decodeWorld(save), valence: valence)
@@ -549,6 +602,9 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         let suggested = state.suggestedAction?.trimmingCharacters(in: .whitespacesAndNewlines)
         let interpreted = state.interpretedAction?.trimmingCharacters(in: .whitespacesAndNewlines)
         let accepted = state.acceptedAction?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if state.stage != .effortSelection, state.effort == nil {
+            throw StoreError.invalidResolutionState
+        }
         switch state.stage {
         case .effortSelection:
             guard suggested == nil, state.customAction == nil, interpreted == nil, accepted == nil else { throw StoreError.invalidResolutionState }
@@ -561,6 +617,15 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         case .actionAccepted:
             guard accepted?.isEmpty == false else { throw StoreError.invalidResolutionState }
         case .finalProse, .committed:
+            throw StoreError.invalidResolutionState
+        }
+    }
+
+    private func validatePersistedEffort(in state: StagedResolutionState, matches existing: StagedResolutionState) throws {
+        guard let effort = existing.effort,
+              state.effort == effort,
+              state.comparisonHistoryIDs == existing.comparisonHistoryIDs,
+              state.promptVersions.effort == existing.promptVersions.effort else {
             throw StoreError.invalidResolutionState
         }
     }

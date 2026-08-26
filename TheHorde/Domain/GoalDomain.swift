@@ -8,6 +8,14 @@ enum GoalCategory: String, Codable, CaseIterable, Sendable, Identifiable {
 enum GoalEffort: String, Codable, CaseIterable, Sendable, Identifiable {
     case small = "Small", medium = "Medium", large = "Large"
     var id: Self { self }
+
+    var rating: EffortRating {
+        switch self {
+        case .small: .one
+        case .medium: .two
+        case .large: .three
+        }
+    }
 }
 
 enum RecurrenceRule: Codable, Equatable, Sendable {

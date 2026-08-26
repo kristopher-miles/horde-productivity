@@ -1,4 +1,39 @@
 import Foundation
+import FoundationModels
+
+enum EffortModelContract {
+    static let promptVersion = 40
+
+    static var instructions: String { ModelPromptRegistry.text(.effortSystemInstructions) }
+
+    static var schema: GenerationSchema {
+        GenerationSchema(type: EffortModelOutput.self, properties: [
+            .init(
+                name: "rating",
+                description: ModelPromptRegistry.text(.effortOutputGuide),
+                type: Int.self,
+                guides: [.range(1...3)]
+            )
+        ])
+    }
+
+    static func prompt(event: PendingStorySummary, history: [AttemptedGoalContext]) -> String {
+        let goal = [event.sourceTitle, event.sourceNotes].filter { !$0.isEmpty }.joined(separator: "\n")
+        let renderedHistory = history.isEmpty ? "(none)" : history.map {
+            "<attempt id=\($0.id) outcome=\($0.outcome.rawValue)>\($0.content)</attempt>"
+        }.joined(separator: "\n")
+        return ModelPromptRegistry.render(.effortRequestTemplate, [
+            "goalContext": ModelPromptRegistry.render(.sharedGoalContext, ["goal": goal]),
+            "historyContext": ModelPromptRegistry.render(.sharedHistoryContext, ["history": renderedHistory]),
+            "currentOutcome": event.valence == .positive ? "passed" : "failed"
+        ])
+    }
+}
+
+@Generable
+struct EffortModelOutput {
+    var rating: Int
+}
 
 enum HordeModelContract {
     static let promptVersion = 39

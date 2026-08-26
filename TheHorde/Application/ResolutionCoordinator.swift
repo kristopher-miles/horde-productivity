@@ -24,11 +24,16 @@ actor ResolutionCoordinator {
                     try await store.markEventFailed(eventID, code: code)
                     return .failed(code: code)
                 }
+                let history = event.effort == nil && event.sourceEffort == nil
+                    ? try await store.attemptedGoalHistory(for: eventID)
+                    : []
+                let effort = try await evaluateEffortWithTimeout(event: event, history: history)
+                try await store.checkpointEffort(eventID: eventID, result: effort)
                 let descriptors = WorldContract.descriptors(for: event.valence, world: world.snapshot)
                 let generated = try await generateWithTimeout(event: event, world: world, descriptors: descriptors)
                 var (updatedWorld, deltas) = try WorldPatchValidator.applying(generated.mutations, to: world.snapshot, valence: event.valence, descriptors: descriptors)
                 updatedWorld.rollingSummary = String((updatedWorld.rollingSummary + " " + generated.summary).suffix(600))
-                let result = try await store.commitResolution(eventID: eventID, expectedRevision: world.revision, world: updatedWorld, mutations: generated.mutations, deltas: deltas, generatedTitle: generated.title, narration: generated.narration, summary: generated.summary, cue: AnimationCue(rawValue: generated.cue) ?? .idle)
+                let result = try await store.commitResolution(eventID: eventID, expectedRevision: world.revision, world: updatedWorld, mutations: generated.mutations, deltas: deltas, generatedTitle: generated.title, narration: generated.narration, summary: generated.summary, cue: AnimationCue(rawValue: generated.cue) ?? .idle, effort: effort.effort, comparisonHistoryIDs: effort.comparisonHistoryIDs)
                 return .committed(result)
             } catch StoreError.staleRevision where conflictAttempt == 0 {
                 try? await store.returnEventToPending(eventID)
@@ -70,6 +75,19 @@ actor ResolutionCoordinator {
     private func generateWithTimeout(event: PendingStorySummary, world: WorldReadModel, descriptors: [WorldMutationDescriptor]) async throws -> GeneratedStory {
         try await withThrowingTaskGroup(of: GeneratedStory.self) { group in
             group.addTask { try await self.model.generate(event: event, world: world, descriptors: descriptors) }
+            group.addTask {
+                try await Task.sleep(for: .seconds(60))
+                throw ModelClientError.timeout
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private func evaluateEffortWithTimeout(event: PendingStorySummary, history: [AttemptedGoalContext]) async throws -> EffortEvaluationResult {
+        try await withThrowingTaskGroup(of: EffortEvaluationResult.self) { group in
+            group.addTask { try await self.model.evaluateEffort(event: event, history: history) }
             group.addTask {
                 try await Task.sleep(for: .seconds(60))
                 throw ModelClientError.timeout

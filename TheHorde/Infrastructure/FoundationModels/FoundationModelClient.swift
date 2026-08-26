@@ -10,6 +10,12 @@ struct GeneratedStory: Codable, Sendable {
     let diagnostics: ModelGenerationDiagnostics
 }
 
+struct EffortEvaluationResult: Equatable, Sendable {
+    let effort: ResolutionEffort
+    let comparisonHistoryIDs: [String]
+    let promptVersion: Int?
+}
+
 enum ModelSampling: Codable, Equatable, Sendable {
     case productionDefault
     case greedy
@@ -286,17 +292,23 @@ actor FoundationModelClient {
     private let attemptLogger: any ModelAttemptLogger
     private let defaultSampling: ModelSampling
     private let shouldRejectFirstAttempt: Bool
+    private let effortResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> Int)?
+    private let effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)?
 
     init(
         diagnosticsSink: any ModelDiagnosticsSink = NoOpModelDiagnosticsSink(),
         attemptLogger: any ModelAttemptLogger = ModelDevLogStore(),
         defaultSampling: ModelSampling = .productionDefault,
-        rejectFirstAttempt: Bool = false
+        rejectFirstAttempt: Bool = false,
+        effortResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> Int)? = nil,
+        effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)? = nil
     ) {
         self.diagnosticsSink = diagnosticsSink
         self.attemptLogger = attemptLogger
         self.defaultSampling = defaultSampling
         self.shouldRejectFirstAttempt = rejectFirstAttempt
+        self.effortResponseOverride = effortResponseOverride
+        self.effortContextFitOverride = effortContextFitOverride
     }
 
     func compatibility(locale: Locale = .current) -> CompatibilityState {
@@ -307,6 +319,105 @@ actor FoundationModelClient {
         case .unavailable(.appleIntelligenceNotEnabled): return .intelligenceDisabled
         case .unavailable(.modelNotReady): return .modelNotReady
         @unknown default: return .unknown
+        }
+    }
+
+    func evaluateEffort(
+        event: PendingStorySummary,
+        history: [AttemptedGoalContext]
+    ) async throws -> EffortEvaluationResult {
+        if let effort = event.effort {
+            return EffortEvaluationResult(
+                effort: effort,
+                comparisonHistoryIDs: event.comparisonHistoryIDs,
+                promptVersion: event.resolutionState?.promptVersions.effort
+            )
+        }
+        if let supplied = event.sourceEffort {
+            return EffortEvaluationResult(
+                effort: ResolutionEffort(rating: supplied.rating, source: .userSelected),
+                comparisonHistoryIDs: [],
+                promptVersion: nil
+            )
+        }
+
+        var fitted = Array(history.prefix(AttemptedGoalHistory.maximumCount))
+        var contextFits: Bool
+        while true {
+            contextFits = await effortPromptFits(event: event, history: fitted)
+            if contextFits || fitted.isEmpty { break }
+            fitted.removeLast()
+        }
+        let instructions = EffortModelContract.instructions
+        let prompt = EffortModelContract.prompt(event: event, history: fitted)
+        let options = defaultSampling.generationOptions
+        let requestText = Self.fullRequestText(
+            instructions: instructions,
+            prompt: prompt,
+            schema: EffortModelContract.schema,
+            options: options
+        )
+        var responseText: String?
+        var responseMaterial: String?
+        var attemptTranscript: String?
+
+        do {
+            guard contextFits else { throw ModelClientError.contextOverflow }
+            let rawRating: Int
+            if let effortResponseOverride {
+                rawRating = try await effortResponseOverride(instructions, prompt)
+                responseText = "{\"rating\":\(rawRating)}"
+            } else {
+                let session = LanguageModelSession(model: model, instructions: instructions)
+                session.prewarm(promptPrefix: Prompt(prompt))
+                let response = try await respond(
+                    session: session,
+                    request: prompt,
+                    schema: EffortModelContract.schema,
+                    options: options
+                )
+                responseText = response.rawContent.jsonString
+                responseMaterial = transcriptText(Transcript(entries: response.transcriptEntries))
+                attemptTranscript = transcriptText(session.transcript)
+                rawRating = try response.content.value(forProperty: "rating")
+            }
+            guard let rating = EffortRating(rawValue: rawRating) else {
+                throw ModelClientError.invalidEffortRating(rawRating)
+            }
+            await attemptLogger.record(ModelDevLogEntry(
+                eventID: event.id,
+                goalTitle: event.sourceTitle,
+                stage: .effortEvaluation,
+                attempt: 1,
+                outcome: .succeeded,
+                instructionsText: instructions,
+                promptText: prompt,
+                requestText: requestText,
+                responseText: responseText,
+                responseMaterial: responseMaterial,
+                attemptTranscript: attemptTranscript
+            ))
+            return EffortEvaluationResult(
+                effort: ResolutionEffort(rating: rating, source: .modelEstimated),
+                comparisonHistoryIDs: fitted.map(\.id),
+                promptVersion: EffortModelContract.promptVersion
+            )
+        } catch {
+            await attemptLogger.record(ModelDevLogEntry(
+                eventID: event.id,
+                goalTitle: event.sourceTitle,
+                stage: .effortEvaluation,
+                attempt: 1,
+                outcome: .failed,
+                instructionsText: instructions,
+                promptText: prompt,
+                requestText: requestText,
+                responseText: responseText,
+                responseMaterial: responseMaterial,
+                attemptTranscript: attemptTranscript,
+                errorText: String(reflecting: error)
+            ))
+            throw error
         }
     }
 
@@ -479,6 +590,18 @@ actor FoundationModelClient {
         return !text.contains("guardrail") && !text.contains("unavailable")
     }
 
+    private func effortPromptFits(event: PendingStorySummary, history: [AttemptedGoalContext]) async -> Bool {
+        if let effortContextFitOverride { return await effortContextFitOverride(history) }
+        guard effortResponseOverride == nil else { return true }
+        guard #available(iOS 26.4, macOS 26.4, *) else { return true }
+        let counts = [
+            try? await model.tokenCount(for: Instructions(EffortModelContract.instructions)),
+            try? await model.tokenCount(for: EffortModelContract.prompt(event: event, history: history)),
+            try? await model.tokenCount(for: EffortModelContract.schema)
+        ].compactMap { $0 }
+        return counts.count == 3 && counts.reduce(0, +) <= Int(Double(model.contextSize) * 0.70)
+    }
+
     private func respond(session: LanguageModelSession, request: String, schema: GenerationSchema, options: GenerationOptions) async throws -> LanguageModelSession.Response<GeneratedContent> {
         try await session.respond(to: request, schema: schema, options: options)
     }
@@ -510,6 +633,23 @@ actor FoundationModelClient {
                 segments: [.text(.init(content: instructions))],
                 toolDefinitions: [.init(tool: tool)]
             )),
+            .prompt(.init(
+                segments: [.text(.init(content: prompt))],
+                options: options,
+                responseFormat: .init(schema: schema)
+            ))
+        ])
+        return (try? JSONEncoder().encode(transcript)).map { String(decoding: $0, as: UTF8.self) }
+    }
+
+    static func fullRequestText(
+        instructions: String,
+        prompt: String,
+        schema: GenerationSchema,
+        options: GenerationOptions
+    ) -> String? {
+        let transcript = Transcript(entries: [
+            .instructions(.init(segments: [.text(.init(content: instructions))], toolDefinitions: [])),
             .prompt(.init(
                 segments: [.text(.init(content: prompt))],
                 options: options,
@@ -663,6 +803,7 @@ actor FoundationModelClient {
 
 enum ModelClientError: Error, LocalizedError {
     case receiptMismatch, invalidCue, textTooLong, unsafeNarrative, valenceMismatch, evaluationRejected, contextOverflow, timeout
+    case invalidEffortRating(Int)
 
     var errorDescription: String? {
         switch self {
@@ -674,6 +815,7 @@ enum ModelClientError: Error, LocalizedError {
         case .evaluationRejected: "The evaluation hook rejected the first patch."
         case .contextOverflow: "The bounded story projection does not fit the model context."
         case .timeout: "Generation exceeded the 60-second limit."
+        case .invalidEffortRating(let rating): "The effort rating \(rating) was outside 1 through 3."
         }
     }
 }

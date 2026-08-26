@@ -148,13 +148,18 @@ struct PersistenceContractTests {
             try await store.completeOccurrence(id: occurrence.id)
             eventID = occurrence.id + ":positive"
             (_, originalWorld) = try await store.claimEvent(eventID)
+            try await store.checkpointEffort(eventID: eventID, result: EffortEvaluationResult(
+                effort: ResolutionEffort(rating: .two, source: .modelEstimated),
+                comparisonHistoryIDs: ["attempt-near-1", "attempt-near-2"],
+                promptVersion: EffortModelContract.promptVersion
+            ))
             try await store.checkpointResolution(eventID: eventID, state: StagedResolutionState(
                 stage: .customActionEntry,
-                effort: ResolutionEffort(rating: .two, source: .userSelected),
+                effort: ResolutionEffort(rating: .two, source: .modelEstimated),
                 comparisonHistoryIDs: ["attempt-near-1", "attempt-near-2"],
                 suggestedAction: "Map ember roads",
                 customAction: "  Follow the blue flame exactly  ",
-                promptVersions: ResolutionPromptVersions(effort: 40, suggestion: 41)
+                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: 41)
             ))
         }
 
@@ -163,11 +168,11 @@ struct PersistenceContractTests {
             try await reopened.bootstrapForProof()
             let resumed = try #require(await reopened.pendingStories().first { $0.id == eventID })
             #expect(resumed.resolutionState?.stage == .customActionEntry)
-            #expect(resumed.resolutionState?.effort == ResolutionEffort(rating: .two, source: .userSelected))
+            #expect(resumed.resolutionState?.effort == ResolutionEffort(rating: .two, source: .modelEstimated))
             #expect(resumed.resolutionState?.comparisonHistoryIDs == ["attempt-near-1", "attempt-near-2"])
             #expect(resumed.resolutionState?.suggestedAction == "Map ember roads")
             #expect(resumed.resolutionState?.customAction == "  Follow the blue flame exactly  ")
-            #expect(resumed.resolutionState?.promptVersions == ResolutionPromptVersions(effort: 40, suggestion: 41))
+            #expect(resumed.resolutionState?.promptVersions == ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: 41))
             #expect(try await reopened.worldReadModel() == originalWorld)
             #expect(try await reopened.chronicle().isEmpty)
 
@@ -179,7 +184,7 @@ struct PersistenceContractTests {
                 customAction: resumed.resolutionState?.customAction,
                 interpretedAction: "Follow blue flame",
                 acceptedAction: "Follow blue flame",
-                promptVersions: ResolutionPromptVersions(effort: 40, suggestion: 41, interpretation: 42)
+                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: 41, interpretation: 42)
             ))
         }
 
@@ -214,6 +219,11 @@ struct PersistenceContractTests {
             var (world, deltas) = try WorldPatchValidator.applying(mutations, to: base.snapshot, valence: .positive, descriptors: WorldContract.descriptors(for: .positive, world: base.snapshot))
             let summary = "The signal fire rallied the empty cavern."
             world.rollingSummary = String((world.rollingSummary + " " + summary).suffix(600))
+            try await store.checkpointEffort(eventID: eventID, result: EffortEvaluationResult(
+                effort: ResolutionEffort(rating: .three, source: .modelEstimated),
+                comparisonHistoryIDs: ["nearby-attempt"],
+                promptVersion: EffortModelContract.promptVersion
+            ))
             try await store.stageFinalResolution(
                 eventID: eventID,
                 expectedRevision: base.revision,
@@ -228,7 +238,7 @@ struct PersistenceContractTests {
                 comparisonHistoryIDs: ["nearby-attempt"],
                 suggestedAction: "Raise signal fire",
                 acceptedAction: "Raise signal fire",
-                promptVersions: ResolutionPromptVersions(effort: 40, suggestion: 41, finalProse: 43)
+                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: 41, finalProse: 43)
             )
         }
 
@@ -274,7 +284,8 @@ struct PersistenceContractTests {
         try await store.completeOccurrence(id: occurrence.id)
         let eventID = occurrence.id + ":positive"
         _ = try await store.claimEvent(eventID)
-        try await store.checkpointResolution(eventID: eventID, state: StagedResolutionState(stage: .actionSuggestion, suggestedAction: "Light the brazier"))
+        try await store.checkpointEffort(eventID: eventID, result: EffortEvaluationResult(effort: ResolutionEffort(rating: .one, source: .userSelected), comparisonHistoryIDs: [], promptVersion: nil))
+        try await store.checkpointResolution(eventID: eventID, state: StagedResolutionState(stage: .actionSuggestion, effort: ResolutionEffort(rating: .one, source: .userSelected), suggestedAction: "Light the brazier"))
         #expect(try await store.pendingStories().first?.resolutionState?.suggestedAction == "Light the brazier")
         try await store.resetDungeon()
         #expect(try await store.allStoryEvents().isEmpty)
@@ -284,7 +295,8 @@ struct PersistenceContractTests {
         try await store.completeOccurrence(id: replacement.id)
         let replacementEventID = replacement.id + ":positive"
         _ = try await store.claimEvent(replacementEventID)
-        try await store.checkpointResolution(eventID: replacementEventID, state: StagedResolutionState(stage: .customActionEntry, customAction: "Keep this exact draft"))
+        try await store.checkpointEffort(eventID: replacementEventID, result: EffortEvaluationResult(effort: ResolutionEffort(rating: .one, source: .userSelected), comparisonHistoryIDs: [], promptVersion: nil))
+        try await store.checkpointResolution(eventID: replacementEventID, state: StagedResolutionState(stage: .customActionEntry, effort: ResolutionEffort(rating: .one, source: .userSelected), customAction: "Keep this exact draft"))
         try await store.deleteAllLocalData()
         #expect(try await store.allStoryEvents().isEmpty)
     }
