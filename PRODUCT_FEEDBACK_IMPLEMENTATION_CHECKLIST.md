@@ -26,7 +26,7 @@ Build these first so every later model request and prompt can be inspected while
 - [x] 011 — [DV-04 — Retain the 10 most recent exact requests and responses on every platform (line 168)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L168)
 - [x] 012 — [DV-03 — Add the all-platform editable and savable real-prompt window (line 162)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L162)
 - [x] 013 — [DV-05 — Add the all-platform developer log browser (line 169)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L169)
-- [ ] 014 — [DV-06 — Add the Mac split modal and three clipboard controls (line 170)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L170)
+- [x] 014 — [DV-06 — Add the Mac split modal and three clipboard controls (line 170)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L170)
 
 ## 2. Evolve persisted world, character, event, and history contracts
 

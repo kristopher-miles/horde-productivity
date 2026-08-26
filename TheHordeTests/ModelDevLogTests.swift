@@ -161,6 +161,43 @@ struct ModelDevLogTests {
         #expect(try #require(sections["Error"]) == entry.errorText)
     }
 
+    @Test func inspectorUsesExactCapturedTextAndDeterministicFallbacks() {
+        let exact = makeEntry(
+            instructions: "stored instructions",
+            prompt: "stored prompt",
+            request: "exact request\n",
+            response: "exact response\r\n",
+            material: "structured material",
+            transcript: "transcript",
+            error: "error"
+        )
+        #expect(ModelDevLogBrowserContent.requestText(for: exact) == "exact request\n")
+        let exactResponse = "Raw Response\nexact response\r\n\n\n---\n\nResponse Material\nstructured material\n\n---\n\nError\nerror"
+        #expect(ModelDevLogBrowserContent.responseText(for: exact) == exactResponse)
+        #expect(ModelDevLogBrowserContent.bothText(for: exact) == "REQUEST\nexact request\n\n\nRESPONSE\n\(exactResponse)")
+
+        let missingEnvelope = makeEntry(
+            instructions: "stored instructions",
+            prompt: "stored prompt",
+            request: nil,
+            response: nil,
+            material: "structured material",
+            transcript: "transcript",
+            error: "error"
+        )
+        #expect(ModelDevLogBrowserContent.requestText(for: missingEnvelope) == "Instructions:\nstored instructions\n\nPrompt:\nstored prompt")
+        #expect(ModelDevLogBrowserContent.responseText(for: missingEnvelope) == "Response Material\nstructured material\n\n---\n\nError\nerror")
+
+        let transcriptOnly = makeEntry(request: nil, response: nil, material: nil, transcript: "transcript", error: "error")
+        #expect(ModelDevLogBrowserContent.responseText(for: transcriptOnly) == "Attempt Transcript\ntranscript\n\n---\n\nError\nerror")
+
+        let errorOnly = makeEntry(request: nil, response: nil, material: nil, transcript: nil, error: "error")
+        #expect(ModelDevLogBrowserContent.responseText(for: errorOnly) == "Error\nerror")
+
+        let unavailable = makeEntry(request: nil, response: nil, material: nil, transcript: nil, error: nil)
+        #expect(ModelDevLogBrowserContent.responseText(for: unavailable) == "No response was captured.")
+    }
+
     private func makeEntry(
         id: String = "entry",
         eventID: String = "event",

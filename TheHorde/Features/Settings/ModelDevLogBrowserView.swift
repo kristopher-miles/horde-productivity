@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 extension ModelRequestStageID {
     var developerTitle: String {
@@ -45,6 +48,30 @@ enum ModelDevLogBrowserContent {
             ModelDevLogTextSection(title: "Error", text: entry.errorText)
         ]
     }
+
+    static func requestText(for entry: ModelDevLogEntry) -> String {
+        entry.requestText ?? "Instructions:\n\(entry.instructionsText)\n\nPrompt:\n\(entry.promptText)"
+    }
+
+    static func responseText(for entry: ModelDevLogEntry) -> String {
+        var sections: [String] = []
+        if let text = entry.responseText {
+            sections.append("Raw Response\n\(text)")
+        }
+        if let material = entry.responseMaterial {
+            sections.append("Response Material\n\(material)")
+        } else if let transcript = entry.attemptTranscript {
+            sections.append("Attempt Transcript\n\(transcript)")
+        }
+        if let error = entry.errorText {
+            sections.append("Error\n\(error)")
+        }
+        return sections.isEmpty ? "No response was captured." : sections.joined(separator: "\n\n---\n\n")
+    }
+
+    static func bothText(for entry: ModelDevLogEntry) -> String {
+        "REQUEST\n\(requestText(for: entry))\n\nRESPONSE\n\(responseText(for: entry))"
+    }
 }
 
 struct ModelDevLogBrowserView: View {
@@ -52,6 +79,9 @@ struct ModelDevLogBrowserView: View {
     @State private var entries: [ModelDevLogEntry] = []
     @State private var query = ""
     @State private var isLoading = true
+#if os(macOS)
+    @State private var selectedEntry: ModelDevLogEntry?
+#endif
 
     init(store: ModelDevLogStore = ModelDevLogStore()) {
         self.store = store
@@ -71,11 +101,20 @@ struct ModelDevLogBrowserView: View {
                 ContentUnavailableView.search(text: query)
             } else {
                 List(filteredEntries) { entry in
+#if os(macOS)
+                    Button {
+                        selectedEntry = entry
+                    } label: {
+                        ModelDevLogEntryRow(entry: entry)
+                    }
+                    .buttonStyle(.plain)
+#else
                     NavigationLink {
                         ModelDevLogDetailView(entry: entry)
                     } label: {
                         ModelDevLogEntryRow(entry: entry)
                     }
+#endif
                 }
                 .refreshable { await reload() }
             }
@@ -91,6 +130,11 @@ struct ModelDevLogBrowserView: View {
             }
         }
         .task { await reload() }
+#if os(macOS)
+        .sheet(item: $selectedEntry) { entry in
+            MacModelDevLogInspectorView(entry: entry)
+        }
+#endif
     }
 
     private var filteredEntries: [ModelDevLogEntry] {
@@ -103,6 +147,59 @@ struct ModelDevLogBrowserView: View {
         isLoading = false
     }
 }
+
+#if os(macOS)
+private struct MacModelDevLogInspectorView: View {
+    @Environment(\.dismiss) private var dismiss
+    let entry: ModelDevLogEntry
+
+    private var requestText: String { ModelDevLogBrowserContent.requestText(for: entry) }
+    private var responseText: String { ModelDevLogBrowserContent.responseText(for: entry) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button("Copy Request") { copy(requestText) }
+                Button("Copy Response") { copy(responseText) }
+                Button("Copy Both") { copy(ModelDevLogBrowserContent.bothText(for: entry)) }
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding()
+
+            Divider()
+
+            HSplitView {
+                textPane(title: "Request", text: requestText)
+                textPane(title: "Response", text: responseText)
+            }
+        }
+        .frame(minWidth: 960, idealWidth: 1100, minHeight: 600, idealHeight: 720)
+    }
+
+    private func textPane(title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+            ScrollView([.horizontal, .vertical]) {
+                Text(verbatim: text)
+                    .font(.body.monospaced())
+                    .textSelection(.enabled)
+                    .fixedSize()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        }
+        .padding()
+        .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+}
+#endif
 
 private struct ModelDevLogEntryRow: View {
     let entry: ModelDevLogEntry
