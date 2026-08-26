@@ -44,6 +44,14 @@ struct DungeonSceneView: View {
         return cue == .concern || cue == .hazardAppears ? "EmberConcern" : "EmberIdle"
     }
 
+    nonisolated static func koboldIdleAtlasName(age: KoboldAgeStage) -> String {
+        switch age {
+        case .baby: "KoboldBabyIdle"
+        case .kid: "KoboldKidIdle"
+        case .adult: "KoboldAdultIdle"
+        }
+    }
+
     nonisolated static func assetName(world: WorldReadModel, cue: AnimationCue) -> String {
         switch cue {
         case .celebrate, .recover, .resourceChanges: "DungeonRecovery"

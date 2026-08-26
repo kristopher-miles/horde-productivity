@@ -347,7 +347,10 @@ enum ProjectionBuilder {
         let thread = world.snapshot.activeThreads.sorted { ($0.severity, $0.id) > ($1.severity, $1.id) }.first
         let residents = world.snapshot.residents.prefix(3).map {
             ModelPromptRegistry.render(compact ? .legacyResidentCompactTemplate : .legacyResidentFullTemplate, [
-                "id": $0.id, "name": $0.name, "role": $0.role
+                "id": $0.id,
+                "name": $0.name,
+                "role": $0.role,
+                "age": $0.koboldVisual?.age.rawValue ?? ModelPromptRegistry.text(.legacyMissingValue)
             ])
         }.joined(separator: "; ")
         let locations = world.snapshot.locations.map {

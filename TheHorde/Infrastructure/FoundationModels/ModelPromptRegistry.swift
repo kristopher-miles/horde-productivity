@@ -301,9 +301,9 @@ private extension ModelPromptComponentID {
         case .legacyDescriptorCollectionCapTemplate:
             "collectionCap={{collectionCap}}"
         case .legacyResidentCompactTemplate:
-            "{{id}}={{name}}"
+            "{{id}}={{name}}, age={{age}}"
         case .legacyResidentFullTemplate:
-            "{{id}}={{name}}, {{role}}"
+            "{{id}}={{name}}, age={{age}}, role={{role}}"
         case .legacyLocationTemplate:
             "{{id}}={{name}}, {{status}}, {{summary}}"
         case .legacyRecordIDsTemplate:

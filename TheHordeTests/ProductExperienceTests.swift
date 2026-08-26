@@ -117,7 +117,43 @@ struct ProductExperienceTests {
         #expect(DungeonSceneView.dragonAtlasName(stage: world.dragonVisual.stage, cue: .idle) == "EmberIdle")
         #expect(DungeonSceneView.dragonAtlasName(stage: world.dragonVisual.stage, cue: .concern) == "EmberConcern")
         #expect(DungeonSceneView.dragonAtlasName(stage: .adolescent, cue: .idle) == nil)
-        #expect(HordeModelContract.projectionVersion == 13)
+        #expect(HordeModelContract.projectionVersion == 14)
+    }
+
+    @Test func koboldAgesPersistProjectAndSelectDistinctIdleArt() throws {
+        let expectedAtlases = ["KoboldBabyIdle", "KoboldKidIdle", "KoboldAdultIdle"]
+        var world = WorldSnapshot.initial()
+        world.residents = KoboldAgeStage.allCases.map { age in
+            CharacterState(
+                id: "kobold-\(age.rawValue)",
+                name: age.rawValue.capitalized,
+                role: "Keeper",
+                identity: "A \(age.rawValue) kobold.",
+                vitality: 50,
+                bond: 50,
+                conditions: [],
+                koboldVisual: KoboldVisualState(
+                    age: age,
+                    colors: CharacterPalette(primary: .ember, secondary: .ember)
+                )
+            )
+        }
+
+        let decoded = try PersistentJSON.decode(WorldSnapshot.self, from: PersistentJSON.encode(world))
+        let event = PendingStorySummary(id: "kobold-ages", sourceTitle: "Help the residents", valence: .positive, status: .pending, failureCode: nil, createdAt: .distantPast)
+        let readModel = WorldReadModel(dungeonName: "The Cinder Vault", revision: 1, snapshot: decoded)
+        let descriptors = WorldContract.descriptors(for: .positive, world: decoded)
+
+        #expect(decoded.residents.map(\.koboldVisual?.age) == KoboldAgeStage.allCases)
+        for compact in [false, true] {
+            let projection = ProjectionBuilder.projection(event: event, world: readModel, descriptors: descriptors, compact: compact)
+            for age in KoboldAgeStage.allCases {
+                #expect(projection.contains("kobold-\(age.rawValue)=\(age.rawValue.capitalized), age=\(age.rawValue)"))
+            }
+        }
+        for (age, expectedAtlas) in zip(KoboldAgeStage.allCases, expectedAtlases) {
+            #expect(DungeonSceneView.koboldIdleAtlasName(age: age) == expectedAtlas)
+        }
     }
 
     @Test func resetRestoresTheExactNamedOriginNarrative() async throws {

@@ -1,9 +1,9 @@
 import Foundation
 
 enum HordeModelContract {
-    static let promptVersion = 38
+    static let promptVersion = 39
     static let schemaVersion = 5
-    static let projectionVersion = 13
+    static let projectionVersion = 14
 
     static var instructions: String { ModelPromptRegistry.text(.legacySystemInstructions) }
 
