@@ -74,6 +74,7 @@ def package_project(
     tag: str,
     frame_ms: int,
     palette_path: Path | None = None,
+    layer_name: str = "Ember",
 ) -> None:
     if not frame_paths:
         raise ValueError("at least one frame is required")
@@ -106,7 +107,7 @@ def package_project(
                 "effects": [],
                 "locked": False,
                 "metadata": {},
-                "name": "Ember",
+                "name": layer_name,
                 "new_cels_linked": False,
                 "opacity": 1.0,
                 "parent": -1,
@@ -179,6 +180,7 @@ def main() -> None:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--frame-ms", type=int, required=True)
     parser.add_argument("--palette", type=Path)
+    parser.add_argument("--layer-name", default="Ember")
     parser.add_argument("frames", nargs="+", type=Path)
     args = parser.parse_args()
     package_project(
@@ -187,6 +189,7 @@ def main() -> None:
         tag=args.tag,
         frame_ms=args.frame_ms,
         palette_path=args.palette,
+        layer_name=args.layer_name,
     )
 
 

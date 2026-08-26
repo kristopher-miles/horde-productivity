@@ -28,3 +28,4 @@ Record attempts when the work occurs; do not reconstruct timing from memory.
 | Room hazard appears | Codex built-in ImageGen | 2 | 1.2 | 0 | 0 | attempt 01 produced opaque cream wash after palette mapping | corrected narrow crack/draft row passes | Yes |
 | Room resource change | Codex built-in ImageGen | 1 | 0.9 | 0 | 0 | n/a | six-frame material-change row passes | Yes |
 | Room recovery glow | Codex built-in ImageGen | 1 | 0.9 | 0 | 0 | n/a | two-frame treatment passes | Yes |
+| Dungeon progression static family | Codex built-in ImageGen + native pixel cleanup | 2 | 1.5 | 8.0 | 0 | attempt 01 stage 5 lacked fortress depth; seed-derived stage-1 masonry rejected | targeted attempt 02 plus bounded natural-wall/web cleanup passes five-stage deterministic, native visual, and Pixelorama gates | Yes |

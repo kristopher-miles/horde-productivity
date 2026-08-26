@@ -1,0 +1,13 @@
+Use case: precise-object-edit
+Asset type: targeted correction to a coherent five-stage native-resolution pixel-art game environment background family
+Primary request: change only cell 5, the bottom-center retained environment, so it reads unmistakably as a vast underground fortress overflowing with hoarded gold and gemstones at native 320x180; preserve every other cell and all shared family invariants
+Input images: Image 1 is the edit target from attempt 1; cells 1–4 are approved and must remain visually unchanged; cell 5 is the only editable scene; the solid chroma-magenta sixth cell is unused and must remain solid magenta
+Scene/backdrop: in cell 5 only, extend the existing back wall into a monumental receding vaulted passage with repeated distant arches, massive load-bearing pillars, and visible deep fortress scale behind the same central architectural landmark
+Subject: retain the existing rich stronghold architecture in cell 5, add larger overflowing side piles of gold coins and ingots, multiple clearly faceted emerald, ruby, and sapphire gemstones, and treasure chests spilling coins; keep a usable open lower-center staging area
+Style/medium: match attempt 1 exactly: authored 16-bit-era pixel art, crisp hard-edged clusters, nearest-neighbor look, limited dark-fantasy palette, no antialiasing
+Composition/framing: preserve the exact 3-column by 2-row grid, cell boundaries, camera, floor horizon, and shared left/right rock geometry; increase depth only inside cell 5 through receding architecture, not camera movement
+Lighting/mood: cell 5 remains the brightest and warmest, with radiant gold and restrained jewel-colored reflected pixels while preserving dark readable outlines
+Constraints: change only cell 5; keep cells 1–4 visually unchanged; keep cell 6 solid chroma magenta; no text; no labels; no numbers; no logos; no watermark; no border; no panel dividers; no UI; no transparency; no living creatures; no dragons; no kobolds; no people; no animals; no monsters; no faces; no creature-shaped statues or silhouettes
+Avoid: changing earlier stages; filling the central staging area; a merely cozy room; shallow back wall; tiny or ambiguous treasure; painterly gradients; smooth vector edges; accidental sixth progression scene
+
+Attempt status: selected. The targeted cell-5 edit adds a deep repeated-arch fortress corridor, monumental pillars, abundant gold, chests, and clearly colored gems while preserving cells 1–4 and the unused magenta cell. A separate documented native pixel cleanup removed the seed-derived worked masonry from stage 1 without another generation.

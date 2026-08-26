@@ -50,6 +50,19 @@ class PixeloramaPackageTests(unittest.TestCase):
                 self.assertEqual(data["project_current_palette_name"], "The Horde Prototype")
                 self.assertEqual(len(data["palettes"]), 1)
 
+    def test_accepts_environment_layer_name(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            frame = root / "frame.png"
+            Image.new("RGBA", (2, 2), (10, 20, 30, 255)).save(frame)
+            output = root / "test.pxo"
+
+            pixelorama_packager.package_project(output, [frame], tag="progression", frame_ms=1000, layer_name="Environment")
+
+            with zipfile.ZipFile(output) as archive:
+                data = json.loads(archive.read("data.json"))
+                self.assertEqual(data["layers"][0]["name"], "Environment")
+
 
 if __name__ == "__main__":
     unittest.main()

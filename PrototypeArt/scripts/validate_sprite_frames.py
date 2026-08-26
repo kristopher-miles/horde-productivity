@@ -14,6 +14,8 @@ def validate(manifest_path: Path, frames_dir: Path, palette_path: Path) -> list[
     manifest = json.loads(manifest_path.read_text())
     width = manifest["frameSize"]["width"]
     height = manifest["frameSize"]["height"]
+    opaque = manifest.get("opaque", False)
+    maximum_visible_colors = manifest.get("maximumVisibleColors")
     inset = manifest.get("safetyInsetPixels", 0)
     expected = [entry["file"] for entry in manifest["frames"]]
     prefix = f'{manifest["asset"]}-{manifest["cue"]}-'
@@ -40,7 +42,10 @@ def validate(manifest_path: Path, frames_dir: Path, palette_path: Path) -> list[
         if image.size != (width, height):
             errors.append(f"{path.name}: expected {width}x{height}, found {image.width}x{image.height}")
         alpha_values = set(image.getchannel("A").getdata())
-        if not alpha_values.issubset({0, 255}) or 0 not in alpha_values or 255 not in alpha_values:
+        if opaque:
+            if alpha_values != {255}:
+                errors.append(f"{path.name}: designated opaque frame must contain only alpha 255")
+        elif not alpha_values.issubset({0, 255}) or 0 not in alpha_values or 255 not in alpha_values:
             errors.append(f"{path.name}: alpha must contain both transparent and opaque binary pixels")
         bounds = image.getchannel("A").getbbox()
         if bounds is None:
@@ -51,6 +56,8 @@ def validate(manifest_path: Path, frames_dir: Path, palette_path: Path) -> list[
         if left < inset or top < inset or right > width - inset or bottom > height - inset:
             errors.append(f"{path.name}: visible bounds {bounds} violate {inset}px safety inset")
         visible = {pixel[:3] for pixel in image.getdata() if pixel[3]}
+        if maximum_visible_colors is not None and len(visible) > maximum_visible_colors:
+            errors.append(f"{path.name}: {len(visible)} visible colors exceed limit {maximum_visible_colors}")
         extra = visible - allowed
         if extra:
             errors.append(f"{path.name}: {len(extra)} visible colors are outside the project palette")
@@ -73,4 +80,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

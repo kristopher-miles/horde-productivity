@@ -1,0 +1,37 @@
+{
+  "asset": "dungeon-progression",
+  "cue": "static",
+  "prototype": true,
+  "replaceable": true,
+  "frameSize": { "width": 320, "height": 180 },
+  "opaque": true,
+  "maximumVisibleColors": 32,
+  "safetyInsetPixels": 0,
+  "anchor": { "x": 0.0, "y": 0.0 },
+  "scenePosition": { "x": 0, "y": 0 },
+  "generationLayout": {
+    "width": 960,
+    "height": 360,
+    "columns": 3,
+    "rows": 2,
+    "order": [1, 2, 3, 4, 5],
+    "ignoredCells": [6]
+  },
+  "frames": [
+    { "file": "dungeon-progression-static-01.png", "durationMilliseconds": 1200 },
+    { "file": "dungeon-progression-static-02.png", "durationMilliseconds": 1200 },
+    { "file": "dungeon-progression-static-03.png", "durationMilliseconds": 1200 },
+    { "file": "dungeon-progression-static-04.png", "durationMilliseconds": 1200 },
+    { "file": "dungeon-progression-static-05.png", "durationMilliseconds": 1200 }
+  ],
+  "loop": false,
+  "reduceMotionFrame": "dungeon-progression-static-01.png",
+  "source": "PrototypeArt/pilots/dungeon-progression-static/dungeon-progression-static.pxo",
+  "provenance": {
+    "provider": "Codex built-in ImageGen",
+    "pipeline": "horde-sprite-prototype",
+    "selectedAttempt": "generated/dungeon-progression-static-family-attempt-02.png",
+    "promptFiles": ["prompt-family-attempt-01.md", "prompt-family-attempt-02.md"],
+    "cleanupFiles": ["cleanup-stage1.py"]
+  }
+}

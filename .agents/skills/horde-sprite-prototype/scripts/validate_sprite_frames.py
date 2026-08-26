@@ -15,6 +15,7 @@ def validate(manifest_path: Path, frames_dir: Path, palette_path: Path) -> list[
     width = manifest["frameSize"]["width"]
     height = manifest["frameSize"]["height"]
     opaque = manifest.get("opaque", False)
+    maximum_visible_colors = manifest.get("maximumVisibleColors")
     inset = manifest.get("safetyInsetPixels", 0)
     expected = [entry["file"] for entry in manifest["frames"]]
     prefix = f'{manifest["asset"]}-{manifest["cue"]}-'
@@ -55,6 +56,8 @@ def validate(manifest_path: Path, frames_dir: Path, palette_path: Path) -> list[
         if left < inset or top < inset or right > width - inset or bottom > height - inset:
             errors.append(f"{path.name}: visible bounds {bounds} violate {inset}px safety inset")
         visible = {pixel[:3] for pixel in image.getdata() if pixel[3]}
+        if maximum_visible_colors is not None and len(visible) > maximum_visible_colors:
+            errors.append(f"{path.name}: {len(visible)} visible colors exceed limit {maximum_visible_colors}")
         extra = visible - allowed
         if extra:
             errors.append(f"{path.name}: {len(extra)} visible colors are outside the project palette")
@@ -77,4 +80,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

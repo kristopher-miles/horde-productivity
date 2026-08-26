@@ -40,6 +40,27 @@ class ValidatorTests(unittest.TestCase):
             shifted.transform((8, 8), Image.Transform.AFFINE, (1, 0, 0, 0, 1, 1)).save(root / "ember-idle-02.png")
             self.assertTrue(any("anchor drift" in error for error in validator.validate(root / "manifest.json", root, root / "palette.png")))
 
+    def test_rejects_more_visible_colors_than_manifest_limit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            palette = Image.new("RGB", (3, 1))
+            palette.putdata([(10, 10, 10), (20, 20, 20), (30, 30, 30)])
+            palette.save(root / "palette.png")
+            manifest = {
+                "asset": "room", "cue": "static", "opaque": True,
+                "maximumVisibleColors": 2,
+                "frameSize": {"width": 3, "height": 1}, "safetyInsetPixels": 0,
+                "frames": [{"file": "room-static-01.png", "durationMilliseconds": 1000}],
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest))
+            frame = Image.new("RGBA", (3, 1))
+            frame.putdata([(10, 10, 10, 255), (20, 20, 20, 255), (30, 30, 30, 255)])
+            frame.save(root / "room-static-01.png")
+
+            errors = validator.validate(root / "manifest.json", root, root / "palette.png")
+
+            self.assertTrue(any("visible colors exceed limit" in error for error in errors))
+
 
 if __name__ == "__main__":
     unittest.main()
