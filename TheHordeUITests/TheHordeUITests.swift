@@ -61,7 +61,7 @@ final class TheHordeUITests: XCTestCase {
         app.tabBars.buttons["Dungeon"].tap()
         XCTAssertTrue(app.navigationBars["Dungeon"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Morale"].exists)
-        XCTAssertTrue(app.staticTexts["Residents"].exists)
+        XCTAssertTrue(app.staticTexts["Population"].exists)
         app.swipeUp()
         XCTAssertTrue(app.staticTexts["Abilities"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Ember Memory"].exists)
@@ -78,6 +78,31 @@ final class TheHordeUITests: XCTestCase {
         for label in ["Notifications", "Haptics", "Motion", "On-device model", "Prepare Export", "Reset Dungeon", "Delete All Local Data"] {
             if !app.staticTexts[label].exists && !app.buttons[label].exists && !app.switches[label].exists { app.swipeUp() }
             XCTAssertTrue(app.staticTexts[label].exists || app.buttons[label].exists || app.switches[label].exists, "Missing Settings feature: \(label)")
+        }
+    }
+
+    @MainActor func testCleanAndPopulatedWorldPresentationStates() throws {
+        var app = launch(scenario: "normal")
+        let population = app.staticTexts["Today.WorldPopulation"]
+        XCTAssertTrue(population.waitForExistence(timeout: 5))
+        XCTAssertEqual(population.label, "Ember is alone in Empty Cavern.")
+        XCTAssertFalse(app.descendants(matching: .any)["Today.ActiveThread"].exists)
+        app.tabBars.buttons["Dungeon"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["Dungeon.Dragon"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["Dungeon.Population.Empty"].exists)
+        XCTAssertTrue(app.staticTexts["Empty Cavern"].exists)
+        for hidden in ["Residents", "Discovered Places", "Facts", "Abilities", "Threats"] {
+            XCTAssertFalse(app.staticTexts[hidden].exists, "Clean world showed empty \(hidden) section")
+        }
+        app.terminate()
+
+        app = launch(scenario: "populated")
+        XCTAssertTrue(app.descendants(matching: .any)["Today.ActiveThread"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["Today.WorldPopulation"].label, "Ember shares Empty Cavern with 1 kobold.")
+        app.tabBars.buttons["Dungeon"].tap()
+        for visible in ["Rill", "Echoing Depths", "The Wyrm Mark", "Ember Memory", "Stone Stalker"] {
+            if !app.staticTexts[visible].exists { app.swipeUp() }
+            XCTAssertTrue(app.staticTexts[visible].exists, "Populated world omitted \(visible)")
         }
     }
 

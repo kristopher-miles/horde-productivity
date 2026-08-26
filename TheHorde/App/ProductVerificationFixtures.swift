@@ -33,6 +33,7 @@ struct ProductVerificationFixture {
         case "normal": scene(.normal)
         case "hazard": scene(.hazard)
         case "recovery": scene(.recovery)
+        case "populated": populated
         case "showcase": showcase
         default: nil
         }
@@ -82,6 +83,16 @@ struct ProductVerificationFixture {
             ]
         )
         return fixture
+    }
+
+    private static var populated: Self {
+        var world = WorldSnapshot.initial()
+        world.residents = [CharacterState(id: "kobold-rill", name: "Rill", role: "Adult scout", identity: "A watchful cavern scout.", vitality: 50, bond: 50, conditions: [])]
+        world.locations.append(LocationState(id: "echoing-depths", name: "Echoing Depths", status: "Discovered", summary: "A newly mapped passage."))
+        world.facts = [WorldFact(id: "wyrm-mark", title: "The Wyrm Mark", summary: "A carved sign points deeper underground.")]
+        world.abilities = [AbilityState(id: "ember-memory", name: "Ember Memory", summary: "The dragon remembers completed work.", rank: 1)]
+        world.activeThreads = [ActiveThreadState(id: "stone-stalker", title: "Stone Stalker", severity: 2, state: "active", involvedEntityIDs: ["dragon", "kobold-rill"], summary: "Something dangerous moves beyond the mapped passage.")]
+        return Self(world: WorldReadModel(dungeonName: "The Cinder Vault", revision: 8, snapshot: world), occurrences: [], pendingStories: [], chronicle: [])
     }
 
     private static func occurrence(_ id: String, _ title: String, due: Date, category: GoalCategory, effort: GoalEffort, recurrence: RecurrenceRule = .never) -> GoalOccurrenceSummary {

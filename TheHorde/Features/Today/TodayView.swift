@@ -90,10 +90,21 @@ struct TodayView: View {
 
     @ViewBuilder private var worldSummary: some View {
         if let world = app.world {
+            let presentation = WorldPresentationState(snapshot: world.snapshot)
             VStack(alignment: .leading, spacing: 10) {
                 DungeonSceneView(world: world, cue: .idle)
                 Label(world.dungeonName, systemImage: "castle").font(.headline)
-                if let thread = world.snapshot.activeThreads.first { Text(thread.title).font(.subheadline.bold()); Text(thread.summary).font(.caption) }
+                Text(presentation.populationSummary)
+                    .font(.subheadline)
+                    .accessibilityIdentifier("Today.WorldPopulation")
+                if let thread = world.snapshot.activeThreads.first {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(thread.title).font(.subheadline.bold())
+                        Text(thread.summary).font(.caption)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("Today.ActiveThread")
+                }
                 Button("Open Dungeon") { app.selectedTab = .dungeon }.frame(minHeight: 44)
             }
             .foregroundStyle(.white)
