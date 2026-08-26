@@ -159,7 +159,7 @@ struct PersistenceContractTests {
                 comparisonHistoryIDs: ["attempt-near-1", "attempt-near-2"],
                 suggestedAction: "Map ember roads",
                 customAction: "  Follow the blue flame exactly  ",
-                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: 41)
+                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: ActionSuggestionModelContract.promptVersion)
             ))
         }
 
@@ -172,7 +172,7 @@ struct PersistenceContractTests {
             #expect(resumed.resolutionState?.comparisonHistoryIDs == ["attempt-near-1", "attempt-near-2"])
             #expect(resumed.resolutionState?.suggestedAction == "Map ember roads")
             #expect(resumed.resolutionState?.customAction == "  Follow the blue flame exactly  ")
-            #expect(resumed.resolutionState?.promptVersions == ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: 41))
+            #expect(resumed.resolutionState?.promptVersions == ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: ActionSuggestionModelContract.promptVersion))
             #expect(try await reopened.worldReadModel() == originalWorld)
             #expect(try await reopened.chronicle().isEmpty)
 
@@ -184,7 +184,7 @@ struct PersistenceContractTests {
                 customAction: resumed.resolutionState?.customAction,
                 interpretedAction: "Follow blue flame",
                 acceptedAction: "Follow blue flame",
-                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: 41, interpretation: 42)
+                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: ActionSuggestionModelContract.promptVersion, interpretation: CustomActionModelContract.promptVersion)
             ))
         }
 
@@ -194,7 +194,7 @@ struct PersistenceContractTests {
         #expect(resumed.resolutionState?.stage == .actionAccepted)
         #expect(resumed.resolutionState?.interpretedAction == "Follow blue flame")
         #expect(resumed.resolutionState?.acceptedAction == "Follow blue flame")
-        #expect(resumed.resolutionState?.promptVersions.interpretation == 42)
+        #expect(resumed.resolutionState?.promptVersions.interpretation == CustomActionModelContract.promptVersion)
         #expect(try await reopened.worldReadModel() == originalWorld)
         #expect(try await reopened.chronicle().isEmpty)
     }
@@ -238,7 +238,7 @@ struct PersistenceContractTests {
                 comparisonHistoryIDs: ["nearby-attempt"],
                 suggestedAction: "Raise signal fire",
                 acceptedAction: "Raise signal fire",
-                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: 41, finalProse: 43)
+                promptVersions: ResolutionPromptVersions(effort: EffortModelContract.promptVersion, suggestion: ActionSuggestionModelContract.promptVersion, finalProse: FinalProseModelContract.promptVersion)
             )
         }
 
@@ -250,7 +250,7 @@ struct PersistenceContractTests {
             #expect(ready.resolutionState?.finalResult?.expectedRevision == base.revision)
             #expect(ready.resolutionState?.finalResult?.mutations == [WorldMutation.increment("world.morale", by: 2)])
             #expect(ready.resolutionState?.finalResult?.title == "The Signal Fire")
-            #expect(ready.resolutionState?.promptVersions.finalProse == 43)
+            #expect(ready.resolutionState?.promptVersions.finalProse == FinalProseModelContract.promptVersion)
             #expect(try await reopened.worldReadModel() == base)
             #expect(try await reopened.chronicle().isEmpty)
             await #expect(throws: StoreError.injectedFailure) {

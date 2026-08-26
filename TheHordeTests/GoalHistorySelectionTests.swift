@@ -67,16 +67,21 @@ struct GoalHistorySelectionTests {
         let passed = try #require(await store.definitionSummary(id: passedID)?.history.first)
         try await store.completeOccurrence(id: passed.id, now: base.addingTimeInterval(-19))
 
-        let failedID = try await store.createGoal(GoalDraft(title: "Repair the western bridge", notes: "Replace the broken arch", dueDate: .distantPast, includesTime: true), now: base.addingTimeInterval(-18))
-        let failed = try #require(await store.definitionSummary(id: failedID)?.history.first)
+        let expiredID = try await store.createGoal(GoalDraft(title: "Repair the western bridge", notes: "Replace the broken arch", dueDate: .distantPast, includesTime: true), now: base.addingTimeInterval(-18))
+        let expired = try #require(await store.definitionSummary(id: expiredID)?.history.first)
         _ = try await store.reconcileDeadlines(now: base.addingTimeInterval(-17))
 
-        let pendingID = try await store.createGoal(GoalDraft(title: "Pending bridge work"), now: base.addingTimeInterval(-16))
+        let failedID = try await store.createGoal(GoalDraft(title: "Repair the southern bridge", notes: "Replace the fallen span"), now: base.addingTimeInterval(-16.5))
+        let failed = try #require(await store.definitionSummary(id: failedID)?.history.first)
+        try await store.failOccurrence(id: failed.id, now: base.addingTimeInterval(-16))
+
+        let pendingID = try await store.createGoal(GoalDraft(title: "Pending bridge work"), now: base.addingTimeInterval(-15.5))
         let pending = try #require(await store.definitionSummary(id: pendingID)?.history.first)
 
         let cancelledID = try await store.createGoal(GoalDraft(title: "Cancelled bridge work"), now: base.addingTimeInterval(-15))
         let cancelled = try #require(await store.definitionSummary(id: cancelledID)?.history.first)
         try await store.archiveGoal(id: cancelledID, now: base.addingTimeInterval(-14))
+        #expect(!(try await store.allStoryEvents()).contains { $0.sourceTitle == "Cancelled bridge work" })
 
         let currentID = try await store.createGoal(GoalDraft(title: "Repair the central bridge"), now: base)
         let current = try #require(await store.definitionSummary(id: currentID)?.history.first)
@@ -87,8 +92,9 @@ struct GoalHistorySelectionTests {
         try await store.completeOccurrence(id: later.id, now: base.addingTimeInterval(3))
         let history = try await store.attemptedGoalHistory(for: current.id + ":positive")
 
-        #expect(Set(history.map(\.id)) == [passed.id, failed.id])
+        #expect(Set(history.map(\.id)) == [passed.id, expired.id, failed.id])
         #expect(history.first { $0.id == passed.id }?.outcome == .passed)
+        #expect(history.first { $0.id == expired.id }?.outcome == .failed)
         #expect(history.first { $0.id == failed.id }?.outcome == .failed)
         #expect(history.first { $0.id == passed.id }?.content == "Repair the eastern bridge\nReplace the cracked stone")
         #expect(!history.map(\.id).contains(pending.id))

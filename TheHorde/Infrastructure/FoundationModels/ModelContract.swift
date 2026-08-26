@@ -36,7 +36,7 @@ struct EffortModelOutput {
 }
 
 enum ActionSuggestionModelContract {
-    static let promptVersion = 41
+    static let promptVersion = 42
 
     static var instructions: String { ModelPromptRegistry.text(.suggestionSystemInstructions) }
 
@@ -58,6 +58,7 @@ enum ActionSuggestionModelContract {
         return ModelPromptRegistry.render(.suggestionRequestTemplate, [
             "goalContext": ModelPromptRegistry.render(.sharedGoalContext, ["goal": goal]),
             "effort": String(event.effort?.value ?? 0),
+            "currentOutcome": event.modelOutcome,
             "worldContext": ModelPromptRegistry.render(.sharedWorldContext, [
                 "world": "<world-data>\(ModelPromptRegistry.data(worldJSON))</world-data>"
             ])
@@ -87,7 +88,7 @@ struct ActionSuggestionModelOutput {
 }
 
 enum CustomActionModelContract {
-    static let promptVersion = 42
+    static let promptVersion = 43
 
     static var instructions: String { ModelPromptRegistry.text(.customActionSystemInstructions) }
 
@@ -119,6 +120,7 @@ enum CustomActionModelContract {
         return ModelPromptRegistry.render(.customActionRequestTemplate, [
             "goalContext": ModelPromptRegistry.render(.sharedGoalContext, ["goal": goal]),
             "effort": String(event.effort?.value ?? 0),
+            "currentOutcome": event.modelOutcome,
             "worldContext": ModelPromptRegistry.render(.sharedWorldContext, [
                 "world": "<world-data>\(ModelPromptRegistry.data(worldJSON))</world-data>"
             ]),
@@ -155,7 +157,7 @@ struct CustomActionModelOutput {
 }
 
 enum FinalProseModelContract {
-    static let promptVersion = 43
+    static let promptVersion = 44
 
     static var instructions: String { ModelPromptRegistry.text(.finalProseSystemInstructions) }
 
@@ -188,7 +190,7 @@ enum FinalProseModelContract {
             "previousProseContext": ModelPromptRegistry.render(.sharedPreviousProseContext, [
                 "previousProse": previousProse
             ]),
-            "currentOutcome": event.valence == .positive ? "succeeded" : "failed"
+            "currentOutcome": event.modelOutcome
         ])
     }
 
@@ -230,9 +232,9 @@ struct FinalProseModelOutput {
 }
 
 enum HordeModelContract {
-    static let promptVersion = 44
+    static let promptVersion = 45
     static let schemaVersion = 6
-    static let projectionVersion = 17
+    static let projectionVersion = 18
 
     static var instructions: String { ModelPromptRegistry.text(.legacySystemInstructions) }
 

@@ -62,7 +62,7 @@ Build and validate the service pipeline before connecting screens to it.
 - [x] 037 — [RF-03 — Generate a few-word suggested story action from effort (line 87)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L87)
 - [x] 038 — [RF-06 — Parse custom actions faithfully with contextual safety fallback (line 95)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L95)
 - [x] 039 — [RF-09 — Generate one 50–150 word paragraph from save, action, and prior prose (line 103)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L103)
-- [ ] 040 — [RF-11 — Support the staged pipeline for accomplished and failed goals (line 105)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L105)
+- [x] 040 — [RF-11 — Support the staged pipeline for accomplished and failed goals (line 105)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L105)
 
 ## 4. Build the user-controlled resolution experience
 

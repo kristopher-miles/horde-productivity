@@ -39,7 +39,7 @@ enum AttemptedGoalHistory {
             let outcome: AttemptedGoalOutcome
             switch occurrence.state {
             case .completed: outcome = .passed
-            case .expired: outcome = .failed
+            case .expired, .failed: outcome = .failed
             case .pending, .cancelled: return nil
             }
             let context = AttemptedGoalContext(

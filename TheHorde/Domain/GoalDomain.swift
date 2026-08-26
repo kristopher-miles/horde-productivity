@@ -32,7 +32,7 @@ enum RecurrenceRule: Codable, Equatable, Sendable {
     }
 }
 
-enum GoalOccurrenceState: String, Codable, Sendable { case pending, completed, expired, cancelled }
+enum GoalOccurrenceState: String, Codable, Sendable { case pending, completed, expired, failed, cancelled }
 
 struct GoalDraft: Codable, Equatable, Sendable {
     var title = ""

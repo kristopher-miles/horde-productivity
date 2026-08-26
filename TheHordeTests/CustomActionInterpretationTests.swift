@@ -44,7 +44,7 @@ struct CustomActionInterpretationTests {
             #expect(pending.resolutionState?.stage == .interpretedActionReview)
             #expect(pending.resolutionState?.customAction == customAction)
             #expect(pending.resolutionState?.interpretedAction == "Gather grapes beyond fortress")
-            #expect(CustomActionModelContract.promptVersion == 42)
+            #expect(CustomActionModelContract.promptVersion == 43)
             #expect(pending.resolutionState?.promptVersions.interpretation == CustomActionModelContract.promptVersion)
             #expect(try await store.worldReadModel() == originalWorld)
             #expect(try await store.chronicle().isEmpty)

@@ -441,6 +441,7 @@ struct PendingStorySummary: Codable, Identifiable, Equatable, Sendable {
     var sourceDueDate: Date? = nil
     var sourceIncludesTime = false
     var sourceTimeZoneID: String? = nil
+    var sourceOutcome: GoalOccurrenceState? = nil
     let valence: EventValence
     let status: EventStatus
     let failureCode: String?
@@ -451,6 +452,15 @@ struct PendingStorySummary: Codable, Identifiable, Equatable, Sendable {
     var finalProse: String? = nil
     var recordedWorld: WorldReadModel? = nil
     var resolutionState: StagedResolutionState? = nil
+
+    var modelOutcome: String {
+        switch sourceOutcome {
+        case .completed: "completed success"
+        case .expired: "expired failure"
+        case .failed: "declared failure"
+        case .pending, .cancelled, nil: valence == .positive ? "completed success" : "failure"
+        }
+    }
 }
 
 struct WorldReadModel: Codable, Equatable, Sendable {
@@ -527,6 +537,7 @@ enum ProjectionBuilder {
         return ModelPromptRegistry.render(.legacyProjectionTemplate, [
             "eventID": event.id,
             "valence": event.valence.rawValue,
+            "outcome": event.modelOutcome,
             "revision": String(world.revision),
             "sourceTitle": sourceTitle,
             "sourceNotes": sourceNotes,

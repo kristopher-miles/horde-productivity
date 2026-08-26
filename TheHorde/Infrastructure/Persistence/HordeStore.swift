@@ -199,6 +199,10 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         try transitionOccurrence(id: id, state: .completed, valence: .positive, now: now, calendar: calendar)
     }
 
+    @discardableResult func failOccurrence(id: String, now: Date = .now, calendar: Calendar = .current) throws -> String? {
+        try transitionOccurrence(id: id, state: .failed, valence: .negative, now: now, calendar: calendar)
+    }
+
     func reconcileDeadlines(now: Date = .now, calendar: Calendar = .current) throws -> Int {
         let descriptor = FetchDescriptor<GoalOccurrenceRecord>(predicate: #Predicate { $0.stateRaw == "pending" }, sortBy: [SortDescriptor(\.dueDate)])
         var count = 0
@@ -721,6 +725,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
             sourceDueDate: occurrence?.dueDate,
             sourceIncludesTime: occurrence?.includesTime ?? false,
             sourceTimeZoneID: occurrence?.timeZoneID,
+            sourceOutcome: occurrence.flatMap { GoalOccurrenceState(rawValue: $0.stateRaw) },
             valence: EventValence(rawValue: event.valenceRaw) ?? .positive,
             status: status ?? EventStatus(rawValue: event.statusRaw) ?? .pending,
             failureCode: event.failureCode,
