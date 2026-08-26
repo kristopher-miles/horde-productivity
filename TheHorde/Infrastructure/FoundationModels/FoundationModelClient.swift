@@ -561,7 +561,7 @@ actor FoundationModelClient {
                 let label = safeGoalLabel(sourceTitle, avoiding: positiveOppositeMarkers)
                 return ModelStoryFields(
                     title: "\(label) — A Small Success",
-                    narration: "Completing \(label) gives the vault a modest lift. The kobolds make a little welcome progress.",
+                    narration: "Completing \(label) gives the vault a modest lift. The dragon makes a little welcome progress.",
                     summary: "Completing \(label) gives the dungeon a modest benefit.",
                     cue: content.cue,
                     receiptID: content.receiptID

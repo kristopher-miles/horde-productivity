@@ -39,7 +39,7 @@ Land data contracts and reset behavior before UI or art depends on them.
 - [x] 019 — [AP-04 — Define the starting lair as dirty, cold, empty, unruly, and dangerous (line 40)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L40)
 - [x] 020 — [AP-05 — Remove the seeded harmless draft and padded threat default (line 41)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L41)
 - [x] 021 — [AP-06 — Align the starting character record with a young Baby dragon (line 42)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L42)
-- [ ] 022 — [NPC-01 — Enforce zero kobolds on new and reset saves (line 138)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L138)
+- [x] 022 — [NPC-01 — Enforce zero kobolds on new and reset saves (line 138)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L138)
 - [ ] 023 — [NPC-02 — Add persisted Baby, Kid, and Adult kobold age state (line 139)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L139)
 - [ ] 024 — [VC-03 — Add durable Hoard-driven background progression independent of event cues (line 118)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L118)
 - [ ] 025 — [VC-08 — Store dragon age and room richness as independent axes (line 128)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L128)

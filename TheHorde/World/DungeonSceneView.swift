@@ -54,20 +54,27 @@ struct DungeonSceneView: View {
             else { "DungeonNormal" }
         }
     }
+
+    nonisolated static func renderedBackgroundAssetName(world: WorldReadModel, cue: AnimationCue) -> String? {
+        world.snapshot.residents.isEmpty ? nil : assetName(world: world, cue: cue)
+    }
 }
 
 @MainActor final class PixelDungeonScene: SKScene {
     init(world: WorldReadModel, cue: AnimationCue, reduceMotion: Bool) {
         super.init(size: CGSize(width: 320, height: 180))
         scaleMode = .aspectFill
-        backgroundColor = .black
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        let texture = SKTexture(imageNamed: DungeonSceneView.assetName(world: world, cue: cue))
-        texture.filteringMode = .nearest
-        let art = SKSpriteNode(texture: texture, size: size)
-        addChild(art)
+        let art = DungeonSceneView.renderedBackgroundAssetName(world: world, cue: cue).map { assetName in
+            let texture = SKTexture(imageNamed: assetName)
+            texture.filteringMode = .nearest
+            let node = SKSpriteNode(texture: texture, size: size)
+            addChild(node)
+            return node
+        }
+        backgroundColor = art == nil ? .clear : .black
         addEmber(world: world, cue: cue, reduceMotion: reduceMotion)
-        if !reduceMotion { animate(cue, art: art) }
+        if !reduceMotion, let art { animate(cue, art: art) }
         #if os(iOS)
         NotificationCenter.default.addObserver(self, selector: #selector(pauseForBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(resumeFromBackground), name: UIApplication.willEnterForegroundNotification, object: nil)

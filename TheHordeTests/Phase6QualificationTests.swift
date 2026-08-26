@@ -191,6 +191,7 @@ struct Phase6QualificationTests {
         let positive = await client.qualifiedNarrative(raw, valence: .positive, sourceTitle: "File the tax return")
         #expect(positive.narration.localizedCaseInsensitiveContains("draft") == false)
         #expect(positive.narration.localizedCaseInsensitiveContains("tax return") == true)
+        #expect(positive.narration.localizedCaseInsensitiveContains("kobold") == false)
         #expect(positive.summary.localizedCaseInsensitiveContains("benefit") == true)
 
         let negative = await client.qualifiedNarrative(raw, valence: .negative, sourceTitle: "Wash the dishes")

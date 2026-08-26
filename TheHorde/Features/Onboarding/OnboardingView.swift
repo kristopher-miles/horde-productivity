@@ -36,13 +36,14 @@ struct OnboardingView: View {
     }
 
     private var onboardingArt: some View {
-        Image("DungeonNormal")
-            .resizable()
-            .interpolation(.none)
-            .aspectRatio(16 / 9, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 24))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Self.startingCavernAccessibilityLabel)
+        DungeonSceneView(
+            world: WorldReadModel(
+                dungeonName: dungeonName,
+                revision: 0,
+                snapshot: .initial(dragonName: dragonName, dungeonName: dungeonName)
+            ),
+            accessibilityDescription: Self.startingCavernAccessibilityLabel
+        )
     }
 
     private func finish() {

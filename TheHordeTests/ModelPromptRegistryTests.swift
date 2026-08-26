@@ -50,6 +50,8 @@ struct ModelPromptRegistryTests {
         let corrected = HordeModelContract.correctedPrompt(prompt, rejection: "receipt mismatch")
 
         #expect(HordeModelContract.instructions == ModelPromptRegistry.text(.legacySystemInstructions))
+        #expect(!HordeModelContract.instructions.localizedCaseInsensitiveContains("kobold"))
+        #expect(!projection.localizedCaseInsensitiveContains("kobold"))
         #expect(prompt.contains(ModelPromptRegistry.text(.legacyPositiveOutcomeRule)))
         #expect(prompt.contains(ModelPromptRegistry.text(.legacyTaskInstructions)))
         #expect(prompt.contains("<user-title>Map {{outcomeRule}} safely</user-title>"))
@@ -91,7 +93,7 @@ struct ModelPromptRegistryTests {
         ]
         let text = threatComponents.map { ModelPromptRegistry.text($0) }.joined(separator: " ")
 
-        #expect(HordeModelContract.promptVersion == 37)
+        #expect(HordeModelContract.promptVersion == 38)
         #expect(text.localizedCaseInsensitiveContains("consequential"))
         #expect(text.localizedCaseInsensitiveContains("epic-fantasy threat"))
         #expect(!text.localizedCaseInsensitiveContains("no threats"))

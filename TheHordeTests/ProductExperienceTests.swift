@@ -106,6 +106,10 @@ struct ProductExperienceTests {
         let accessibility = [DungeonSceneView.sceneDescription(for: readModel), OnboardingView.startingCavernAccessibilityLabel]
 
         assertStartingDragon(world)
+        #expect(accessibility.allSatisfy { !$0.localizedCaseInsensitiveContains("kobold") })
+        #expect(AnimationCue.allCases.allSatisfy {
+            DungeonSceneView.renderedBackgroundAssetName(world: readModel, cue: $0) == nil
+        })
         for trait in ["young", "small", "newly independent", "just claimed", "empty cavern", "not yet powerful or established"] {
             #expect(projection.localizedCaseInsensitiveContains(trait))
             #expect(accessibility.allSatisfy { $0.localizedCaseInsensitiveContains(trait) })
