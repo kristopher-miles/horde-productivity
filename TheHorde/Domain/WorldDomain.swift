@@ -133,15 +133,15 @@ enum WorldContract {
     static func descriptors(for valence: EventValence) -> [WorldMutationDescriptor] {
         let maxDelta = valence == .positive ? 4 : 2
         var result = ["world.morale", "world.integrity", "world.food"].map {
-            WorldMutationDescriptor(fieldID: $0, kind: .integer, operations: [.increment], range: 0...100, maxDelta: maxDelta, collectionCap: nil, description: "A visible dungeon resource from 0 through 100")
+            WorldMutationDescriptor(fieldID: $0, kind: .integer, operations: [.increment], range: 0...100, maxDelta: maxDelta, collectionCap: nil, description: ModelPromptRegistry.text(.legacyScalarDescriptor))
         }
         if valence == .positive {
             result += [
-                WorldMutationDescriptor(fieldID: "world.abilities", kind: .ability, operations: [.append, .replace], range: 1...3, maxDelta: nil, collectionCap: 12, description: "A concise named ability with rank 1 through 3"),
-                WorldMutationDescriptor(fieldID: "world.facts", kind: .fact, operations: [.append], range: nil, maxDelta: nil, collectionCap: 24, description: "A short durable world fact")
+                WorldMutationDescriptor(fieldID: "world.abilities", kind: .ability, operations: [.append, .replace], range: 1...3, maxDelta: nil, collectionCap: 12, description: ModelPromptRegistry.text(.legacyAbilityDescriptor)),
+                WorldMutationDescriptor(fieldID: "world.facts", kind: .fact, operations: [.append], range: nil, maxDelta: nil, collectionCap: 24, description: ModelPromptRegistry.text(.legacyFactDescriptor))
             ]
         }
-        result.append(WorldMutationDescriptor(fieldID: "world.activeThreads", kind: .thread, operations: [.append, .replace], range: 1...(valence == .positive ? 4 : 2), maxDelta: nil, collectionCap: 4, description: "A recoverable active thread with known involved entity identifiers"))
+        result.append(WorldMutationDescriptor(fieldID: "world.activeThreads", kind: .thread, operations: [.append, .replace], range: 1...(valence == .positive ? 4 : 2), maxDelta: nil, collectionCap: 4, description: ModelPromptRegistry.text(.legacyThreadDescriptor)))
         return result
     }
 
@@ -152,7 +152,7 @@ enum WorldContract {
             if descriptor.kind == .integer, let current = values[descriptor.fieldID], let range = descriptor.range {
                 let available = valence == .positive ? range.upperBound - current : current - range.lowerBound
                 let legalDelta = min(descriptor.maxDelta ?? 0, max(0, available))
-                let suffix = legalDelta == 0 ? "; at the directional boundary, increment exactly 0" : "; directional strength is constrained to the current legal interval"
+                let suffix = ModelPromptRegistry.text(legalDelta == 0 ? .legacyDirectionalBoundary : .legacyDirectionalInterval)
                 return WorldMutationDescriptor(fieldID: descriptor.fieldID, kind: descriptor.kind, operations: descriptor.operations, range: descriptor.range, maxDelta: legalDelta, collectionCap: nil, description: descriptor.description + suffix)
             }
             guard let cap = descriptor.collectionCap else { return descriptor }
@@ -162,8 +162,8 @@ enum WorldContract {
                 : count == 0 ? descriptor.operations.subtracting([.replace]) : descriptor.operations
             guard !operations.isEmpty else { return nil }
             let instruction = operations.contains(.append) && operations.contains(.replace)
-                ? "; append a new record ID or replace an exact existing record ID"
-                : operations.contains(.replace) ? "; collection is full, so replace an exact existing record ID" : "; append a new record ID"
+                ? ModelPromptRegistry.text(.legacyAppendOrReplace)
+                : ModelPromptRegistry.text(operations.contains(.replace) ? .legacyReplaceOnly : .legacyAppendOnly)
             return WorldMutationDescriptor(fieldID: descriptor.fieldID, kind: descriptor.kind, operations: operations, range: descriptor.range, maxDelta: descriptor.maxDelta, collectionCap: descriptor.collectionCap, description: descriptor.description + instruction)
         }
     }
@@ -296,37 +296,70 @@ struct ChronicleSummary: Codable, Identifiable, Equatable, Sendable {
 enum ProjectionBuilder {
     static func projection(event: PendingStorySummary, world: WorldReadModel, descriptors: [WorldMutationDescriptor], compact: Bool = false) -> String {
         let thread = world.snapshot.activeThreads.sorted { ($0.severity, $0.id) > ($1.severity, $1.id) }.first
-        let residents = world.snapshot.residents.prefix(3).map { compact ? "\($0.id)=\($0.name)" : "\($0.id)=\($0.name), \($0.role)" }.joined(separator: "; ")
+        let residents = world.snapshot.residents.prefix(3).map {
+            ModelPromptRegistry.render(compact ? .legacyResidentCompactTemplate : .legacyResidentFullTemplate, [
+                "id": $0.id, "name": $0.name, "role": $0.role
+            ])
+        }.joined(separator: "; ")
         let sourceTitle = String(event.sourceTitle.prefix(compact ? 160 : 240))
         let sourceNotes = String(event.sourceNotes.prefix(compact ? 160 : 400))
         let referenceIDs = ([world.snapshot.dragon.id] + world.snapshot.residents.map(\.id) + world.snapshot.locations.map(\.id)).joined(separator: ",")
-        let recordIDs = "abilities=\(world.snapshot.abilities.map(\.id).joined(separator: ",")); activeThreads=\(world.snapshot.activeThreads.map(\.id).joined(separator: ",")); facts=\(world.snapshot.facts.map(\.id).joined(separator: ","))"
+        let recordIDs = ModelPromptRegistry.render(.legacyRecordIDsTemplate, [
+            "abilities": world.snapshot.abilities.map(\.id).joined(separator: ","),
+            "activeThreads": world.snapshot.activeThreads.map(\.id).joined(separator: ","),
+            "facts": world.snapshot.facts.map(\.id).joined(separator: ",")
+        ])
         let contract = descriptors.map { descriptor in
             var limits: [String] = []
-            if let range = descriptor.range { limits.append("range=\(range.lowerBound)...\(range.upperBound)") }
-            if let maxDelta = descriptor.maxDelta {
-                limits.append("maxDelta=\(maxDelta)")
-                limits.append("legalStrength=0...\(maxDelta)")
+            if let range = descriptor.range {
+                limits.append(ModelPromptRegistry.render(.legacyDescriptorRangeTemplate, [
+                    "lowerBound": String(range.lowerBound), "upperBound": String(range.upperBound)
+                ]))
             }
-            if let cap = descriptor.collectionCap { limits.append("collectionCap=\(cap)") }
-            return "\(descriptor.fieldID) [\(descriptor.operations.map(\.rawValue).sorted().joined(separator: ","))] \(limits.joined(separator: " ")) \(descriptor.description)"
+            if let maxDelta = descriptor.maxDelta {
+                let value = ["maxDelta": String(maxDelta)]
+                limits.append(ModelPromptRegistry.render(.legacyDescriptorMaxDeltaTemplate, value))
+                limits.append(ModelPromptRegistry.render(.legacyDescriptorLegalStrengthTemplate, value))
+            }
+            if let cap = descriptor.collectionCap {
+                limits.append(ModelPromptRegistry.render(.legacyDescriptorCollectionCapTemplate, ["collectionCap": String(cap)]))
+            }
+            return ModelPromptRegistry.render(.legacyDescriptorTemplate, [
+                "fieldID": descriptor.fieldID,
+                "operations": descriptor.operations.map(\.rawValue).sorted().joined(separator: ","),
+                "limits": limits.joined(separator: " "),
+                "description": descriptor.description
+            ])
         }.joined(separator: "\n")
-        return """
-        EVENT id=\(event.id) valence=\(event.valence.rawValue) revision=\(world.revision)
-        SOURCE TITLE <user-title>\(sourceTitle)</user-title>
-        SOURCE NOTES <user-notes>\(sourceNotes)</user-notes>
-        SOURCE CONTEXT category=\(event.sourceCategory?.rawValue ?? "none") effort=\(event.sourceEffort?.rawValue ?? "none") due=\(event.sourceDueDate?.ISO8601Format() ?? "none") includesTime=\(event.sourceIncludesTime) timeZone=\(event.sourceTimeZoneID ?? "none")
-        WORLD dungeon=\(world.dungeonName) dragon=\(world.snapshot.dragon.name) morale=\(world.snapshot.morale) integrity=\(world.snapshot.integrity) food=\(world.snapshot.food)
-        RESIDENTS \(residents)
-        ALLOWED ENTITY REFERENCES \(referenceIDs)
-        EXISTING RECORD IDS \(recordIDs)
-        ACTIVE THREAD \(thread.map { compact ? "\($0.id): \($0.title), severity \($0.severity)" : "\($0.id): \($0.title), severity \($0.severity), \($0.summary)" } ?? "none")
-        RECENT SUMMARY \(String(world.snapshot.rollingSummary.prefix(compact ? 160 : 400)))
-        PATCH BUDGET maximumMutations=\(event.valence == .positive ? 4 : 2) maximumAppends=\(event.valence == .positive ? 2 : 1)
-        SCALAR RULE request a strength whose absolute value is within legalStrength; the staging authority ignores the written sign and applies the event direction; at 0...0 use exactly 0
-        WRITABLE CONTRACT
-        \(contract)
-        """
+        return ModelPromptRegistry.render(.legacyProjectionTemplate, [
+            "eventID": event.id,
+            "valence": event.valence.rawValue,
+            "revision": String(world.revision),
+            "sourceTitle": sourceTitle,
+            "sourceNotes": sourceNotes,
+            "category": event.sourceCategory?.rawValue ?? ModelPromptRegistry.text(.legacyMissingValue),
+            "effort": event.sourceEffort?.rawValue ?? ModelPromptRegistry.text(.legacyMissingValue),
+            "due": event.sourceDueDate?.ISO8601Format() ?? ModelPromptRegistry.text(.legacyMissingValue),
+            "includesTime": String(event.sourceIncludesTime),
+            "timeZone": event.sourceTimeZoneID ?? ModelPromptRegistry.text(.legacyMissingValue),
+            "dungeonName": world.dungeonName,
+            "dragonName": world.snapshot.dragon.name,
+            "morale": String(world.snapshot.morale),
+            "integrity": String(world.snapshot.integrity),
+            "food": String(world.snapshot.food),
+            "residents": residents,
+            "referenceIDs": referenceIDs,
+            "recordIDs": recordIDs,
+            "activeThread": thread.map {
+                ModelPromptRegistry.render(compact ? .legacyActiveThreadCompactTemplate : .legacyActiveThreadFullTemplate, [
+                    "id": $0.id, "title": $0.title, "severity": String($0.severity), "summary": $0.summary
+                ])
+            } ?? ModelPromptRegistry.text(.legacyMissingValue),
+            "recentSummary": String(world.snapshot.rollingSummary.prefix(compact ? 160 : 400)),
+            "maximumMutations": String(event.valence == .positive ? 4 : 2),
+            "maximumAppends": String(event.valence == .positive ? 2 : 1),
+            "writableContract": contract
+        ])
     }
 }
 

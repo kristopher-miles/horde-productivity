@@ -117,50 +117,64 @@ struct ModelStoryFields {
 
 @Generable
 private struct PositiveModelStoryOutput {
-    @Guide(description: "A calm, goal-specific dungeon consequence title using concrete imagery rather than a generic stat label, at most 70 characters")
     var title: String
-    @Guide(description: "Two or three short sentences in which the completed goal causes a modest dungeon benefit; never a setback, loss, or decline; at most 600 characters")
     var narration: String
-    @Guide(description: "A concise goal-specific summary of the benefit, at most 160 characters")
     var summary: String
-    @Guide(description: "A permitted animation cue", .anyOf(["idle", "celebrate", "concern", "recover", "hazardAppears", "resourceChanges"]))
     var cue: String
-    @Guide(description: "The receipt identifier returned by the staging tool")
     var receiptID: String
 }
 
 @Generable
 private struct NegativeModelStoryOutput {
-    @Guide(description: "A calm, goal-specific title for a small recoverable setback, at most 70 characters")
     var title: String
-    @Guide(description: "Two or three short sentences in which the expired or missed goal causes a small recoverable dungeon setback; never success, improvement, increase, boost, or benefit; at most 600 characters")
     var narration: String
-    @Guide(description: "A concise goal-specific summary of the small setback, at most 160 characters")
     var summary: String
-    @Guide(description: "A permitted animation cue", .anyOf(["idle", "concern", "recover", "hazardAppears", "resourceChanges"]))
     var cue: String
-    @Guide(description: "The receipt identifier returned by the staging tool")
     var receiptID: String
 }
 
 @Generable
 struct StageMutationArguments {
-    @Guide(description: "An authorized stable field identifier")
     var fieldID: String
-    @Guide(description: "A supported mutation operation", .anyOf(["increment", "set", "append", "replace", "remove"]))
     var operation: String
-    @Guide(description: "Resource-change strength magnitude; either written sign is accepted, and the staging authority applies the event direction and legal bound; ignored for record operations", .range(-4...4))
     var integerValue: Int
-    @Guide(description: "Stable lowercase generated record identifier, 1 through 60 characters; use unused for integer operations")
     var recordID: String
-    @Guide(description: "Concise generated record title, 1 through 80 characters; use unused for integer operations")
     var recordTitle: String
-    @Guide(description: "Concise generated record summary, 1 through 240 characters; use unused for integer operations")
     var recordSummary: String
-    @Guide(description: "Thread severity or ability rank; the staging authority enforces the selected field's runtime range; ignored for facts and integers", .range(1...4))
     var severityOrRank: Int
-    @Guide(description: "Only known entity identifiers involved in a thread; empty otherwise")
     var involvedEntityIDs: [String]
+}
+
+enum LegacyModelSchemas {
+    static func story(for valence: EventValence) -> GenerationSchema {
+        let ids: [ModelPromptComponentID] = valence == .positive
+            ? [.legacyPositiveTitleGuide, .legacyPositiveNarrationGuide, .legacyPositiveSummaryGuide, .legacyPositiveCueGuide, .legacyPositiveReceiptGuide]
+            : [.legacyNegativeTitleGuide, .legacyNegativeNarrationGuide, .legacyNegativeSummaryGuide, .legacyNegativeCueGuide, .legacyNegativeReceiptGuide]
+        let cues = valence == .positive
+            ? ["idle", "celebrate", "concern", "recover", "hazardAppears", "resourceChanges"]
+            : ["idle", "concern", "recover", "hazardAppears", "resourceChanges"]
+        let type: any Generable.Type = valence == .positive ? PositiveModelStoryOutput.self : NegativeModelStoryOutput.self
+        return GenerationSchema(type: type, properties: [
+            .init(name: "title", description: ModelPromptRegistry.text(ids[0]), type: String.self),
+            .init(name: "narration", description: ModelPromptRegistry.text(ids[1]), type: String.self),
+            .init(name: "summary", description: ModelPromptRegistry.text(ids[2]), type: String.self),
+            .init(name: "cue", description: ModelPromptRegistry.text(ids[3]), type: String.self, guides: [.anyOf(cues)]),
+            .init(name: "receiptID", description: ModelPromptRegistry.text(ids[4]), type: String.self)
+        ])
+    }
+
+    static var toolParameters: GenerationSchema {
+        GenerationSchema(type: StageMutationArguments.self, properties: [
+            .init(name: "fieldID", description: ModelPromptRegistry.text(.legacyToolFieldIDGuide), type: String.self),
+            .init(name: "operation", description: ModelPromptRegistry.text(.legacyToolOperationGuide), type: String.self, guides: [.anyOf(["increment", "set", "append", "replace", "remove"])]),
+            .init(name: "integerValue", description: ModelPromptRegistry.text(.legacyToolIntegerValueGuide), type: Int.self, guides: [.range(-4...4)]),
+            .init(name: "recordID", description: ModelPromptRegistry.text(.legacyToolRecordIDGuide), type: String.self),
+            .init(name: "recordTitle", description: ModelPromptRegistry.text(.legacyToolRecordTitleGuide), type: String.self),
+            .init(name: "recordSummary", description: ModelPromptRegistry.text(.legacyToolRecordSummaryGuide), type: String.self),
+            .init(name: "severityOrRank", description: ModelPromptRegistry.text(.legacyToolSeverityGuide), type: Int.self, guides: [.range(1...4)]),
+            .init(name: "involvedEntityIDs", description: ModelPromptRegistry.text(.legacyToolEntityIDsGuide), type: [String].self)
+        ])
+    }
 }
 
 actor PatchStager {
@@ -203,7 +217,7 @@ actor PatchStager {
             }
             mutations.append(mutation)
             calls.append(toolCall(arguments, stagedIntegerValue: integerValue, accepted: true, rejection: nil))
-            return "Staged in receipt \(receiptID)."
+            return ModelPromptRegistry.render(.legacyToolSuccess, ["receiptID": receiptID])
         } catch {
             calls.append(toolCall(arguments, stagedIntegerValue: nil, accepted: false, rejection: error.localizedDescription))
             throw error
@@ -254,10 +268,12 @@ actor PatchStager {
     }
 }
 
-private struct StageMutationTool: Tool {
-    let name = "stageDungeonMutation"
-    let description = "Stages one proposed mutation in memory. It cannot persist or commit data. For a scalar, pass a strength whose absolute value is at most its supplied legalStrength; the staging authority ignores the written sign and applies the event direction. Other invalid arguments end the attempt, so use only the exact operation, existing replacement ID, and allowed entity IDs."
+struct StageMutationTool: Tool {
+    let name = ModelPromptRegistry.text(.legacyToolName)
+    let description = ModelPromptRegistry.text(.legacyToolDescription)
     let stager: PatchStager
+
+    var parameters: GenerationSchema { LegacyModelSchemas.toolParameters }
 
     func call(arguments: StageMutationArguments) async throws -> String {
         try await stager.stage(arguments: arguments)
@@ -319,7 +335,7 @@ actor FoundationModelClient {
                 instructions: try? model.tokenCount(for: Instructions(instructions)),
                 prompt: try? model.tokenCount(for: prompt),
                 tools: try? model.tokenCount(for: [tool] as [any Tool]),
-                generatedSchema: try? model.tokenCount(for: event.valence == .positive ? PositiveModelStoryOutput.generationSchema : NegativeModelStoryOutput.generationSchema),
+                generatedSchema: try? model.tokenCount(for: LegacyModelSchemas.story(for: event.valence)),
                 preResponseTranscript: try? model.tokenCount(for: measurementSession.transcript),
                 completeTranscript: nil
             )
@@ -338,7 +354,7 @@ actor FoundationModelClient {
                     instructions: try? model.tokenCount(for: Instructions(instructions)),
                     prompt: try? model.tokenCount(for: prompt),
                     tools: try? model.tokenCount(for: [tool] as [any Tool]),
-                    generatedSchema: try? model.tokenCount(for: event.valence == .positive ? PositiveModelStoryOutput.generationSchema : NegativeModelStoryOutput.generationSchema),
+                    generatedSchema: try? model.tokenCount(for: LegacyModelSchemas.story(for: event.valence)),
                     preResponseTranscript: try? model.tokenCount(for: measurementSession.transcript),
                     completeTranscript: nil
                 )
@@ -361,8 +377,7 @@ actor FoundationModelClient {
                     request = prompt
                 } else {
                     session.prewarm(promptPrefix: Prompt(prompt))
-                    let rejection = attempts.last?.rejection ?? "invalid output"
-                    request = "\(prompt)\nCorrection: the prior attempt was rejected (\(rejection)). Make exactly one clean attempt. Stage a new authorized patch from the supplied contract, then return the current receipt identifier."
+                    request = HordeModelContract.correctedPrompt(prompt, rejection: attempts.last?.rejection ?? ModelPromptRegistry.text(.legacyUnknownRejection))
                 }
                 do {
                     if #available(iOS 26.4, macOS 26.4, *) {
@@ -414,14 +429,14 @@ actor FoundationModelClient {
     }
 
     private func respond(session: LanguageModelSession, request: String, valence: EventValence, options: GenerationOptions) async throws -> ModelStoryFields {
-        switch valence {
-        case .positive:
-            let response = try await session.respond(to: request, generating: PositiveModelStoryOutput.self, options: options)
-            return ModelStoryFields(title: response.content.title, narration: response.content.narration, summary: response.content.summary, cue: response.content.cue, receiptID: response.content.receiptID)
-        case .negative:
-            let response = try await session.respond(to: request, generating: NegativeModelStoryOutput.self, options: options)
-            return ModelStoryFields(title: response.content.title, narration: response.content.narration, summary: response.content.summary, cue: response.content.cue, receiptID: response.content.receiptID)
-        }
+        let response = try await session.respond(to: request, schema: LegacyModelSchemas.story(for: valence), options: options)
+        return ModelStoryFields(
+            title: try response.content.value(forProperty: "title"),
+            narration: try response.content.value(forProperty: "narration"),
+            summary: try response.content.value(forProperty: "summary"),
+            cue: try response.content.value(forProperty: "cue"),
+            receiptID: try response.content.value(forProperty: "receiptID")
+        )
     }
 
     private func isGenericTitle(_ title: String) -> Bool {
