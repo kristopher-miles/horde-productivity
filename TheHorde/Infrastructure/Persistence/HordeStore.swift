@@ -261,6 +261,15 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         return try modelContext.fetch(FetchDescriptor<StoryEventRecord>(sortBy: [SortDescriptor(\.createdAt)])).map { storySummary($0, occurrence: occurrences[$0.sourceOccurrenceID]) }
     }
 
+    func attemptedGoalHistory(for eventID: String) throws -> [AttemptedGoalContext] {
+        let event = try requireEvent(eventID)
+        return AttemptedGoalHistory.closest(
+            to: [event.sourceTitle, event.sourceNotes].filter { !$0.isEmpty }.joined(separator: "\n"),
+            currentOccurrenceID: event.sourceOccurrenceID,
+            among: try occurrenceSummaries().filter { ($0.resolvedAt ?? .distantFuture) <= event.createdAt }
+        )
+    }
+
     func worldReadModel() throws -> WorldReadModel {
         let save = try requireSave()
         return WorldReadModel(dungeonName: save.dungeonName, revision: save.revision, snapshot: decodeWorld(save))

@@ -52,7 +52,7 @@ Land data contracts and reset behavior before UI or art depends on them.
 
 Build and validate the service pipeline before connecting screens to it.
 
-- [ ] 030 — [RF-01 — Select the closest 10 attempted goals and trim one at a time for context (line 80)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L80)
+- [x] 030 — [RF-01 — Select the closest 10 attempted goals and trim one at a time for context (line 80)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L80)
 - [ ] 031 — [RF-02 — Use optional user effort or model-estimated effort from 1–3 (line 81)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L81)
 - [ ] 032 — [TN-04 — Allow varied model-selected consequences across authorized attributes (line 65)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L65)
 - [ ] 033 — [VC-10 — Make Hoard one non-guaranteed model-selected world consequence (line 130)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L130)
