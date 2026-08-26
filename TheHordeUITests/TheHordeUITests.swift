@@ -31,8 +31,16 @@ final class TheHordeUITests: XCTestCase {
         ] {
             XCTAssertTrue(app.otherElements["DragonStageFixture.\(rawValue)"].exists)
             XCTAssertTrue(app.staticTexts[label].exists)
+            for room in 1...5 {
+                XCTAssertTrue(app.otherElements["RoomDragonFixture.\(room).\(rawValue)"].exists)
+            }
         }
         XCTAssertEqual(app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "DragonStageFixture.")).count, 5)
+        XCTAssertEqual(app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "RoomDragonFixture.")).count, 25)
+        for color in ["ember", "ruby", "moss", "azure", "amethyst", "pearl"] {
+            XCTAssertTrue(app.otherElements["DragonColorFixture.\(color)"].exists)
+        }
+        XCTAssertEqual(app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "DragonColorFixture.")).count, 6)
     }
 
     private enum StoryResolutionID {

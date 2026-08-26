@@ -1,0 +1,61 @@
+{
+  "result": "pass",
+  "roomDragonCombinations": 25,
+  "dragonRecolorCombinations": 30,
+  "backgroundHashes": [
+    "528c9cba31339b414ab14a6b05bc7944b491875d5df9abcb473202d20e62ab29",
+    "82232a85ff552e0c291d03f065e539eae99497eea591d6ad030e106630e4d5fc",
+    "a2732bd6e8bb609a09022bbe0f0f7229ff1bba581e16badfa63e6d3a80e7ce91",
+    "c6aa3cdbd10746f871ba6fd5ea8d5be0b4bf0955e0a8e1f1b5e6fb7c770918a0",
+    "4420b950c259e92a173e474ba5a8e8520b37a8dc2aae9a1ad0e567fb1e131b64"
+  ],
+  "dragonRecolorPixelHashes": {
+    "baby": [
+      "42f3cfa83b596a481b3f56f1564f6001292157b103ffd66bfcad66677ca3a071",
+      "99e0c1e25c21b87c673841a9df9d7f17604be3699227a9f18ea822b6622d68c4",
+      "cab502d6a86cebfcf0ea01480a8a3fd1d710afa2df084ffdf2133e69c7a5bc24",
+      "6821a96334cb66f5ff6bc86254b433f460f4551546fb6258c9a918397571990d",
+      "a89846a3c57781409c011614b9df105c819ee979463d2d11f5c3b81005f253f3",
+      "c13e73f0c26f9fa5a2dd8d309833a900837775c34564224f5c467881592c86fc"
+    ],
+    "adolescent": [
+      "a6a7e03975e3d182cfa32331fda5b6f9b8c4b8db0427133c57f55cd2de94750d",
+      "7c39baf689bf7f162762a2f6009b2bf03db492329abf02b52c1db8740c0ce990",
+      "b287a57fb3d9cb0e33157c4a16275e402e5f6d0fee5577d0610507c82895da9a",
+      "94eb79243603f8a0369fefb1754f2fa82e2780e0c9d45519a148ce8f9b486798",
+      "c8fd5eb24aeefd893b15f28cd9a3ed7b2f154f5e30b30798ea1c78f6f0c5cfe8",
+      "b82eb3dc54b75288901f0987be644077d4f2377242fb6e40e05c85282e6fdae8"
+    ],
+    "adult": [
+      "473e86149547da0641c6f3dd30caf9fd34f349261ea84b1cee077b518d1c7808",
+      "3774dcf5d4f0df9f66b78296987e31dd61401cb641672adc8352cd213225be9c",
+      "93a4c3dd2bdb05c3945dfc68fdbc26cccac713d88fc0232e17a8d2cc239a9d62",
+      "0cfc780357d0db9323b9f5273df4294a750381cd3be59e8ebab87315fbacb13f",
+      "f151f9abc2aff92ccda1d187ee45768476f849eee83472e5cedf836dc81e5d59",
+      "558f25d9de4c312de733dbd833e0be98eaef31e6e0be0b982e369b5103e659e7"
+    ],
+    "elder": [
+      "12f737e99100177e6982d9aeda45ee278c7451b279ca48cdfd1aafed4a9dd50b",
+      "ca41ec8bb0d8edd0c444c7c3d4834d6960d40cca211bd35c337fd6ec10709646",
+      "52069a4ad37fbb4f0b4ee059a248e422ba0594deb501ad1c0b7437f5817ad2c1",
+      "142c3f64cc7716ef786c8351a0c6bb4c3a9204a46d6c93a9c9a7ea4657db172c",
+      "2cc086fa53504551bc219b60c71c800ad5d18fea1185f9f6e2aa259063e48853",
+      "dfedd3bd8da27c0e5102fab821677b9aa06dd0e590b32c3ff3320edcdfe513ab"
+    ],
+    "greatWyrm": [
+      "c407dbf054e251248d0424b22e6723a0640d8c96136a4dc80db59a903430ab9a",
+      "cb80289da4a6edfd49622e0a07d1dc8acbbcdaaefeb2a5b25e0e55a3cff220b1",
+      "5a7038a657d664e952d14febc6eb7b4558bbdbf7b8dd4db19c687fef34691999",
+      "2527fc9edcb3ccb46550b2b56a1cdb286ff55d7d0f37459402926521347b76c4",
+      "f06f8b37e2e284eeadf78f0da97e8ded3891f62443d9f996961a8babcef9face",
+      "0aa7373e41470b2a2a895b2b5cf61598bfc21a3282b949954ec0d5b5c14c1974"
+    ]
+  },
+  "charactersPerRoomDragonCell": 1,
+  "livingCreaturesPerSourceBackground": 0,
+  "koboldAges": 3,
+  "koboldPalettesPerAge": 3,
+  "koboldFramesPerAnimation": 4,
+  "roomDragonSheetSHA256": "379d612261cfd43944aac683e024709c370a19e9e0d34ff2e7c6de67b2d4ad26",
+  "dragonRecolorSheetSHA256": "ee4fad6ddff0c7f1bcb3ed4e7bd28d770aa7c9a3d3cef45dc9a86942edca49fd"
+}

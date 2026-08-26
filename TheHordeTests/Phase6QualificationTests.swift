@@ -50,6 +50,89 @@ struct Phase6QualificationTests {
         }
     }
 
+    @Test @MainActor func allTwentyFiveRoomDragonCombinationsKeepIndependentNativeLayers() throws {
+        var roomPixels: [Int: [UInt8]] = [:]
+        var dragonPixels: [DragonStage: [UInt8]] = [:]
+
+        for (room, hoard) in [(1, 0), (2, 10), (3, 30), (4, 60), (5, 100)] {
+            for stage in DragonStage.allCases {
+                var snapshot = WorldSnapshot.initial()
+                snapshot.hoard = hoard
+                snapshot.dragonVisual.stage = stage
+                snapshot.residents = []
+                let world = WorldReadModel(dungeonName: "QA Matrix", revision: 0, snapshot: snapshot)
+                let reduced = PixelDungeonScene(world: world, cue: .idle, reduceMotion: true)
+                let environment = try #require(reduced.childNode(withName: "DungeonEnvironment") as? SKSpriteNode)
+                let dragon = try #require(reduced.childNode(withName: "EmberPrototype") as? SKSpriteNode)
+                let environmentTexture = try #require(environment.texture)
+                let dragonTexture = try #require(dragon.texture)
+                let currentRoomPixels = try rgbaBytes(of: environmentTexture.cgImage())
+                let currentDragonPixels = try rgbaBytes(of: dragonTexture.cgImage())
+
+                #expect(Set(reduced.children.compactMap(\.name)) == ["DungeonEnvironment", "EmberPrototype"])
+                #expect(environmentTexture.filteringMode == .nearest)
+                #expect(environment.size == CGSize(width: 320, height: 180))
+                #expect(dragonTexture.filteringMode == .nearest)
+                #expect(dragon.anchorPoint == CGPoint(x: 0.5, y: 0))
+                #expect(dragon.position == DungeonSceneView.emberIdleScenePosition)
+                #expect(dragon.size == DungeonSceneView.dragonFrameSize(stage: stage))
+                #expect(dragon.action(forKey: "idle") == nil)
+                #expect(reduced.children.contains { $0.name?.hasPrefix("Kobold.") == true } == false)
+                #expect(DungeonSceneView.assetName(world: world, cue: .idle) == "DungeonStage\(room)")
+
+                if let baseline = roomPixels[room] { #expect(currentRoomPixels == baseline) }
+                else { roomPixels[room] = currentRoomPixels }
+                if let baseline = dragonPixels[stage] { #expect(currentDragonPixels == baseline) }
+                else { dragonPixels[stage] = currentDragonPixels }
+
+                let animated = PixelDungeonScene(world: world, cue: .idle, reduceMotion: false)
+                let animatedDragon = try #require(animated.childNode(withName: "EmberPrototype") as? SKSpriteNode)
+                #expect(animatedDragon.texture?.filteringMode == .nearest)
+                #expect(animatedDragon.action(forKey: "idle") != nil)
+            }
+        }
+
+        #expect(roomPixels.count == 5)
+        #expect(dragonPixels.count == 5)
+        #expect(Set(roomPixels.values).count == 5)
+        #expect(Set(dragonPixels.values).count == 5)
+    }
+
+    @Test @MainActor func everyAcceptedDragonRecolorIsIndependentOfRoomAndStageGeometry() throws {
+        var environmentBaseline: [UInt8]?
+
+        for stage in DragonStage.allCases {
+            var stageOutputs: Set<[UInt8]> = []
+            var alphaBaseline: [UInt8]?
+            for choice in CuratedDragonColor.allCases {
+                var snapshot = WorldSnapshot.initial()
+                snapshot.hoard = 30
+                snapshot.dragonVisual.stage = stage
+                snapshot.dragonVisual.color = choice.color
+                snapshot.residents = []
+                let world = WorldReadModel(dungeonName: "QA Recolors", revision: 0, snapshot: snapshot)
+                let scene = PixelDungeonScene(world: world, cue: .idle, reduceMotion: false)
+                let environment = try #require(scene.childNode(withName: "DungeonEnvironment") as? SKSpriteNode)
+                let dragon = try #require(scene.childNode(withName: "EmberPrototype") as? SKSpriteNode)
+                let environmentBytes = try rgbaBytes(of: #require(environment.texture).cgImage())
+                let dragonBytes = try rgbaBytes(of: #require(dragon.texture).cgImage())
+                let alpha = stride(from: 3, to: dragonBytes.count, by: 4).map { dragonBytes[$0] }
+
+                if let environmentBaseline { #expect(environmentBytes == environmentBaseline) }
+                else { environmentBaseline = environmentBytes }
+                if let alphaBaseline { #expect(alpha == alphaBaseline) }
+                else { alphaBaseline = alpha }
+                stageOutputs.insert(dragonBytes)
+                #expect(dragon.anchorPoint == CGPoint(x: 0.5, y: 0))
+                #expect(dragon.position == DungeonSceneView.emberIdleScenePosition)
+                #expect(dragon.size == DungeonSceneView.dragonFrameSize(stage: stage))
+                #expect(dragon.texture?.filteringMode == .nearest)
+                #expect(dragon.action(forKey: "idle") != nil)
+            }
+            #expect(stageOutputs.count == CuratedDragonColor.allCases.count)
+        }
+    }
+
     @Test @MainActor func savedRoomStageIgnoresPopulationAndTransientCues() throws {
         var snapshot = WorldSnapshot.initial()
         snapshot.hoard = 60

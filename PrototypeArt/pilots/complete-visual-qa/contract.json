@@ -1,0 +1,37 @@
+{
+  "dragonAnchor": [184, 40],
+  "emptyEnvironmentAudit": "PrototypeArt/pilots/dungeon-progression-static/qa/vc02-creature-audit.md",
+  "rooms": [
+    { "id": 1, "source": "PrototypeArt/pilots/dungeon-progression-static/normalized/dungeon-progression-static-01.png", "runtime": "TheHorde/Resources/Assets.xcassets/DungeonStage1.imageset/dungeon-progression-static-01.png", "sha256": "528c9cba31339b414ab14a6b05bc7944b491875d5df9abcb473202d20e62ab29" },
+    { "id": 2, "source": "PrototypeArt/pilots/dungeon-progression-static/normalized/dungeon-progression-static-02.png", "runtime": "TheHorde/Resources/Assets.xcassets/DungeonStage2.imageset/dungeon-progression-static-02.png", "sha256": "82232a85ff552e0c291d03f065e539eae99497eea591d6ad030e106630e4d5fc" },
+    { "id": 3, "source": "PrototypeArt/pilots/dungeon-progression-static/normalized/dungeon-progression-static-03.png", "runtime": "TheHorde/Resources/Assets.xcassets/DungeonStage3.imageset/dungeon-progression-static-03.png", "sha256": "a2732bd6e8bb609a09022bbe0f0f7229ff1bba581e16badfa63e6d3a80e7ce91" },
+    { "id": 4, "source": "PrototypeArt/pilots/dungeon-progression-static/normalized/dungeon-progression-static-04.png", "runtime": "TheHorde/Resources/Assets.xcassets/DungeonStage4.imageset/dungeon-progression-static-04.png", "sha256": "c6aa3cdbd10746f871ba6fd5ea8d5be0b4bf0955e0a8e1f1b5e6fb7c770918a0" },
+    { "id": 5, "source": "PrototypeArt/pilots/dungeon-progression-static/normalized/dungeon-progression-static-05.png", "runtime": "TheHorde/Resources/Assets.xcassets/DungeonStage5.imageset/dungeon-progression-static-05.png", "sha256": "4420b950c259e92a173e474ba5a8e8520b37a8dc2aae9a1ad0e567fb1e131b64" }
+  ],
+  "dragonStages": [
+    { "id": "baby", "label": "Baby", "size": [96, 80], "source": "PrototypeArt/pilots/ember-idle/normalized/ember-idle-01.png", "runtime": "TheHorde/Resources/EmberIdle.atlas/ember-idle-01.png" },
+    { "id": "adolescent", "label": "Adolescent", "size": [108, 90], "source": "PrototypeArt/pilots/ember-adolescent-idle/normalized/ember-adolescent-idle-01.png", "runtime": "TheHorde/Resources/EmberAdolescentIdle.atlas/ember-adolescent-idle-01.png" },
+    { "id": "adult", "label": "Adult", "size": [120, 100], "source": "PrototypeArt/pilots/ember-adult-idle/normalized/ember-adult-idle-01.png", "runtime": "TheHorde/Resources/EmberAdultIdle.atlas/ember-adult-idle-01.png" },
+    { "id": "elder", "label": "Elder", "size": [132, 110], "source": "PrototypeArt/pilots/ember-elder-idle/normalized/ember-elder-idle-01.png", "runtime": "TheHorde/Resources/EmberElderIdle.atlas/ember-elder-idle-01.png" },
+    { "id": "greatWyrm", "label": "Great Wyrm", "size": [144, 120], "source": "PrototypeArt/pilots/ember-great-wyrm-idle/normalized/ember-great-wyrm-idle-01.png", "runtime": "TheHorde/Resources/EmberGreatWyrmIdle.atlas/ember-great-wyrm-idle-01.png" }
+  ],
+  "dragonBodyRamp": [
+    { "source": [107, 25, 10], "offset": -0.24 },
+    { "source": [163, 43, 10], "offset": -0.12 },
+    { "source": [217, 77, 8], "offset": 0.0 },
+    { "source": [242, 118, 13], "offset": 0.12 },
+    { "source": [255, 158, 37], "offset": 0.24 }
+  ],
+  "dragonPalettes": [
+    { "id": "ember", "label": "Ember", "rgb": [224, 96, 32] },
+    { "id": "ruby", "label": "Ruby", "rgb": [190, 57, 65] },
+    { "id": "moss", "label": "Moss", "rgb": [66, 137, 75] },
+    { "id": "azure", "label": "Azure", "rgb": [49, 111, 190] },
+    { "id": "amethyst", "label": "Amethyst", "rgb": [125, 75, 167] },
+    { "id": "pearl", "label": "Pearl", "rgb": [199, 183, 143] }
+  ],
+  "koboldContract": "PrototypeArt/pilots/kobold-palette-recolors/contract.json",
+  "koboldValidation": "PrototypeArt/pilots/kobold-palette-recolors/qa/validation.json",
+  "koboldContactSheet": "PrototypeArt/pilots/kobold-palette-recolors/qa/kobold-palette-matrix-1x.png",
+  "koboldAnimatedPreview": "PrototypeArt/pilots/kobold-palette-recolors/qa/kobold-palette-matrix-preview.gif"
+}
