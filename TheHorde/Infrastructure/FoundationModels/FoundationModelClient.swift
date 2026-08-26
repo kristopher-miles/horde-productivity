@@ -283,15 +283,18 @@ struct StageMutationTool: Tool {
 actor FoundationModelClient {
     private let model = SystemLanguageModel.default
     private let diagnosticsSink: any ModelDiagnosticsSink
+    private let attemptLogger: any ModelAttemptLogger
     private let defaultSampling: ModelSampling
     private let shouldRejectFirstAttempt: Bool
 
     init(
         diagnosticsSink: any ModelDiagnosticsSink = NoOpModelDiagnosticsSink(),
+        attemptLogger: any ModelAttemptLogger = ModelDevLogStore(),
         defaultSampling: ModelSampling = .productionDefault,
         rejectFirstAttempt: Bool = false
     ) {
         self.diagnosticsSink = diagnosticsSink
+        self.attemptLogger = attemptLogger
         self.defaultSampling = defaultSampling
         self.shouldRejectFirstAttempt = rejectFirstAttempt
     }
@@ -379,13 +382,28 @@ actor FoundationModelClient {
                     session.prewarm(promptPrefix: Prompt(prompt))
                     request = HordeModelContract.correctedPrompt(prompt, rejection: attempts.last?.rejection ?? ModelPromptRegistry.text(.legacyUnknownRejection))
                 }
+                let responseSchema = LegacyModelSchemas.story(for: event.valence)
+                let options = sampling.generationOptions
+                let requestText = Self.fullRequestText(
+                    instructions: instructions,
+                    tool: tool,
+                    prompt: request,
+                    schema: responseSchema,
+                    options: options
+                )
+                let transcriptStartIndex = session.transcript.endIndex
+                var rawResponseText: String?
+                var responseMaterial: String?
                 do {
                     if #available(iOS 26.4, macOS 26.4, *) {
                         let requestTokens = (try? await model.tokenCount(for: request)) ?? 0
                         let fixedTokens = [initialTokens.instructions, initialTokens.tools, initialTokens.generatedSchema].compactMap { $0 }.reduce(0, +)
                         if requestTokens + fixedTokens > Int(Double(model.contextSize) * 0.85) { throw ModelClientError.contextOverflow }
                     }
-                    let content = try await respond(session: session, request: request, valence: event.valence, options: sampling.generationOptions)
+                    let response = try await respond(session: session, request: request, schema: responseSchema, options: options)
+                    rawResponseText = response.rawContent.jsonString
+                    responseMaterial = transcriptText(Transcript(entries: response.transcriptEntries))
+                    let content = try storyFields(from: response.content)
                     let (mutations, toolCalls) = await stager.snapshot()
                     guard content.receiptID == stager.receiptID, !mutations.isEmpty else { throw ModelClientError.receiptMismatch }
                     guard content.title.count <= 70, content.narration.count <= 600, content.summary.count <= 160 else { throw ModelClientError.textTooLong }
@@ -405,9 +423,42 @@ actor FoundationModelClient {
                     let tokenCounts = ModelTokenCounts(instructions: initialTokens.instructions, prompt: initialTokens.prompt, tools: initialTokens.tools, generatedSchema: initialTokens.generatedSchema, preResponseTranscript: initialTokens.preResponseTranscript, completeTranscript: completeTranscriptTokens)
                     let diagnostics = ModelGenerationDiagnostics(promptVersion: HordeModelContract.promptVersion, schemaVersion: HordeModelContract.schemaVersion, projectionVersion: HordeModelContract.projectionVersion, sampling: sampling.identifier, contextSize: model.contextSize, localeSupported: model.supportsLocale(.current), startedAt: startedAt, sessionCreatedAt: sessionCreatedAt, prewarmedAt: prewarmedAt, responseCompletedAt: completedAt, attempts: attempts, correctionCount: attempt, receiptID: stager.receiptID, rawGeneratedTitle: content.title, rawGeneratedNarration: content.narration, rawGeneratedSummary: content.summary, tokens: tokenCounts, transcriptJSON: transcript)
                     let generated = GeneratedStory(title: qualifiedTitle(qualified.title, narration: qualified.narration, sourceTitle: event.sourceTitle), narration: qualified.narration, summary: qualified.summary, cue: qualified.cue, mutations: mutations, diagnostics: diagnostics)
+                    await attemptLogger.record(ModelDevLogEntry(
+                        timestamp: completedAt,
+                        eventID: event.id,
+                        goalTitle: event.sourceTitle,
+                        stage: .legacyConsequence,
+                        attempt: attempt + 1,
+                        outcome: .succeeded,
+                        instructionsText: instructions,
+                        promptText: request,
+                        requestText: requestText,
+                        responseText: rawResponseText,
+                        responseMaterial: responseMaterial,
+                        attemptTranscript: transcriptText(session.transcript)
+                    ))
                     await diagnosticsSink.record(ModelDiagnosticEvent(eventID: event.id, phase: .completed, timestamp: completedAt, generated: generated, errorDescription: nil))
                     return generated
                 } catch {
+                    if responseMaterial == nil {
+                        responseMaterial = transcriptText(
+                            Transcript(entries: session.transcript.dropFirst(transcriptStartIndex))
+                        )
+                    }
+                    await attemptLogger.record(ModelDevLogEntry(
+                        eventID: event.id,
+                        goalTitle: event.sourceTitle,
+                        stage: .legacyConsequence,
+                        attempt: attempt + 1,
+                        outcome: .failed,
+                        instructionsText: instructions,
+                        promptText: request,
+                        requestText: requestText,
+                        responseText: rawResponseText,
+                        responseMaterial: responseMaterial,
+                        attemptTranscript: transcriptText(session.transcript),
+                        errorText: String(reflecting: error)
+                    ))
                     let (mutations, toolCalls) = await stager.snapshot()
                     attempts.append(ModelAttemptDiagnostics(attempt: attempt, stagedMutations: mutations, toolCalls: toolCalls, accepted: false, rejection: error.localizedDescription))
                     guard attempt == 0, isCorrectable(error) else { throw error }
@@ -428,15 +479,44 @@ actor FoundationModelClient {
         return !text.contains("guardrail") && !text.contains("unavailable")
     }
 
-    private func respond(session: LanguageModelSession, request: String, valence: EventValence, options: GenerationOptions) async throws -> ModelStoryFields {
-        let response = try await session.respond(to: request, schema: LegacyModelSchemas.story(for: valence), options: options)
-        return ModelStoryFields(
-            title: try response.content.value(forProperty: "title"),
-            narration: try response.content.value(forProperty: "narration"),
-            summary: try response.content.value(forProperty: "summary"),
-            cue: try response.content.value(forProperty: "cue"),
-            receiptID: try response.content.value(forProperty: "receiptID")
+    private func respond(session: LanguageModelSession, request: String, schema: GenerationSchema, options: GenerationOptions) async throws -> LanguageModelSession.Response<GeneratedContent> {
+        try await session.respond(to: request, schema: schema, options: options)
+    }
+
+    private func storyFields(from content: GeneratedContent) throws -> ModelStoryFields {
+        ModelStoryFields(
+            title: try content.value(forProperty: "title"),
+            narration: try content.value(forProperty: "narration"),
+            summary: try content.value(forProperty: "summary"),
+            cue: try content.value(forProperty: "cue"),
+            receiptID: try content.value(forProperty: "receiptID")
         )
+    }
+
+    private func transcriptText(_ transcript: Transcript) -> String? {
+        guard !transcript.isEmpty, let data = try? JSONEncoder().encode(transcript) else { return nil }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    static func fullRequestText(
+        instructions: String,
+        tool: StageMutationTool,
+        prompt: String,
+        schema: GenerationSchema,
+        options: GenerationOptions
+    ) -> String? {
+        let transcript = Transcript(entries: [
+            .instructions(.init(
+                segments: [.text(.init(content: instructions))],
+                toolDefinitions: [.init(tool: tool)]
+            )),
+            .prompt(.init(
+                segments: [.text(.init(content: prompt))],
+                options: options,
+                responseFormat: .init(schema: schema)
+            ))
+        ])
+        return (try? JSONEncoder().encode(transcript)).map { String(decoding: $0, as: UTF8.self) }
     }
 
     private func isGenericTitle(_ title: String) -> Bool {

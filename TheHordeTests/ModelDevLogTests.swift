@@ -1,0 +1,165 @@
+import Foundation
+import FoundationModels
+import Testing
+@testable import TheHorde
+
+@Suite("Model developer log")
+struct ModelDevLogTests {
+    @Test func preservesExactStringsAndFullRequestMaterialAcrossReload() async throws {
+        let fixture = try LogFixture()
+        defer { fixture.remove() }
+        let instructions = "INSTRUCTIONS\nKeep \u{0000} and 🐉 exactly."
+        let prompt = "PROMPT\r\nDo not normalize café."
+        let request = try #require(FoundationModelClient.fullRequestText(
+            instructions: instructions,
+            tool: StageMutationTool(stager: PatchStager()),
+            prompt: prompt,
+            schema: LegacyModelSchemas.story(for: .positive),
+            options: ModelSampling.greedy.generationOptions
+        ))
+        let response = "{\"title\":\"Café 🐉\",\"line\":\"one\\ntwo\"}"
+        let material = "{\"toolCalls\":[{\"arguments\":\"exact\"}]}"
+        let entry = makeEntry(
+            instructions: instructions,
+            prompt: prompt,
+            request: request,
+            response: response,
+            material: material
+        )
+
+        await ModelDevLogStore(fileURL: fixture.url, isEnabled: { true }).record(entry)
+        let saved = try #require(await ModelDevLogStore(fileURL: fixture.url, isEnabled: { true }).entries().only)
+
+        #expect(Data(saved.instructionsText.utf8) == Data(instructions.utf8))
+        #expect(Data(saved.promptText.utf8) == Data(prompt.utf8))
+        #expect(Data(try #require(saved.requestText).utf8) == Data(request.utf8))
+        #expect(Data(try #require(saved.responseText).utf8) == Data(response.utf8))
+        #expect(saved.responseMaterial == material)
+
+        let decoded = try JSONDecoder().decode(Transcript.self, from: Data(try #require(saved.requestText).utf8))
+        #expect(decoded.contains { entry in
+            guard case .instructions(let value) = entry else { return false }
+            return value.toolDefinitions.first?.name == ModelPromptRegistry.text(.legacyToolName)
+                && value.toolDefinitions.first?.description == ModelPromptRegistry.text(.legacyToolDescription)
+                && value.segments.contains { segment in
+                    guard case .text(let text) = segment else { return false }
+                    return text.content == instructions
+                }
+        })
+        #expect(decoded.contains { entry in
+            guard case .prompt(let value) = entry else { return false }
+            return value.responseFormat != nil && value.segments.contains { segment in
+                guard case .text(let text) = segment else { return false }
+                return text.content == prompt
+            }
+        })
+        #expect(request.contains(ModelPromptRegistry.text(.legacyToolFieldIDGuide)))
+        #expect(request.contains(ModelPromptRegistry.text(.legacyPositiveNarrationGuide)))
+    }
+
+    @Test func retainsNewestTenInNewestFirstOrder() async throws {
+        let fixture = try LogFixture()
+        defer { fixture.remove() }
+        let store = ModelDevLogStore(fileURL: fixture.url, isEnabled: { true })
+
+        for attempt in 1...11 {
+            await store.record(makeEntry(id: "entry-\(attempt)", attempt: attempt))
+        }
+
+        #expect(await store.entries().map(\.id) == (2...11).reversed().map { "entry-\($0)" })
+    }
+
+    @Test func developerModeOffNeitherPersistsNorExposesEntries() async throws {
+        let fixture = try LogFixture()
+        defer { fixture.remove() }
+        let enabledStore = ModelDevLogStore(fileURL: fixture.url, isEnabled: { true })
+        await enabledStore.record(makeEntry(id: "existing"))
+
+        let disabledStore = ModelDevLogStore(fileURL: fixture.url, isEnabled: { false })
+        await disabledStore.record(makeEntry(id: "blocked"))
+        #expect(await disabledStore.entries().isEmpty)
+        #expect(await enabledStore.entries().map(\.id) == ["existing"])
+    }
+
+    @Test func anExistingReaderSeesWritesFromAnotherStoreInstance() async throws {
+        let fixture = try LogFixture()
+        defer { fixture.remove() }
+        let reader = ModelDevLogStore(fileURL: fixture.url, isEnabled: { true })
+        #expect(await reader.entries().isEmpty)
+
+        await ModelDevLogStore(fileURL: fixture.url, isEnabled: { true }).record(makeEntry(id: "new"))
+
+        #expect(await reader.entries().map(\.id) == ["new"])
+    }
+
+    @Test func retriesAreSeparateAndFailuresRetainAvailableMaterial() async throws {
+        let fixture = try LogFixture()
+        defer { fixture.remove() }
+        let store = ModelDevLogStore(fileURL: fixture.url, isEnabled: { true })
+        await store.record(makeEntry(
+            id: "first",
+            attempt: 1,
+            outcome: .failed,
+            response: "{\"partial\":true}",
+            material: "tool-call-material",
+            error: "receipt mismatch"
+        ))
+        await store.record(makeEntry(id: "second", attempt: 2, outcome: .succeeded))
+
+        let entries = await store.entries()
+        #expect(entries.map(\.id) == ["second", "first"])
+        #expect(entries.map(\.attempt) == [2, 1])
+        #expect(entries.last?.outcome == .failed)
+        #expect(entries.last?.responseText == "{\"partial\":true}")
+        #expect(entries.last?.responseMaterial == "tool-call-material")
+        #expect(entries.last?.errorText == "receipt mismatch")
+    }
+
+    private func makeEntry(
+        id: String = "entry",
+        attempt: Int = 1,
+        outcome: ModelAttemptOutcome = .succeeded,
+        instructions: String = "instructions",
+        prompt: String = "prompt",
+        request: String? = "request material",
+        response: String? = "response",
+        material: String? = "response material",
+        error: String? = nil
+    ) -> ModelDevLogEntry {
+        ModelDevLogEntry(
+            id: id,
+            timestamp: Date(timeIntervalSince1970: Double(attempt)),
+            eventID: "event",
+            goalTitle: "Goal",
+            stage: .legacyConsequence,
+            attempt: attempt,
+            outcome: outcome,
+            instructionsText: instructions,
+            promptText: prompt,
+            requestText: request,
+            responseText: response,
+            responseMaterial: material,
+            attemptTranscript: "attempt transcript",
+            errorText: error
+        )
+    }
+}
+
+private struct LogFixture {
+    let directory: URL
+    var url: URL { directory.appending(path: "ModelDevLogs.json") }
+
+    init() throws {
+        directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: directory)
+    }
+}
+
+private extension Collection {
+    var only: Element? { count == 1 ? first : nil }
+}
