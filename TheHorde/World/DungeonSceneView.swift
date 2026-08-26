@@ -8,6 +8,7 @@ import AppKit
 
 struct DungeonSceneView: View {
     nonisolated static let emberIdleFrameDuration = 0.18
+    nonisolated static let koboldIdleFrameDuration = 0.2
     nonisolated static let emberConcernFrameNames = (1...4).map { "ember-concern-\(String(format: "%02d", $0)).png" }
     nonisolated static let emberConcernFrameDuration = 0.14
     nonisolated static let emberIdleScenePosition = CGPoint(x: 24, y: -50)
@@ -75,6 +76,10 @@ struct DungeonSceneView: View {
         case .kid: "KoboldKidIdle"
         case .adult: "KoboldAdultIdle"
         }
+    }
+
+    nonisolated static func koboldIdleFrameNames(age: KoboldAgeStage) -> [String] {
+        (1...4).map { "kobold-\(age.rawValue)-idle-\(String(format: "%02d", $0)).png" }
     }
 
     nonisolated static func assetName(world: WorldReadModel, cue _: AnimationCue) -> String {

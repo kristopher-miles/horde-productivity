@@ -1,0 +1,27 @@
+{
+  "asset": "kobold-adult",
+  "cue": "idle",
+  "prototype": true,
+  "replaceable": true,
+  "frameSize": { "width": 48, "height": 64 },
+  "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "scenePosition": { "x": 52, "y": 40 },
+  "model": "normalized/kobold-adult-seed-01.png",
+  "frames": [
+    { "file": "kobold-adult-idle-01.png", "durationMilliseconds": 200 },
+    { "file": "kobold-adult-idle-02.png", "durationMilliseconds": 200 },
+    { "file": "kobold-adult-idle-03.png", "durationMilliseconds": 200 },
+    { "file": "kobold-adult-idle-04.png", "durationMilliseconds": 200 }
+  ],
+  "loop": true,
+  "reduceMotionFrame": "kobold-adult-idle-01.png",
+  "source": "PrototypeArt/pilots/kobold-adult-idle/kobold-adult-idle.pxo",
+  "provenance": {
+    "provider": "approved local prototype reuse",
+    "pipeline": "horde-sprite-prototype",
+    "sourcePilot": "PrototypeArt/pilots/kobold-master-idle",
+    "promptFiles": ["prompt-reuse.md"]
+  }
+}
+

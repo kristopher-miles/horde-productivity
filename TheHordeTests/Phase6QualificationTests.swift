@@ -163,6 +163,49 @@ struct Phase6QualificationTests {
         #expect(DungeonSceneView.emberIdleScenePosition.y.rounded() == DungeonSceneView.emberIdleScenePosition.y)
     }
 
+    @Test @MainActor func everyKoboldAgeLoadsAsAnIndependentAnchoredIdleLoop() throws {
+        var occupiedHeights: [Int] = []
+        for age in KoboldAgeStage.allCases {
+            let atlas = SKTextureAtlas(named: DungeonSceneView.koboldIdleAtlasName(age: age))
+            let names = DungeonSceneView.koboldIdleFrameNames(age: age)
+            #expect(Set(atlas.textureNames) == Set(names))
+
+            let frames = names.map { name in
+                let texture = atlas.textureNamed(name)
+                texture.filteringMode = .nearest
+                return texture
+            }
+            #expect(frames.allSatisfy { $0.size() == CGSize(width: 48, height: 64) })
+            #expect(frames.allSatisfy { $0.filteringMode == .nearest })
+
+            let animated = SKSpriteNode(texture: frames[0], size: CGSize(width: 48, height: 64))
+            animated.anchorPoint = CGPoint(x: 0.5, y: 0)
+            animated.position = CGPoint(x: 52, y: 40)
+            animated.run(
+                .repeatForever(.animate(with: frames, timePerFrame: DungeonSceneView.koboldIdleFrameDuration)),
+                withKey: "idle"
+            )
+            #expect(animated.anchorPoint == CGPoint(x: 0.5, y: 0))
+            #expect(animated.position.x.rounded() == animated.position.x)
+            #expect(animated.position.y.rounded() == animated.position.y)
+            #expect(animated.action(forKey: "idle") != nil)
+
+            let reducedMotion = SKSpriteNode(texture: frames[0], size: CGSize(width: 48, height: 64))
+            reducedMotion.anchorPoint = CGPoint(x: 0.5, y: 0)
+            #expect(reducedMotion.texture?.filteringMode == .nearest)
+            #expect(reducedMotion.action(forKey: "idle") == nil)
+
+            let bytes = try rgbaBytes(of: frames[0].cgImage())
+            let occupiedRows = (0..<64).filter { y in
+                (0..<48).contains { x in bytes[(y * 48 + x) * 4 + 3] > 0 }
+            }
+            occupiedHeights.append(try #require(occupiedRows.last) - (try #require(occupiedRows.first)) + 1)
+        }
+
+        #expect(occupiedHeights == [39, 49, 60])
+        #expect(DungeonSceneView.koboldIdleFrameDuration == 0.2)
+    }
+
     @Test @MainActor func fiveOrderedDragonStagesRenderIncreasingAnchoredIdleLoops() throws {
         #expect(DragonStage.allCases.map(\.displayName) == ["Baby", "Adolescent", "Adult", "Elder", "Great Wyrm"])
         let sizes = DragonStage.allCases.map(DungeonSceneView.dragonFrameSize)

@@ -1,0 +1,27 @@
+{
+  "asset": "kobold-baby",
+  "cue": "idle",
+  "prototype": true,
+  "replaceable": true,
+  "frameSize": { "width": 48, "height": 64 },
+  "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "scenePosition": { "x": 52, "y": 40 },
+  "model": "normalized/kobold-baby-seed-01.png",
+  "frames": [
+    { "file": "kobold-baby-idle-01.png", "durationMilliseconds": 200 },
+    { "file": "kobold-baby-idle-02.png", "durationMilliseconds": 200 },
+    { "file": "kobold-baby-idle-03.png", "durationMilliseconds": 200 },
+    { "file": "kobold-baby-idle-04.png", "durationMilliseconds": 200 }
+  ],
+  "loop": true,
+  "reduceMotionFrame": "kobold-baby-idle-01.png",
+  "source": "PrototypeArt/pilots/kobold-baby-idle/kobold-baby-idle.pxo",
+  "provenance": {
+    "provider": "Codex built-in ImageGen",
+    "pipeline": "horde-sprite-prototype",
+    "identityReference": "PrototypeArt/pilots/kobold-master-idle/normalized/kobold-master-idle-01.png",
+    "promptFiles": ["prompt-strip-attempt-01.md"]
+  }
+}
+
