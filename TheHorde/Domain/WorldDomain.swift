@@ -335,7 +335,11 @@ enum WorldPatchValidator {
     }
 
     private static func validatedRecord(_ mutation: WorldMutation, descriptor: WorldMutationDescriptor) throws -> GeneratedRecord {
-        guard mutation.integerValue == nil, let record = mutation.record, !record.id.isEmpty, record.id.count <= 60, !record.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, record.title.count <= 80, !record.summary.isEmpty, record.summary.count <= 240 else { throw WorldPatchError.invalidRecord(mutation.record?.id ?? mutation.fieldID) }
+        let identifierCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789-")
+        guard mutation.integerValue == nil, let record = mutation.record, !record.id.isEmpty, record.id.count <= 60,
+              record.id.unicodeScalars.allSatisfy(identifierCharacters.contains),
+              !record.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, record.title.count <= 80,
+              !record.summary.isEmpty, record.summary.count <= 240 else { throw WorldPatchError.invalidRecord(mutation.record?.id ?? mutation.fieldID) }
         if let range = descriptor.range { guard let value = record.severityOrRank, range.contains(value) else { throw WorldPatchError.outOfBounds(record.id) } }
         return record
     }

@@ -2,7 +2,7 @@ import Foundation
 import FoundationModels
 
 enum EffortModelContract {
-    static let promptVersion = 40
+    static let promptVersion = 41
 
     static var instructions: String { ModelPromptRegistry.text(.effortSystemInstructions) }
 
@@ -20,7 +20,7 @@ enum EffortModelContract {
     static func prompt(event: PendingStorySummary, history: [AttemptedGoalContext]) -> String {
         let goal = [event.sourceTitle, event.sourceNotes].filter { !$0.isEmpty }.joined(separator: "\n")
         let renderedHistory = history.isEmpty ? "(none)" : history.map {
-            "<attempt id=\($0.id) outcome=\($0.outcome.rawValue)>\($0.content)</attempt>"
+            "<attempt id=\"\(ModelPromptRegistry.data($0.id))\" outcome=\"\($0.outcome.rawValue)\">\(ModelPromptRegistry.data($0.content))</attempt>"
         }.joined(separator: "\n")
         return ModelPromptRegistry.render(.effortRequestTemplate, [
             "goalContext": ModelPromptRegistry.render(.sharedGoalContext, ["goal": goal]),
@@ -36,9 +36,9 @@ struct EffortModelOutput {
 }
 
 enum HordeModelContract {
-    static let promptVersion = 43
+    static let promptVersion = 44
     static let schemaVersion = 6
-    static let projectionVersion = 16
+    static let projectionVersion = 17
 
     static var instructions: String { ModelPromptRegistry.text(.legacySystemInstructions) }
 

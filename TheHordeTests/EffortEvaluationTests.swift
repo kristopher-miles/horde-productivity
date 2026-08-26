@@ -51,9 +51,9 @@ struct EffortEvaluationTests {
         let request = await probe.lastRequest
         #expect(request?.instructions.localizedCaseInsensitiveContains("routine attempts lower") == true)
         #expect(request?.instructions.localizedCaseInsensitiveContains("similar prior attempts failed") == true)
-        #expect(request?.prompt.contains("Climb the black ridge\nReach the summit") == true)
+        #expect(request?.prompt.contains("Climb the black ridge&#10;Reach the summit") == true)
         #expect(request?.prompt.contains("CURRENT OUTCOME passed") == true)
-        #expect(request?.prompt.contains("outcome=failed") == true)
+        #expect(request?.prompt.contains("outcome=\"failed\"") == true)
         #expect(request?.prompt.contains("Missed comparison 0") == true)
 
         let logs = await logger.snapshot()

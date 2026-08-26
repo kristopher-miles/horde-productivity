@@ -682,8 +682,8 @@ actor FoundationModelClient {
         return !words.isEmpty && words.isSubset(of: genericWords)
     }
 
-    private func isPlainNarrative(_ text: String) -> Bool {
-        let forbidden = ["```", "</", "<script", "developer instruction", "file://", "hidden.gold", "horde://", "http://", "https://", "receipt", "stageDungeonMutation", "system prompt"]
+    func isPlainNarrative(_ text: String) -> Bool {
+        let forbidden = ["```", "<", ">", "developer instruction", "file://", "hidden.gold", "horde://", "http://", "https://", "receipt", "stageDungeonMutation", "system prompt"]
         return !forbidden.contains { text.localizedCaseInsensitiveContains($0) }
     }
 
