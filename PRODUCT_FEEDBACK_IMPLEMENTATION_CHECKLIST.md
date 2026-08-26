@@ -42,7 +42,7 @@ Land data contracts and reset behavior before UI or art depends on them.
 - [x] 022 — [NPC-01 — Enforce zero kobolds on new and reset saves (line 138)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L138)
 - [x] 023 — [NPC-02 — Add persisted Baby, Kid, and Adult kobold age state (line 139)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L139)
 - [x] 024 — [VC-03 — Add durable Hoard-driven background progression independent of event cues (line 118)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L118)
-- [ ] 025 — [VC-08 — Store dragon age and room richness as independent axes (line 128)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L128)
+- [x] 025 — [VC-08 — Store dragon age and room richness as independent axes (line 128)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L128)
 - [ ] 026 — [VC-09 — Persist non-regressing regular-use streak dragon growth (line 129)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L129)
 - [ ] 027 — [VC-07 — Persist curated or custom dragon color selection (line 127)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L127)
 - [ ] 028 — [RF-10 — Persist staged-resolution state and retain atomic final commit (line 104)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L104)

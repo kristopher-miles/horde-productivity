@@ -26,6 +26,35 @@ struct Phase6QualificationTests {
         }
     }
 
+    @Test func dragonAgeAndRoomRichnessPersistAndRenderIndependently() throws {
+        let pairs: [(DragonStage, Int, DungeonBackgroundStage)] = [
+            (.baby, 100, .five),
+            (.greatWyrm, 0, .one)
+        ]
+
+        for (dragonStage, hoard, backgroundStage) in pairs {
+            var snapshot = WorldSnapshot.initial()
+            snapshot.dragonVisual.stage = dragonStage
+            snapshot.hoard = hoard
+
+            let restored = try PersistentJSON.decode(
+                WorldSnapshot.self,
+                from: PersistentJSON.encode(snapshot)
+            )
+            let world = WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: restored)
+
+            #expect(restored.dragonVisual.stage == dragonStage)
+            #expect(restored.hoard == hoard)
+            #expect(restored.backgroundStage == backgroundStage)
+            #expect(DungeonSceneView.assetName(world: world, cue: .idle) == "DungeonStage\(backgroundStage.rawValue)")
+            if dragonStage == .baby {
+                #expect(DungeonSceneView.dragonAtlasName(stage: restored.dragonVisual.stage, cue: .idle) == "EmberIdle")
+            } else {
+                #expect(DungeonSceneView.dragonAtlasName(stage: restored.dragonVisual.stage, cue: .idle) != "EmberIdle")
+            }
+        }
+    }
+
     @Test func emberIdleAtlasMatchesPrototypeContract() {
         for (atlasName, names) in [("EmberIdle", DungeonSceneView.emberIdleFrameNames), ("EmberConcern", DungeonSceneView.emberConcernFrameNames)] {
             let atlas = SKTextureAtlas(named: atlasName)
