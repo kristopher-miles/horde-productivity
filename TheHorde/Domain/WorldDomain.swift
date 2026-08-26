@@ -375,6 +375,46 @@ enum WorldPatchValidator {
 
 enum AnimationCue: String, Codable, CaseIterable, Sendable { case idle, celebrate, concern, recover, hazardAppears, resourceChanges }
 
+enum ResolutionFlowStage: String, Codable, CaseIterable, Sendable {
+    case effortSelection
+    case actionSuggestion
+    case customActionEntry
+    case interpretedActionReview
+    case actionAccepted
+    case finalProse
+    case committed
+}
+
+struct ResolutionPromptVersions: Codable, Equatable, Sendable {
+    var effort: Int? = nil
+    var suggestion: Int? = nil
+    var interpretation: Int? = nil
+    var finalProse: Int? = nil
+}
+
+struct StagedFinalResolution: Codable, Equatable, Sendable {
+    let expectedRevision: Int
+    let world: WorldSnapshot
+    let mutations: [WorldMutation]
+    let deltas: [WorldDelta]
+    let title: String
+    let finalProse: String
+    let summary: String
+    let cue: AnimationCue
+}
+
+struct StagedResolutionState: Codable, Equatable, Sendable {
+    var stage: ResolutionFlowStage
+    var effort: ResolutionEffort? = nil
+    var comparisonHistoryIDs: [String] = []
+    var suggestedAction: String? = nil
+    var customAction: String? = nil
+    var interpretedAction: String? = nil
+    var acceptedAction: String? = nil
+    var promptVersions = ResolutionPromptVersions()
+    var finalResult: StagedFinalResolution? = nil
+}
+
 struct PendingStorySummary: Codable, Identifiable, Equatable, Sendable {
     let id: String
     let sourceTitle: String
@@ -393,6 +433,7 @@ struct PendingStorySummary: Codable, Identifiable, Equatable, Sendable {
     var acceptedAction: String? = nil
     var finalProse: String? = nil
     var recordedWorld: WorldReadModel? = nil
+    var resolutionState: StagedResolutionState? = nil
 }
 
 struct WorldReadModel: Codable, Equatable, Sendable {

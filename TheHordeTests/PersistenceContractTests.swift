@@ -96,6 +96,163 @@ struct PersistenceContractTests {
         #expect(exportedChronicle.recordedWorld == chronicle.recordedWorld)
     }
 
+    @Test func diskReopenResumesEveryStagedResolutionValueWithoutWorldCommit() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "TheHorde.store")
+        let eventID: String
+        let originalWorld: WorldReadModel
+
+        do {
+            let store = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+            try await store.bootstrapForProof()
+            let definitionID = try await store.createGoal(GoalDraft(title: "Chart the ember roads"))
+            let occurrence = try #require(await store.definitionSummary(id: definitionID)?.history.first)
+            try await store.completeOccurrence(id: occurrence.id)
+            eventID = occurrence.id + ":positive"
+            (_, originalWorld) = try await store.claimEvent(eventID)
+            try await store.checkpointResolution(eventID: eventID, state: StagedResolutionState(
+                stage: .customActionEntry,
+                effort: ResolutionEffort(rating: .two, source: .userSelected),
+                comparisonHistoryIDs: ["attempt-near-1", "attempt-near-2"],
+                suggestedAction: "Map ember roads",
+                customAction: "  Follow the blue flame exactly  ",
+                promptVersions: ResolutionPromptVersions(effort: 40, suggestion: 41)
+            ))
+        }
+
+        do {
+            let reopened = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+            try await reopened.bootstrapForProof()
+            let resumed = try #require(await reopened.pendingStories().first { $0.id == eventID })
+            #expect(resumed.resolutionState?.stage == .customActionEntry)
+            #expect(resumed.resolutionState?.effort == ResolutionEffort(rating: .two, source: .userSelected))
+            #expect(resumed.resolutionState?.comparisonHistoryIDs == ["attempt-near-1", "attempt-near-2"])
+            #expect(resumed.resolutionState?.suggestedAction == "Map ember roads")
+            #expect(resumed.resolutionState?.customAction == "  Follow the blue flame exactly  ")
+            #expect(resumed.resolutionState?.promptVersions == ResolutionPromptVersions(effort: 40, suggestion: 41))
+            #expect(try await reopened.worldReadModel() == originalWorld)
+            #expect(try await reopened.chronicle().isEmpty)
+
+            try await reopened.checkpointResolution(eventID: eventID, state: StagedResolutionState(
+                stage: .actionAccepted,
+                effort: resumed.resolutionState?.effort,
+                comparisonHistoryIDs: resumed.resolutionState?.comparisonHistoryIDs ?? [],
+                suggestedAction: resumed.resolutionState?.suggestedAction,
+                customAction: resumed.resolutionState?.customAction,
+                interpretedAction: "Follow blue flame",
+                acceptedAction: "Follow blue flame",
+                promptVersions: ResolutionPromptVersions(effort: 40, suggestion: 41, interpretation: 42)
+            ))
+        }
+
+        let reopened = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+        try await reopened.bootstrapForProof()
+        let resumed = try #require(await reopened.pendingStories().first { $0.id == eventID })
+        #expect(resumed.resolutionState?.stage == .actionAccepted)
+        #expect(resumed.resolutionState?.interpretedAction == "Follow blue flame")
+        #expect(resumed.resolutionState?.acceptedAction == "Follow blue flame")
+        #expect(resumed.resolutionState?.promptVersions.interpretation == 42)
+        #expect(try await reopened.worldReadModel() == originalWorld)
+        #expect(try await reopened.chronicle().isEmpty)
+    }
+
+    @Test func stagedFinalResultRollsBackAndRetriesExactlyOnceAcrossDiskReopen() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "TheHorde.store")
+        let eventID: String
+        let base: WorldReadModel
+
+        do {
+            let store = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+            try await store.bootstrapForProof()
+            let definitionID = try await store.createGoal(GoalDraft(title: "Raise the signal fire"))
+            let occurrence = try #require(await store.definitionSummary(id: definitionID)?.history.first)
+            try await store.completeOccurrence(id: occurrence.id)
+            eventID = occurrence.id + ":positive"
+            (_, base) = try await store.claimEvent(eventID)
+            let mutations = [WorldMutation.increment("world.morale", by: 2)]
+            var (world, deltas) = try WorldPatchValidator.applying(mutations, to: base.snapshot, valence: .positive, descriptors: WorldContract.descriptors(for: .positive, world: base.snapshot))
+            let summary = "The signal fire rallied the empty cavern."
+            world.rollingSummary = String((world.rollingSummary + " " + summary).suffix(600))
+            try await store.stageFinalResolution(
+                eventID: eventID,
+                expectedRevision: base.revision,
+                world: world,
+                mutations: mutations,
+                deltas: deltas,
+                generatedTitle: "The Signal Fire",
+                narration: "The young dragon kindles a signal fire that throws long shadows across the empty stone.",
+                summary: summary,
+                cue: .celebrate,
+                effort: ResolutionEffort(rating: .three, source: .modelEstimated),
+                comparisonHistoryIDs: ["nearby-attempt"],
+                suggestedAction: "Raise signal fire",
+                acceptedAction: "Raise signal fire",
+                promptVersions: ResolutionPromptVersions(effort: 40, suggestion: 41, finalProse: 43)
+            )
+        }
+
+        do {
+            let reopened = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+            try await reopened.bootstrapForProof()
+            let ready = try #require(await reopened.pendingStories().first { $0.id == eventID })
+            #expect(ready.resolutionState?.stage == .finalProse)
+            #expect(ready.resolutionState?.finalResult?.expectedRevision == base.revision)
+            #expect(ready.resolutionState?.finalResult?.mutations == [WorldMutation.increment("world.morale", by: 2)])
+            #expect(ready.resolutionState?.finalResult?.title == "The Signal Fire")
+            #expect(ready.resolutionState?.promptVersions.finalProse == 43)
+            #expect(try await reopened.worldReadModel() == base)
+            #expect(try await reopened.chronicle().isEmpty)
+            await #expect(throws: StoreError.injectedFailure) {
+                _ = try await reopened.commitStagedResolution(eventID: eventID, failBeforeSave: true)
+            }
+        }
+
+        let retry = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+        try await retry.bootstrapForProof()
+        #expect(try await retry.worldReadModel() == base)
+        #expect(try await retry.chronicle().isEmpty)
+        #expect(try await retry.pendingStories().first?.resolutionState?.stage == .finalProse)
+        let committed = try await retry.commitStagedResolution(eventID: eventID)
+        #expect(committed.priorRevision == base.revision)
+        #expect(committed.committedRevision == base.revision + 1)
+        #expect(try await retry.worldReadModel().revision == base.revision + 1)
+        #expect(try await retry.chronicle().count == 1)
+        #expect(try await retry.allStoryEvents().first?.resolutionState?.stage == .committed)
+        await #expect(throws: StoreError.eventAlreadyResolved) {
+            _ = try await retry.commitStagedResolution(eventID: eventID)
+        }
+        #expect(try await retry.worldReadModel().revision == base.revision + 1)
+        #expect(try await retry.chronicle().count == 1)
+    }
+
+    @Test func resetAndDeleteRemoveStagedResolutionState() async throws {
+        let store = HordeStore(modelContainer: try HordeStore.makeContainer(inMemory: true))
+        try await store.bootstrapForProof()
+        let definitionID = try await store.createGoal(GoalDraft(title: "Temporary staged event"))
+        let occurrence = try #require(await store.definitionSummary(id: definitionID)?.history.first)
+        try await store.completeOccurrence(id: occurrence.id)
+        let eventID = occurrence.id + ":positive"
+        _ = try await store.claimEvent(eventID)
+        try await store.checkpointResolution(eventID: eventID, state: StagedResolutionState(stage: .actionSuggestion, suggestedAction: "Light the brazier"))
+        #expect(try await store.pendingStories().first?.resolutionState?.suggestedAction == "Light the brazier")
+        try await store.resetDungeon()
+        #expect(try await store.allStoryEvents().isEmpty)
+
+        let replacementID = try await store.createGoal(GoalDraft(title: "Delete staged event"))
+        let replacement = try #require(await store.definitionSummary(id: replacementID)?.history.first)
+        try await store.completeOccurrence(id: replacement.id)
+        let replacementEventID = replacement.id + ":positive"
+        _ = try await store.claimEvent(replacementEventID)
+        try await store.checkpointResolution(eventID: replacementEventID, state: StagedResolutionState(stage: .customActionEntry, customAction: "Keep this exact draft"))
+        try await store.deleteAllLocalData()
+        #expect(try await store.allStoryEvents().isEmpty)
+    }
+
     private func writePersistedResolution(to url: URL) async throws -> String {
         let store = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
         try await store.bootstrapForProof()

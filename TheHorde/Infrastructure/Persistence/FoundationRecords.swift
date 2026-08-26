@@ -64,12 +64,14 @@ enum PersistentJSON {
     var acceptedAction: String?
     var finalProse: String?
     var recordedWorldData: Data?
+    var resolutionStateData: Data?
 
     init(id: String, sourceOccurrenceID: String, sourceTitle: String, sourceNotes: String = "", sourceCategoryRaw: String? = nil, sourceEffortRaw: String? = nil, valence: EventValence, status: EventStatus = .pending, expectedRevision: Int, createdAt: Date = .now) {
         self.id = id; self.sourceOccurrenceID = sourceOccurrenceID; self.sourceTitle = sourceTitle
         self.sourceNotes = sourceNotes; self.sourceCategoryRaw = sourceCategoryRaw; self.sourceEffortRaw = sourceEffortRaw
         self.valenceRaw = valence.rawValue; self.statusRaw = status.rawValue; self.expectedRevision = expectedRevision
         self.attemptCount = 0; self.createdAt = createdAt; self.updatedAt = createdAt
+        self.resolutionStateData = try? PersistentJSON.encode(StagedResolutionState(stage: .effortSelection))
     }
 }
 

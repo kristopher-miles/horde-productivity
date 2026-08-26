@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevision, eventAlreadyResolved, injectedFailure }
+enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevision, eventAlreadyResolved, invalidResolutionState, injectedFailure }
 
 @ModelActor actor HordeStore {
     static let schema = Schema(HordeSchemaV3.models, version: HordeSchemaV3.versionIdentifier)
@@ -274,7 +274,81 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         try modelContext.save()
     }
 
-    func commitResolution(eventID: String, expectedRevision: Int, world: WorldSnapshot, mutations: [WorldMutation], deltas: [WorldDelta], generatedTitle: String, narration: String, summary: String, cue: AnimationCue, effort: ResolutionEffort? = nil, comparisonHistoryIDs: [String] = [], acceptedAction: String? = nil) throws -> ChronicleSummary {
+    func checkpointResolution(eventID: String, state: StagedResolutionState) throws {
+        try validateCheckpoint(state)
+        do {
+            try modelContext.transaction {
+                let event = try requireEvent(eventID)
+                guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
+                try persist(state, on: event)
+                try modelContext.save()
+            }
+        } catch { modelContext.rollback(); throw error }
+    }
+
+    func stageFinalResolution(
+        eventID: String,
+        expectedRevision: Int,
+        world: WorldSnapshot,
+        mutations: [WorldMutation],
+        deltas: [WorldDelta],
+        generatedTitle: String,
+        narration: String,
+        summary: String,
+        cue: AnimationCue,
+        effort: ResolutionEffort? = nil,
+        comparisonHistoryIDs: [String] = [],
+        suggestedAction: String? = nil,
+        customAction: String? = nil,
+        interpretedAction: String? = nil,
+        acceptedAction: String,
+        promptVersions: ResolutionPromptVersions
+    ) throws {
+        let accepted = acceptedAction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !accepted.isEmpty,
+              !generatedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !narration.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw StoreError.invalidResolutionState }
+        do {
+            try modelContext.transaction {
+                let event = try requireEvent(eventID)
+                let save = try requireSave()
+                guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
+                guard save.revision == expectedRevision, event.expectedRevision == expectedRevision else { throw StoreError.staleRevision }
+                let valence = EventValence(rawValue: event.valenceRaw) ?? .positive
+                try validateStagedWorld(world, mutations: mutations, deltas: deltas, summary: summary, current: decodeWorld(save), valence: valence)
+                let result = StagedFinalResolution(expectedRevision: expectedRevision, world: world, mutations: mutations, deltas: deltas, title: generatedTitle, finalProse: narration, summary: summary, cue: cue)
+                let state = StagedResolutionState(stage: .finalProse, effort: effort, comparisonHistoryIDs: comparisonHistoryIDs, suggestedAction: suggestedAction, customAction: customAction, interpretedAction: interpretedAction, acceptedAction: accepted, promptVersions: promptVersions, finalResult: result)
+                try persist(state, on: event)
+                try modelContext.save()
+            }
+        } catch { modelContext.rollback(); throw error }
+    }
+
+    func commitStagedResolution(eventID: String, failBeforeSave: Bool = false) throws -> ChronicleSummary {
+        let event = try requireEvent(eventID)
+        guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
+        guard let state = resolutionState(event), state.stage == .finalProse,
+              state.acceptedAction?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+              let result = state.finalResult else { throw StoreError.invalidResolutionState }
+        return try commitResolution(
+            eventID: eventID,
+            expectedRevision: result.expectedRevision,
+            world: result.world,
+            mutations: result.mutations,
+            deltas: result.deltas,
+            generatedTitle: result.title,
+            narration: result.finalProse,
+            summary: result.summary,
+            cue: result.cue,
+            effort: state.effort,
+            comparisonHistoryIDs: state.comparisonHistoryIDs,
+            acceptedAction: state.acceptedAction,
+            stagedState: state,
+            failBeforeSave: failBeforeSave
+        )
+    }
+
+    func commitResolution(eventID: String, expectedRevision: Int, world: WorldSnapshot, mutations: [WorldMutation], deltas: [WorldDelta], generatedTitle: String, narration: String, summary: String, cue: AnimationCue, effort: ResolutionEffort? = nil, comparisonHistoryIDs: [String] = [], acceptedAction: String? = nil, stagedState: StagedResolutionState? = nil, failBeforeSave: Bool = false) throws -> ChronicleSummary {
         do {
             var committed: ChronicleSummary?
             try modelContext.transaction {
@@ -282,13 +356,16 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 let save = try requireSave()
                 guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
                 guard save.revision == expectedRevision, event.expectedRevision == expectedRevision else { throw StoreError.staleRevision }
+                let valence = EventValence(rawValue: event.valenceRaw) ?? .positive
+                if stagedState != nil {
+                    try validateStagedWorld(world, mutations: mutations, deltas: deltas, summary: summary, current: decodeWorld(save), valence: valence)
+                }
                 let prior = save.revision
                 save.worldData = try PersistentJSON.encode(world)
                 save.morale = world.morale; save.integrity = world.integrity; save.food = world.food; save.rollingSummary = world.rollingSummary
                 save.revision += 1
                 let patch = try PersistentJSON.encode(mutations)
                 let deltaData = try PersistentJSON.encode(deltas)
-                let valence = EventValence(rawValue: event.valenceRaw) ?? .positive
                 let recordedWorld = WorldReadModel(dungeonName: save.dungeonName, revision: save.revision, snapshot: world)
                 let recordedWorldData = try PersistentJSON.encode(recordedWorld)
                 let record = ChronicleRecord(eventID: event.id, sourceTitle: event.sourceTitle, valence: valence, generatedTitle: generatedTitle, finalProse: narration, summary: summary, patchJSON: patch, priorRevision: prior, committedRevision: save.revision, recordedWorldData: recordedWorldData, deltasJSON: deltaData, animationCue: cue, effort: effort, comparisonHistoryIDs: comparisonHistoryIDs, acceptedAction: acceptedAction)
@@ -296,6 +373,12 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 event.statusRaw = EventStatus.resolved.rawValue; event.committedRevision = save.revision; event.failureCode = nil; event.updatedAt = .now
                 event.effortValue = effort?.value; event.effortSourceRaw = effort?.source.rawValue; event.comparisonHistoryIDs = comparisonHistoryIDs; event.acceptedAction = acceptedAction
                 event.finalProse = narration; event.recordedWorldData = recordedWorldData
+                var finalState = stagedState ?? resolutionState(event) ?? StagedResolutionState(stage: .finalProse)
+                finalState.stage = .committed
+                finalState.effort = effort; finalState.comparisonHistoryIDs = comparisonHistoryIDs; finalState.acceptedAction = acceptedAction
+                finalState.finalResult = StagedFinalResolution(expectedRevision: expectedRevision, world: world, mutations: mutations, deltas: deltas, title: generatedTitle, finalProse: narration, summary: summary, cue: cue)
+                event.resolutionStateData = try PersistentJSON.encode(finalState)
+                if failBeforeSave { throw StoreError.injectedFailure }
                 try modelContext.save()
                 committed = ChronicleSummary(id: record.id, eventID: event.id, sourceTitle: event.sourceTitle, valence: valence, title: generatedTitle, finalProse: narration, summary: summary, deltas: deltas, cue: cue, priorRevision: prior, committedRevision: save.revision, committedAt: record.committedAt, effort: effort, comparisonHistoryIDs: comparisonHistoryIDs, acceptedAction: acceptedAction, recordedWorld: recordedWorld)
             }
@@ -405,8 +488,50 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
             comparisonHistoryIDs: event.comparisonHistoryIDs,
             acceptedAction: event.acceptedAction,
             finalProse: event.finalProse,
-            recordedWorld: event.recordedWorldData.flatMap { try? PersistentJSON.decode(WorldReadModel.self, from: $0) }
+            recordedWorld: event.recordedWorldData.flatMap { try? PersistentJSON.decode(WorldReadModel.self, from: $0) },
+            resolutionState: resolutionState(event)
         )
+    }
+
+    private func resolutionState(_ event: StoryEventRecord) -> StagedResolutionState? {
+        event.resolutionStateData.flatMap { try? PersistentJSON.decode(StagedResolutionState.self, from: $0) }
+    }
+
+    private func persist(_ state: StagedResolutionState, on event: StoryEventRecord) throws {
+        event.resolutionStateData = try PersistentJSON.encode(state)
+        event.effortValue = state.effort?.value
+        event.effortSourceRaw = state.effort?.source.rawValue
+        event.comparisonHistoryIDs = state.comparisonHistoryIDs
+        event.acceptedAction = state.acceptedAction
+        event.updatedAt = .now
+    }
+
+    private func validateCheckpoint(_ state: StagedResolutionState) throws {
+        guard state.finalResult == nil else { throw StoreError.invalidResolutionState }
+        let suggested = state.suggestedAction?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let interpreted = state.interpretedAction?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let accepted = state.acceptedAction?.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch state.stage {
+        case .effortSelection:
+            guard suggested == nil, state.customAction == nil, interpreted == nil, accepted == nil else { throw StoreError.invalidResolutionState }
+        case .actionSuggestion:
+            guard suggested?.isEmpty == false, state.customAction == nil, interpreted == nil, accepted == nil else { throw StoreError.invalidResolutionState }
+        case .customActionEntry:
+            guard interpreted == nil, accepted == nil else { throw StoreError.invalidResolutionState }
+        case .interpretedActionReview:
+            guard interpreted?.isEmpty == false, accepted == nil else { throw StoreError.invalidResolutionState }
+        case .actionAccepted:
+            guard accepted?.isEmpty == false else { throw StoreError.invalidResolutionState }
+        case .finalProse, .committed:
+            throw StoreError.invalidResolutionState
+        }
+    }
+
+    private func validateStagedWorld(_ world: WorldSnapshot, mutations: [WorldMutation], deltas: [WorldDelta], summary: String, current: WorldSnapshot, valence: EventValence) throws {
+        guard !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw StoreError.invalidResolutionState }
+        var (authorized, validatedDeltas) = try WorldPatchValidator.applying(mutations, to: current, valence: valence, descriptors: WorldContract.descriptors(for: valence, world: current))
+        authorized.rollingSummary = String((authorized.rollingSummary + " " + summary).suffix(600))
+        guard authorized == world, validatedDeltas == deltas else { throw StoreError.invalidResolutionState }
     }
 
     private func resolutionEffort(value: Int?, sourceRaw: String?) -> ResolutionEffort? {
