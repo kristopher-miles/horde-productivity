@@ -5,6 +5,11 @@ enum ResolutionOutcome: Sendable, Equatable {
     case failed(code: String)
 }
 
+enum ActionSuggestionOutcome: Sendable, Equatable {
+    case suggested(String)
+    case failed(code: String)
+}
+
 actor ResolutionCoordinator {
     private let store: HordeStore
     private let model: FoundationModelClient
@@ -12,6 +17,39 @@ actor ResolutionCoordinator {
     init(store: HordeStore, model: FoundationModelClient) {
         self.store = store
         self.model = model
+    }
+
+    func suggestAction(eventID: String) async -> ActionSuggestionOutcome {
+        do {
+            if let action = try await store.persistedActionSuggestion(eventID: eventID) {
+                return .suggested(action)
+            }
+            let (event, world) = try await store.claimEvent(eventID)
+            let compatibility = await model.compatibility()
+            guard compatibility == .available else {
+                let code = compatibilityCode(compatibility)
+                try await store.markEventFailed(eventID, code: code)
+                return .failed(code: code)
+            }
+            let history = event.effort == nil && event.sourceEffort == nil
+                ? try await store.attemptedGoalHistory(for: eventID)
+                : []
+            let effort = try await evaluateEffortWithTimeout(event: event, history: history)
+            try await store.checkpointEffort(eventID: eventID, result: effort)
+            var ratedEvent = event
+            ratedEvent.effort = effort.effort
+            ratedEvent.comparisonHistoryIDs = effort.comparisonHistoryIDs
+            let suggestion = try await suggestActionWithTimeout(event: ratedEvent, world: world)
+            try await store.checkpointSuggestion(eventID: eventID, result: suggestion)
+            return .suggested(suggestion.action)
+        } catch is CancellationError {
+            try? await store.returnEventToPending(eventID)
+            return .failed(code: "interrupted")
+        } catch {
+            let code = classify(error)
+            try? await store.markEventFailed(eventID, code: code)
+            return .failed(code: code)
+        }
     }
 
     func resolve(eventID: String) async -> ResolutionOutcome {
@@ -90,6 +128,19 @@ actor ResolutionCoordinator {
     private func evaluateEffortWithTimeout(event: PendingStorySummary, history: [AttemptedGoalContext]) async throws -> EffortEvaluationResult {
         try await withThrowingTaskGroup(of: EffortEvaluationResult.self) { group in
             group.addTask { try await self.model.evaluateEffort(event: event, history: history) }
+            group.addTask {
+                try await Task.sleep(for: .seconds(60))
+                throw ModelClientError.timeout
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private func suggestActionWithTimeout(event: PendingStorySummary, world: WorldReadModel) async throws -> ActionSuggestionResult {
+        try await withThrowingTaskGroup(of: ActionSuggestionResult.self) { group in
+            group.addTask { try await self.model.suggestAction(event: event, world: world) }
             group.addTask {
                 try await Task.sleep(for: .seconds(60))
                 throw ModelClientError.timeout

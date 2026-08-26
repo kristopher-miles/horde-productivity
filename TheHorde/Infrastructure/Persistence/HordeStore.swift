@@ -256,6 +256,15 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         return try modelContext.fetch(FetchDescriptor<StoryEventRecord>(predicate: #Predicate { $0.statusRaw != "resolved" }, sortBy: [SortDescriptor(\.createdAt)])).map { storySummary($0, occurrence: occurrences[$0.sourceOccurrenceID]) }
     }
 
+    func persistedActionSuggestion(eventID: String) throws -> String? {
+        let event = try requireEvent(eventID)
+        guard let state = resolutionState(event),
+              state.stage == .actionSuggestion,
+              state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+              let action = state.suggestedAction else { return nil }
+        return try? ActionSuggestionModelContract.validatedAction(action)
+    }
+
     func allStoryEvents() throws -> [PendingStorySummary] {
         let occurrences = Dictionary(uniqueKeysWithValues: try modelContext.fetch(FetchDescriptor<GoalOccurrenceRecord>()).map { ($0.id, $0) })
         return try modelContext.fetch(FetchDescriptor<StoryEventRecord>(sortBy: [SortDescriptor(\.createdAt)])).map { storySummary($0, occurrence: occurrences[$0.sourceOccurrenceID]) }
@@ -362,6 +371,28 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 state.effort = result.effort
                 state.comparisonHistoryIDs = result.comparisonHistoryIDs
                 state.promptVersions.effort = result.promptVersion
+                try persist(state, on: event)
+                try modelContext.save()
+            }
+        } catch { modelContext.rollback(); throw error }
+    }
+
+    func checkpointSuggestion(eventID: String, result: ActionSuggestionResult) throws {
+        guard let action = try? ActionSuggestionModelContract.validatedAction(result.action),
+              result.promptVersion == ActionSuggestionModelContract.promptVersion else {
+            throw StoreError.invalidResolutionState
+        }
+        do {
+            try modelContext.transaction {
+                let event = try requireEvent(eventID)
+                guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
+                var state = resolutionState(event) ?? StagedResolutionState(stage: .effortSelection)
+                guard state.stage == .effortSelection, state.effort != nil, state.suggestedAction == nil else {
+                    throw StoreError.invalidResolutionState
+                }
+                state.stage = .actionSuggestion
+                state.suggestedAction = action
+                state.promptVersions.suggestion = result.promptVersion
                 try persist(state, on: event)
                 try modelContext.save()
             }

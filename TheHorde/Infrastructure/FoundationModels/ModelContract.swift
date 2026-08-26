@@ -35,6 +35,57 @@ struct EffortModelOutput {
     var rating: Int
 }
 
+enum ActionSuggestionModelContract {
+    static let promptVersion = 41
+
+    static var instructions: String { ModelPromptRegistry.text(.suggestionSystemInstructions) }
+
+    static var schema: GenerationSchema {
+        GenerationSchema(type: ActionSuggestionModelOutput.self, properties: [
+            .init(
+                name: "action",
+                description: ModelPromptRegistry.text(.suggestionOutputGuide),
+                type: String.self
+            )
+        ])
+    }
+
+    static func prompt(event: PendingStorySummary, world: WorldReadModel) -> String {
+        let goal = [event.sourceTitle, event.sourceNotes].filter { !$0.isEmpty }.joined(separator: "\n")
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let worldJSON = (try? encoder.encode(world)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+        return ModelPromptRegistry.render(.suggestionRequestTemplate, [
+            "goalContext": ModelPromptRegistry.render(.sharedGoalContext, ["goal": goal]),
+            "effort": String(event.effort?.value ?? 0),
+            "worldContext": ModelPromptRegistry.render(.sharedWorldContext, [
+                "world": "<world-data>\(ModelPromptRegistry.data(worldJSON))</world-data>"
+            ])
+        ])
+    }
+
+    static func validatedAction(_ raw: String) throws -> String {
+        let action = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let words = action.split(whereSeparator: \.isWhitespace)
+        let forbidden = [
+            "\n", "\r", "<", ">", "[", "]", "{", "}", "```", "http://", "https://",
+            "assistant:", "developer:", "function:", "system:", "tool:", "ignore previous",
+            "follow these instructions", "system prompt", "developer instruction", "stagedungeonmutation"
+        ]
+        guard (3...5).contains(words.count),
+              words.allSatisfy({ $0.unicodeScalars.contains(where: CharacterSet.letters.contains) }),
+              !forbidden.contains(where: action.localizedCaseInsensitiveContains) else {
+            throw ModelClientError.invalidActionSuggestion
+        }
+        return action
+    }
+}
+
+@Generable
+struct ActionSuggestionModelOutput {
+    var action: String
+}
+
 enum HordeModelContract {
     static let promptVersion = 44
     static let schemaVersion = 6

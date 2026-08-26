@@ -46,6 +46,11 @@ struct EffortEvaluationResult: Equatable, Sendable {
     let promptVersion: Int?
 }
 
+struct ActionSuggestionResult: Equatable, Sendable {
+    let action: String
+    let promptVersion: Int
+}
+
 enum ModelSampling: Codable, Equatable, Sendable {
     case productionDefault
     case greedy
@@ -307,6 +312,8 @@ actor FoundationModelClient {
     private let shouldRejectFirstAttempt: Bool
     private let effortResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> Int)?
     private let effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)?
+    private let suggestionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)?
+    private let compatibilityOverride: CompatibilityState?
 
     init(
         diagnosticsSink: any ModelDiagnosticsSink = NoOpModelDiagnosticsSink(),
@@ -314,7 +321,9 @@ actor FoundationModelClient {
         defaultSampling: ModelSampling = .productionDefault,
         rejectFirstAttempt: Bool = false,
         effortResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> Int)? = nil,
-        effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)? = nil
+        effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)? = nil,
+        suggestionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)? = nil,
+        compatibilityOverride: CompatibilityState? = nil
     ) {
         self.diagnosticsSink = diagnosticsSink
         self.attemptLogger = attemptLogger
@@ -322,9 +331,12 @@ actor FoundationModelClient {
         self.shouldRejectFirstAttempt = rejectFirstAttempt
         self.effortResponseOverride = effortResponseOverride
         self.effortContextFitOverride = effortContextFitOverride
+        self.suggestionResponseOverride = suggestionResponseOverride
+        self.compatibilityOverride = compatibilityOverride
     }
 
     func compatibility(locale: Locale = .current) -> CompatibilityState {
+        if let compatibilityOverride { return compatibilityOverride }
         guard model.supportsLocale(locale) else { return .unsupportedLocale }
         switch model.availability {
         case .available: return .available
@@ -420,6 +432,75 @@ actor FoundationModelClient {
                 eventID: event.id,
                 goalTitle: event.sourceTitle,
                 stage: .effortEvaluation,
+                attempt: 1,
+                outcome: .failed,
+                instructionsText: instructions,
+                promptText: prompt,
+                requestText: requestText,
+                responseText: responseText,
+                responseMaterial: responseMaterial,
+                attemptTranscript: attemptTranscript,
+                errorText: String(reflecting: error)
+            ))
+            throw error
+        }
+    }
+
+    func suggestAction(event: PendingStorySummary, world: WorldReadModel) async throws -> ActionSuggestionResult {
+        guard event.effort != nil else { throw ModelClientError.missingEffort }
+        let instructions = ActionSuggestionModelContract.instructions
+        let prompt = ActionSuggestionModelContract.prompt(event: event, world: world)
+        let options = defaultSampling.generationOptions
+        let requestText = Self.fullRequestText(
+            instructions: instructions,
+            prompt: prompt,
+            schema: ActionSuggestionModelContract.schema,
+            options: options
+        )
+        var responseText: String?
+        var responseMaterial: String?
+        var attemptTranscript: String?
+
+        do {
+            let rawAction: String
+            if let suggestionResponseOverride {
+                rawAction = try await suggestionResponseOverride(instructions, prompt)
+                responseText = (try? JSONSerialization.data(withJSONObject: ["action": rawAction], options: [.sortedKeys]))
+                    .map { String(decoding: $0, as: UTF8.self) }
+            } else {
+                let session = LanguageModelSession(model: model, instructions: instructions)
+                session.prewarm(promptPrefix: Prompt(prompt))
+                let response = try await respond(
+                    session: session,
+                    request: prompt,
+                    schema: ActionSuggestionModelContract.schema,
+                    options: options
+                )
+                responseText = response.rawContent.jsonString
+                responseMaterial = transcriptText(Transcript(entries: response.transcriptEntries))
+                attemptTranscript = transcriptText(session.transcript)
+                rawAction = try response.content.value(forProperty: "action")
+            }
+            let action = try ActionSuggestionModelContract.validatedAction(rawAction)
+            await attemptLogger.record(ModelDevLogEntry(
+                eventID: event.id,
+                goalTitle: event.sourceTitle,
+                stage: .actionSuggestion,
+                attempt: 1,
+                outcome: .succeeded,
+                instructionsText: instructions,
+                promptText: prompt,
+                requestText: requestText,
+                responseText: responseText,
+                responseMaterial: responseMaterial,
+                attemptTranscript: attemptTranscript
+            ))
+            return ActionSuggestionResult(action: action, promptVersion: ActionSuggestionModelContract.promptVersion)
+        } catch {
+            await attemptLogger.record(ModelDevLogEntry(
+                eventID: event.id,
+                goalTitle: event.sourceTitle,
+                stage: .actionSuggestion,
                 attempt: 1,
                 outcome: .failed,
                 instructionsText: instructions,
@@ -781,6 +862,7 @@ actor FoundationModelClient {
 enum ModelClientError: Error, LocalizedError {
     case receiptMismatch, invalidCue, textTooLong, unsafeNarrative, valenceMismatch, evaluationRejected, contextOverflow, timeout
     case invalidEffortRating(Int)
+    case invalidActionSuggestion, missingEffort
 
     var errorDescription: String? {
         switch self {
@@ -793,6 +875,8 @@ enum ModelClientError: Error, LocalizedError {
         case .contextOverflow: "The bounded story projection does not fit the model context."
         case .timeout: "Generation exceeded the 60-second limit."
         case .invalidEffortRating(let rating): "The effort rating \(rating) was outside 1 through 3."
+        case .invalidActionSuggestion: "The suggested action was not a concrete three-to-five-word action."
+        case .missingEffort: "An effort rating is required before suggesting an action."
         }
     }
 }
