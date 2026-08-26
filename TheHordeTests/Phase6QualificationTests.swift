@@ -142,20 +142,49 @@ struct Phase6QualificationTests {
         #expect(current.snapshot.dragonGrowth.consecutiveRegularUseDays == 2)
     }
 
-    @Test func emberIdleAtlasMatchesPrototypeContract() {
-        for (atlasName, names) in [("EmberIdle", DungeonSceneView.emberIdleFrameNames), ("EmberConcern", DungeonSceneView.emberConcernFrameNames)] {
+    @Test func everyDragonStageIdleAtlasMatchesPrototypeContract() {
+        for stage in DragonStage.allCases {
+            let atlasName = DungeonSceneView.dragonAtlasName(stage: stage, cue: .idle)
+            let names = DungeonSceneView.dragonIdleFrameNames(stage: stage)
             let atlas = SKTextureAtlas(named: atlasName)
             #expect(Set(atlas.textureNames) == Set(names))
             for name in names {
                 let texture = atlas.textureNamed(name)
-                #expect(texture.size().width.rounded() == DungeonSceneView.emberIdleFrameSize.width)
-                #expect(texture.size().height.rounded() == DungeonSceneView.emberIdleFrameSize.height)
+                let expected = DungeonSceneView.dragonFrameSize(stage: stage)
+                #expect(texture.size().width.rounded() == expected.width)
+                #expect(texture.size().height.rounded() == expected.height)
             }
         }
+        let concern = SKTextureAtlas(named: "EmberConcern")
+        #expect(Set(concern.textureNames) == Set(DungeonSceneView.emberConcernFrameNames))
         #expect(DungeonSceneView.emberIdleFrameDuration == 0.18)
         #expect(DungeonSceneView.emberConcernFrameDuration == 0.14)
         #expect(DungeonSceneView.emberIdleScenePosition.x.rounded() == DungeonSceneView.emberIdleScenePosition.x)
         #expect(DungeonSceneView.emberIdleScenePosition.y.rounded() == DungeonSceneView.emberIdleScenePosition.y)
+    }
+
+    @Test @MainActor func fiveOrderedDragonStagesRenderIncreasingAnchoredIdleLoops() throws {
+        #expect(DragonStage.allCases.map(\.displayName) == ["Baby", "Adolescent", "Adult", "Elder", "Great Wyrm"])
+        let sizes = DragonStage.allCases.map(DungeonSceneView.dragonFrameSize)
+        #expect(zip(sizes, sizes.dropFirst()).allSatisfy { $0.width < $1.width && $0.height < $1.height })
+
+        for stage in DragonStage.allCases {
+            var snapshot = WorldSnapshot.initial()
+            snapshot.dragonVisual.stage = stage
+            let world = WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot)
+            let animated = PixelDungeonScene(world: world, cue: .idle, reduceMotion: false)
+            let dragon = try #require(animated.childNode(withName: "EmberPrototype") as? SKSpriteNode)
+            #expect(dragon.anchorPoint == CGPoint(x: 0.5, y: 0))
+            #expect(dragon.position == DungeonSceneView.emberIdleScenePosition)
+            #expect(dragon.size == DungeonSceneView.dragonFrameSize(stage: stage))
+            #expect(dragon.texture?.filteringMode == .nearest)
+            #expect(dragon.action(forKey: "idle") != nil)
+
+            let reduced = PixelDungeonScene(world: world, cue: .idle, reduceMotion: true)
+            let still = try #require(reduced.childNode(withName: "EmberPrototype") as? SKSpriteNode)
+            #expect(still.texture?.filteringMode == .nearest)
+            #expect(still.action(forKey: "idle") == nil)
+        }
     }
 
     @Test func curatedAndCustomDragonColorsPreserveAuthoredDetailTones() {
@@ -179,7 +208,17 @@ struct Phase6QualificationTests {
 
     @Test @MainActor func everyAvailableDragonFrameUsesOnlyTheRecolorableBodyPalette() throws {
         let custom = RGBColor(red: 17, green: 201, blue: 149)
-        for (atlasName, names) in [("EmberIdle", DungeonSceneView.emberIdleFrameNames), ("EmberConcern", DungeonSceneView.emberConcernFrameNames)] {
+        let sourceBodyTones = [
+            RGBColor(red: 107, green: 25, blue: 10),
+            RGBColor(red: 163, green: 43, blue: 10),
+            RGBColor(red: 217, green: 77, blue: 8),
+            RGBColor(red: 242, green: 118, blue: 13),
+            RGBColor(red: 255, green: 158, blue: 37)
+        ]
+        let idleAtlases = DragonStage.allCases.map {
+            (DungeonSceneView.dragonAtlasName(stage: $0, cue: .idle), DungeonSceneView.dragonIdleFrameNames(stage: $0))
+        }
+        for (atlasName, names) in idleAtlases + [("EmberConcern", DungeonSceneView.emberConcernFrameNames)] {
             let atlas = SKTextureAtlas(named: atlasName)
             for name in names {
                 let source = atlas.textureNamed(name)
@@ -188,8 +227,10 @@ struct Phase6QualificationTests {
                 let after = try rgbaBytes(of: output.cgImage())
                 var changedPixelCount = 0
                 var onlyExpectedPixelsChanged = true
+                var sourceColors: Set<RGBColor> = []
                 for offset in stride(from: 0, to: before.count, by: 4) {
                     let sourcePixel = RGBColor(red: before[offset], green: before[offset + 1], blue: before[offset + 2])
+                    if before[offset + 3] > 0 { sourceColors.insert(sourcePixel) }
                     let expected = DragonTextureRecolorer.bodyPixel(sourcePixel, color: custom)
                     let actual = RGBColor(red: after[offset], green: after[offset + 1], blue: after[offset + 2])
                     if expected != sourcePixel { changedPixelCount += 1 }
@@ -197,6 +238,7 @@ struct Phase6QualificationTests {
                 }
                 #expect(changedPixelCount > 0)
                 #expect(onlyExpectedPixelsChanged)
+                #expect(sourceBodyTones.allSatisfy(sourceColors.contains))
             }
         }
 

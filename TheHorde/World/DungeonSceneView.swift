@@ -7,12 +7,31 @@ import AppKit
 #endif
 
 struct DungeonSceneView: View {
-    nonisolated static let emberIdleFrameNames = (1...4).map { "ember-idle-\(String(format: "%02d", $0)).png" }
     nonisolated static let emberIdleFrameDuration = 0.18
     nonisolated static let emberConcernFrameNames = (1...4).map { "ember-concern-\(String(format: "%02d", $0)).png" }
     nonisolated static let emberConcernFrameDuration = 0.14
-    nonisolated static let emberIdleFrameSize = CGSize(width: 96, height: 80)
     nonisolated static let emberIdleScenePosition = CGPoint(x: 24, y: -50)
+
+    nonisolated static func dragonIdleFrameNames(stage: DragonStage) -> [String] {
+        let prefix = switch stage {
+        case .baby: "ember-idle"
+        case .adolescent: "ember-adolescent-idle"
+        case .adult: "ember-adult-idle"
+        case .elder: "ember-elder-idle"
+        case .greatWyrm: "ember-great-wyrm-idle"
+        }
+        return (1...4).map { "\(prefix)-\(String(format: "%02d", $0)).png" }
+    }
+
+    nonisolated static func dragonFrameSize(stage: DragonStage) -> CGSize {
+        switch stage {
+        case .baby: CGSize(width: 96, height: 80)
+        case .adolescent: CGSize(width: 108, height: 90)
+        case .adult: CGSize(width: 120, height: 100)
+        case .elder: CGSize(width: 132, height: 110)
+        case .greatWyrm: CGSize(width: 144, height: 120)
+        }
+    }
 
     let world: WorldReadModel
     var cue: AnimationCue = .idle
@@ -39,9 +58,15 @@ struct DungeonSceneView: View {
         return "\(world.dungeonName). \(population). \(world.snapshot.dragon.role). \(world.snapshot.dragon.identity) \(place) Morale \(world.snapshot.morale), integrity \(world.snapshot.integrity), food \(world.snapshot.food). \(thread.map { "Active concern: \($0.title), severity \($0.severity)." } ?? "There is no active concern.")"
     }
 
-    nonisolated static func dragonAtlasName(stage: DragonStage, cue: AnimationCue) -> String? {
-        guard stage == .baby else { return nil }
-        return cue == .concern || cue == .hazardAppears ? "EmberConcern" : "EmberIdle"
+    nonisolated static func dragonAtlasName(stage: DragonStage, cue: AnimationCue) -> String {
+        if stage == .baby, cue == .concern || cue == .hazardAppears { return "EmberConcern" }
+        return switch stage {
+        case .baby: "EmberIdle"
+        case .adolescent: "EmberAdolescentIdle"
+        case .adult: "EmberAdultIdle"
+        case .elder: "EmberElderIdle"
+        case .greatWyrm: "EmberGreatWyrmIdle"
+        }
     }
 
     nonisolated static func koboldIdleAtlasName(age: KoboldAgeStage) -> String {
@@ -93,10 +118,11 @@ struct DungeonSceneView: View {
     @objc private func resumeFromBackground() { isPaused = false }
 
     private func addEmber(world: WorldReadModel, cue: AnimationCue, reduceMotion: Bool) {
-        let concerned = cue == .concern || cue == .hazardAppears
-        guard let atlasName = DungeonSceneView.dragonAtlasName(stage: world.snapshot.dragonVisual.stage, cue: cue) else { return }
+        let stage = world.snapshot.dragonVisual.stage
+        let concerned = stage == .baby && (cue == .concern || cue == .hazardAppears)
+        let atlasName = DungeonSceneView.dragonAtlasName(stage: stage, cue: cue)
         let atlas = SKTextureAtlas(named: atlasName)
-        let names = concerned ? DungeonSceneView.emberConcernFrameNames : DungeonSceneView.emberIdleFrameNames
+        let names = concerned ? DungeonSceneView.emberConcernFrameNames : DungeonSceneView.dragonIdleFrameNames(stage: stage)
         let frames = names.map { name in
             let texture = DragonTextureRecolorer.texture(
                 atlas.textureNamed(name),
@@ -105,13 +131,13 @@ struct DungeonSceneView: View {
             texture.filteringMode = .nearest
             return texture
         }
-        let ember = SKSpriteNode(texture: concerned && reduceMotion ? frames[3] : frames[0], size: DungeonSceneView.emberIdleFrameSize)
+        let ember = SKSpriteNode(texture: concerned && reduceMotion ? frames[3] : frames[0], size: DungeonSceneView.dragonFrameSize(stage: stage))
         ember.name = "EmberPrototype"
         ember.anchorPoint = CGPoint(x: 0.5, y: 0)
         ember.position = DungeonSceneView.emberIdleScenePosition
         ember.zPosition = 1
         addChild(ember)
-        if !reduceMotion && cue == .idle {
+        if !reduceMotion && (!concerned && (stage != .baby || cue == .idle)) {
             ember.run(.repeatForever(.animate(with: frames, timePerFrame: DungeonSceneView.emberIdleFrameDuration, resize: false, restore: false)), withKey: "idle")
         } else if !reduceMotion && concerned {
             ember.run(.animate(with: frames, timePerFrame: DungeonSceneView.emberConcernFrameDuration, resize: false, restore: false), withKey: "concern")

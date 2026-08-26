@@ -6,8 +6,7 @@ import SwiftUI
     var body: some Scene {
         #if os(macOS)
         WindowGroup {
-            RootView()
-                .environment(app)
+            root
                 .frame(minWidth: 780, minHeight: 560)
         }
         .defaultSize(width: 1120, height: 760)
@@ -19,7 +18,19 @@ import SwiftUI
             }
         }
         #else
-        WindowGroup { RootView().environment(app) }
+        WindowGroup { root }
+        #endif
+    }
+
+    @ViewBuilder private var root: some View {
+        #if DEBUG
+        if DragonStageFixtureView.isEnabled {
+            DragonStageFixtureView()
+        } else {
+            RootView().environment(app)
+        }
+        #else
+        RootView().environment(app)
         #endif
     }
 }

@@ -1,6 +1,25 @@
 import XCTest
 
 final class TheHordeUITests: XCTestCase {
+    @MainActor func testFiveOrderedAnimatedDragonStageFixture() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["HORDE_DRAGON_STAGE_FIXTURE"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Dragon Stages"].waitForExistence(timeout: 5))
+        for (rawValue, label) in [
+            ("baby", "Baby"),
+            ("adolescent", "Adolescent"),
+            ("adult", "Adult"),
+            ("elder", "Elder"),
+            ("greatWyrm", "Great Wyrm")
+        ] {
+            XCTAssertTrue(app.otherElements["DragonStageFixture.\(rawValue)"].exists)
+            XCTAssertTrue(app.staticTexts[label].exists)
+        }
+        XCTAssertEqual(app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "DragonStageFixture.")).count, 5)
+    }
+
     private enum StoryResolutionID {
         static let state = "StoryResolution.State"
         static let suggestion = "StoryResolution.Suggestion"

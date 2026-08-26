@@ -3,6 +3,16 @@ import Foundation
 enum DragonStage: String, Codable, Equatable, Sendable, CaseIterable {
     case baby, adolescent, adult, elder, greatWyrm
 
+    var displayName: String {
+        switch self {
+        case .baby: "Baby"
+        case .adolescent: "Adolescent"
+        case .adult: "Adult"
+        case .elder: "Elder"
+        case .greatWyrm: "Great Wyrm"
+        }
+    }
+
     var regularUseDayThreshold: Int {
         switch self {
         case .baby: 0

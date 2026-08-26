@@ -90,7 +90,7 @@ Complete the environment set before scene-wide character composition is finalize
 
 ## 7. Produce dragon and kobold progression assets
 
-- [ ] 052 — [VC-05 — Create five increasingly powerful dragon stages with idle animation (line 125)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L125)
+- [x] 052 — [VC-05 — Create five increasingly powerful dragon stages with idle animation (line 125)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L125)
 - [ ] 053 — [VC-06 — Ensure every dragon stage becomes more powerful, never decrepit (line 126)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L126)
 - [ ] 054 — [NPC-03 — Create idle-animated Baby, Kid, and Adult kobold models (line 145)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L145)
 - [ ] 055 — [NPC-04 — Make every kobold age model runtime-recolorable (line 146)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L146)

@@ -1,0 +1,24 @@
+{
+  "asset": "ember-adult",
+  "cue": "idle",
+  "prototype": true,
+  "frameSize": { "width": 120, "height": 100 },
+  "runtimeDisplaySize": { "width": 120, "height": 100 },
+  "safetyInsetPixels": 2,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "scenePosition": { "x": 184, "y": 40 },
+  "frames": [
+    { "file": "ember-adult-idle-01.png", "durationMilliseconds": 180 },
+    { "file": "ember-adult-idle-02.png", "durationMilliseconds": 180 },
+    { "file": "ember-adult-idle-03.png", "durationMilliseconds": 180 },
+    { "file": "ember-adult-idle-04.png", "durationMilliseconds": 180 }
+  ],
+  "loop": true,
+  "reduceMotionFrame": "ember-adult-idle-01.png",
+  "source": "PrototypeArt/pilots/ember-adult-idle/ember-adult-idle.pxo",
+  "provenance": {
+    "provider": "Codex built-in ImageGen",
+    "pipeline": "horde-sprite-prototype",
+    "promptFiles": ["prompt-strip-attempt-01.md"]
+  }
+}

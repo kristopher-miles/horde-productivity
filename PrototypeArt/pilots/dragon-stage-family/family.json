@@ -1,0 +1,12 @@
+{
+  "background": "PrototypeArt/pilots/dungeon-progression-static/normalized/dungeon-progression-static-01.png",
+  "anchor": { "x": 184, "y": 40 },
+  "durationMilliseconds": 180,
+  "stages": [
+    { "label": "Baby", "directory": "PrototypeArt/pilots/ember-idle/normalized", "prefix": "ember-idle", "width": 96, "height": 80 },
+    { "label": "Adolescent", "directory": "PrototypeArt/pilots/ember-adolescent-idle/normalized", "prefix": "ember-adolescent-idle", "width": 108, "height": 90 },
+    { "label": "Adult", "directory": "PrototypeArt/pilots/ember-adult-idle/normalized", "prefix": "ember-adult-idle", "width": 120, "height": 100 },
+    { "label": "Elder", "directory": "PrototypeArt/pilots/ember-elder-idle/normalized", "prefix": "ember-elder-idle", "width": 132, "height": 110 },
+    { "label": "Great Wyrm", "directory": "PrototypeArt/pilots/ember-great-wyrm-idle/normalized", "prefix": "ember-great-wyrm-idle", "width": 144, "height": 120 }
+  ]
+}
