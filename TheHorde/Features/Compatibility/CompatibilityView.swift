@@ -29,6 +29,7 @@ struct CompatibilityView: View {
             }
             .padding(32)
             .frame(maxWidth: 560)
+            .frame(maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignTokens.background)

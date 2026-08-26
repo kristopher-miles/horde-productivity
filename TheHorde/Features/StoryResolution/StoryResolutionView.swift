@@ -200,7 +200,12 @@ struct StoryResolutionView: View {
                     case .failed(let code): failureView(code)
                     }
                 }
+                #if os(macOS)
+                .padding(DesignTokens.desktopMargin)
+                .hordeReadableContent(maxWidth: 760)
+                #else
                 .padding(DesignTokens.margin)
+                #endif
             }
             .accessibilityIdentifier(StoryResolutionAccessibility.state)
             .accessibilityValue(stateAccessibilityValue)
@@ -373,7 +378,9 @@ struct StoryResolutionView: View {
             Text(result.title).font(.largeTitle.bold())
             Text(result.finalProse).textSelection(.enabled)
             VStack(alignment: .leading, spacing: 8) { Text("What changed").font(.headline); ForEach(result.deltas) { Label($0.description, systemImage: "arrow.right.circle") } }.hordeCard()
-            Button("Continue") { dismiss() }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity, minHeight: 44)
+            Button("Continue") { dismiss() }
+                .buttonStyle(.borderedProminent).controlSize(.large)
+                .frame(maxWidth: 240)
         }
     }
 
@@ -382,12 +389,13 @@ struct StoryResolutionView: View {
             Label("No dungeon change was applied", systemImage: "arrow.counterclockwise.circle").font(.title2.bold())
             Text(failureMessage(code))
             Text("Your goal completion or expiration is saved. The world is unchanged, and this suggestion remains available to retry.")
-            Button("Retry") { Task { await retryCurrentStage() } }
-                .buttonStyle(.borderedProminent).controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .accessibilityIdentifier(StoryResolutionAccessibility.retrySuggestion)
-                .frame(minHeight: 44)
-            Button("Return to Today") { dismiss() }.frame(minHeight: 44)
+            HStack {
+                Button("Retry") { Task { await retryCurrentStage() } }
+                    .buttonStyle(.borderedProminent).controlSize(.large)
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier(StoryResolutionAccessibility.retrySuggestion)
+                Button("Return to Today") { dismiss() }
+            }
         }
     }
 

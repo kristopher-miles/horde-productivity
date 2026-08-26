@@ -33,7 +33,7 @@ Use a persistent sidebar in the main window:
 
 Settings remains an app-level destination opened from the sidebar or Command-,. Add Goal is available in the Today toolbar and with Command-N.
 
-The selected section owns the main workspace. Goal, Chronicle, and world-entity details push within that workspace. Goal editing, story resolution, and Settings use centered resizable sheets rather than phone full-screen covers.
+The selected section owns the main workspace. Goal, Chronicle, and world-entity details push within that workspace. Goal editing, story resolution, and Settings use centered, bounded sheets rather than phone full-screen covers.
 
 ## Window and layout behavior
 
@@ -44,7 +44,7 @@ The selected section owns the main workspace. Goal, Chronicle, and world-entity 
 - Today: goal groups occupy the primary column; the dungeon summary sits beside them when space permits.
 - Dungeon: the authored scene is prominent but bounded; world cards flow beneath it in a comfortable reading column.
 - Chronicle: use a native list, search field, and toolbar filter menu. Selecting a record opens its detail in the same navigation stack.
-- Sheets: goal editor about 520 × 620, story result about 620 × 700, and Settings about 620 × 680, while remaining resizable.
+- Sheets: goal editor 620 × 560, story result 720 × 640, and Settings 660 × 700. Their content scrolls when accessibility sizing needs more room.
 
 When the window narrows, content may stack vertically and scroll. No feature or action may become unreachable.
 
@@ -56,7 +56,7 @@ When the window narrows, content may stack vertically and scroll. No feature or 
 | Bottom Add Goal action plus top Add button | Toolbar Add Goal plus Command-N |
 | Gear button in Today toolbar | Sidebar Settings plus Command-, |
 | Full-screen goal editor | Centered sheet |
-| Navigation sheets for story and Settings | Centered resizable sheets |
+| Navigation sheets for story and Settings | Centered, bounded sheets with scrolling content |
 | Tap targets sized for touch | Standard Mac controls with generous row spacing |
 | Haptic completion feedback | Omitted because Mac has no equivalent app haptic contract |
 | iPhone Settings deep links | Corresponding macOS System Settings links |
@@ -114,4 +114,3 @@ All product features remain: onboarding and naming; compatibility guidance; goal
 - menu-bar quick capture, widgets, global shortcuts, and drag and drop;
 - Mac-specific notification-action extensions;
 - App Store packaging and cross-device release operations.
-

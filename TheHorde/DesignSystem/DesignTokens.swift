@@ -34,6 +34,9 @@ enum DesignTokens {
     static let dungeon = Color(red: 23 / 255, green: 24 / 255, blue: 43 / 255)
     static let radius: CGFloat = 20
     static let margin: CGFloat = 16
+    static let desktopMargin: CGFloat = 24
+    static let desktopSpacing: CGFloat = 20
+    static let readableWidth: CGFloat = 960
 }
 
 struct CardStyle: ViewModifier {
@@ -46,4 +49,9 @@ struct CardStyle: ViewModifier {
 
 extension View {
     func hordeCard() -> some View { modifier(CardStyle()) }
+
+    func hordeReadableContent(maxWidth: CGFloat = DesignTokens.readableWidth) -> some View {
+        frame(maxWidth: maxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
 }

@@ -9,12 +9,18 @@ struct TodayView: View {
     var body: some View {
         #if os(macOS)
         ScrollView {
-            HStack(alignment: .top, spacing: 24) {
-                LazyVStack(alignment: .leading, spacing: 16) { goalsContent }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                worldSummary.frame(width: 360)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: DesignTokens.desktopSpacing) {
+                    LazyVStack(alignment: .leading, spacing: 16) { goalsContent }
+                        .frame(minWidth: 440, maxWidth: .infinity, alignment: .leading)
+                    worldSummary.frame(width: 340)
+                }
+                LazyVStack(alignment: .leading, spacing: DesignTokens.desktopSpacing) {
+                    goalsContent
+                    worldSummary.frame(maxWidth: 520)
+                }
             }
-            .padding(24)
+            .padding(DesignTokens.desktopMargin)
             .frame(maxWidth: 1120)
             .frame(maxWidth: .infinity)
         }
@@ -91,7 +97,7 @@ struct TodayView: View {
     @ViewBuilder private var worldSummary: some View {
         if let world = app.world {
             let presentation = WorldPresentationState(snapshot: world.snapshot)
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 DungeonSceneView(world: world, cue: .idle)
                 Label(world.dungeonName, systemImage: "castle").font(.headline)
                 Text(presentation.populationSummary)
@@ -105,7 +111,8 @@ struct TodayView: View {
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("Today.ActiveThread")
                 }
-                Button("Open Dungeon") { app.selectedTab = .dungeon }.frame(minHeight: 44)
+                Button("Open Dungeon") { app.selectedTab = .dungeon }
+                    .buttonStyle(.borderedProminent)
             }
             .foregroundStyle(.white)
             .padding(16)

@@ -12,37 +12,15 @@ struct GoalDetailView: View {
     var body: some View {
         Group {
             if let goal {
+                #if os(macOS)
+                Form { detailSections(goal) }
+                    .formStyle(.grouped)
+                    .hordeReadableContent(maxWidth: 760)
+                #else
                 List {
-                    Section("Goal") {
-                        LabeledContent("Title", value: goal.draft.title)
-                        if !goal.draft.notes.isEmpty { Text(goal.draft.notes).textSelection(.enabled) }
-                        LabeledContent("Repeat", value: goal.draft.recurrence.label)
-                        if let category = goal.draft.category { LabeledContent("Category", value: category.rawValue) }
-                        if let effort = goal.draft.effort { LabeledContent("Effort", value: effort.rawValue) }
-                        if goal.archived { Label("Archived", systemImage: "archivebox") }
-                    }
-                    if let current = goal.history.first(where: { $0.state == .pending }) {
-                        Section("Current occurrence") {
-                            LabeledContent("Due", value: current.dueLabel)
-                            Button { Task { await app.complete(current); await load() } } label: { Label("Complete Goal", systemImage: "checkmark.circle") }.frame(minHeight: 44)
-                            Button("Cancel or Fail", systemImage: "xmark.circle") { confirmCancelOrFail = true }
-                                .accessibilityIdentifier("Goal.CancelOrFail")
-                        }
-                    }
-                    Section("History") {
-                        if goal.history.isEmpty { Text("No resolved occurrences yet.").foregroundStyle(.secondary) }
-                        ForEach(goal.history.filter { $0.state != .pending }) { row in
-                            if let entry = app.chronicle.first(where: { $0.eventID.hasPrefix(row.id + ":") }) {
-                                NavigationLink(value: TodayRoute.chronicle(entry.id)) { historyLabel(row) }
-                            } else { historyLabel(row) }
-                        }
-                    }
-                    Section("Manage") {
-                        Button("Edit Future Goal", systemImage: "pencil") { app.presentedEditor = GoalEditorPresentation(definitionID: goal.id, initialDraft: goal.draft) }.disabled(goal.archived)
-                        Button("Archive", systemImage: "archivebox") { confirmArchive = true }.disabled(goal.archived)
-                        Button("Delete Future Goal", systemImage: "trash", role: .destructive) { confirmDelete = true }
-                    }
+                    detailSections(goal)
                 }
+                #endif
             } else { ProgressView("Loading goal") }
         }
         .navigationTitle("Goal Detail")
@@ -59,6 +37,41 @@ struct GoalDetailView: View {
     }
 
     private func load() async { goal = await app.definition(id: definitionID) }
+
+    @ViewBuilder private func detailSections(_ goal: GoalDefinitionSummary) -> some View {
+        Section("Goal") {
+            LabeledContent("Title", value: goal.draft.title)
+            if !goal.draft.notes.isEmpty { Text(goal.draft.notes).textSelection(.enabled) }
+            LabeledContent("Repeat", value: goal.draft.recurrence.label)
+            if let category = goal.draft.category { LabeledContent("Category", value: category.rawValue) }
+            if let effort = goal.draft.effort { LabeledContent("Effort", value: effort.rawValue) }
+            if goal.archived { Label("Archived", systemImage: "archivebox") }
+        }
+        if let current = goal.history.first(where: { $0.state == .pending }) {
+            Section("Current occurrence") {
+                LabeledContent("Due", value: current.dueLabel)
+                Button { Task { await app.complete(current); await load() } } label: {
+                    Label("Complete Goal", systemImage: "checkmark.circle")
+                }
+                Button("Cancel or Fail", systemImage: "xmark.circle") { confirmCancelOrFail = true }
+                    .accessibilityIdentifier("Goal.CancelOrFail")
+            }
+        }
+        Section("History") {
+            let resolved = goal.history.filter { $0.state != .pending }
+            if resolved.isEmpty { Text("No resolved occurrences yet.").foregroundStyle(.secondary) }
+            ForEach(resolved) { row in
+                if let entry = app.chronicle.first(where: { $0.eventID.hasPrefix(row.id + ":") }) {
+                    NavigationLink(value: TodayRoute.chronicle(entry.id)) { historyLabel(row) }
+                } else { historyLabel(row) }
+            }
+        }
+        Section("Manage") {
+            Button("Edit Future Goal", systemImage: "pencil") { app.presentedEditor = GoalEditorPresentation(definitionID: goal.id, initialDraft: goal.draft) }.disabled(goal.archived)
+            Button("Archive", systemImage: "archivebox") { confirmArchive = true }.disabled(goal.archived)
+            Button("Delete Future Goal", systemImage: "trash", role: .destructive) { confirmDelete = true }
+        }
+    }
 
     private var current: GoalOccurrenceSummary? {
         goal?.history.first { $0.state == .pending }

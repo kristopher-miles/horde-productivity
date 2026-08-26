@@ -21,41 +21,105 @@ struct GoalEditorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Goal") {
-                    TextField("What do you want to do?", text: $draft.title, axis: .vertical)
-                        .hordeSentenceAutocapitalization()
-                        .accessibilityLabel("Goal title, required")
-                        .focused($focusedField, equals: .title)
-                    TextField("Notes (optional)", text: $draft.notes, axis: .vertical)
-                }
-                Section("Schedule") {
-                    Toggle("Add a date", isOn: dateEnabled)
-                    if hasDate {
-                        DatePicker("Date", selection: dueBinding, displayedComponents: .date)
-                        Toggle("Include a time", isOn: $draft.includesTime)
-                        if draft.includesTime { DatePicker("Time", selection: dueBinding, displayedComponents: .hourAndMinute) }
-                    }
-                    DisclosureGroup("Repeat & context", isExpanded: $advancedExpanded) {
-                        Picker("Repeat", selection: recurrenceKind) {
-                            Text("Never").tag("never"); Text("Daily").tag("daily"); Text("Selected Weekdays").tag("weekdays")
-                        }
-                        if case .weekdays(let selected) = draft.recurrence { weekdayPicker(selected: selected) }
-                        Picker("Category", selection: $draft.category) { Text("None").tag(GoalCategory?.none); ForEach(GoalCategory.allCases) { Text($0.rawValue).tag(Optional($0)) } }
-                        Picker("Effort", selection: $draft.effort) { Text("None").tag(GoalEffort?.none); ForEach(GoalEffort.allCases) { Text($0.rawValue).tag(Optional($0)) } }
-                    }
-                }
-            }
+            editorContent
             .navigationTitle(presentation.definitionID == nil ? "Add Goal" : "Edit Goal")
             .hordeInlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { cancel() } }
-                ToolbarItem(placement: .confirmationAction) { Button(presentation.definitionID == nil ? "Add" : "Save") { save() }.disabled(!draft.isValid || saving) }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { cancel() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(presentation.definitionID == nil ? "Add" : "Save") { save() }
+                        .disabled(!draft.isValid || saving)
+                }
             }
             .confirmationDialog("Discard changes?", isPresented: $showDiscard) { Button("Discard Changes", role: .destructive) { dismiss() }; Button("Keep Editing", role: .cancel) {} }
         }
         .interactiveDismissDisabled(draft != presentation.initialDraft)
         .task { if presentation.definitionID == nil { focusedField = .title } }
+    }
+
+    @ViewBuilder private var editorContent: some View {
+        #if os(macOS)
+        Form {
+            Section("Goal") {
+                LabeledContent("Title") {
+                    TextField("", text: $draft.title, axis: .vertical)
+                        .hordeSentenceAutocapitalization()
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityLabel("Goal title, required")
+                        .focused($focusedField, equals: .title)
+                        .frame(width: 360)
+                }
+                LabeledContent("Notes (optional)") {
+                    TextField("", text: $draft.notes, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 360)
+                }
+            }
+            Section("Schedule") {
+                Toggle("Add a date", isOn: dateEnabled)
+                if hasDate {
+                    DatePicker("Date", selection: dueBinding, displayedComponents: .date)
+                    Toggle("Include a time", isOn: $draft.includesTime)
+                    if draft.includesTime { DatePicker("Time", selection: dueBinding, displayedComponents: .hourAndMinute) }
+                }
+                DisclosureGroup("Repeat & context", isExpanded: $advancedExpanded) {
+                    repeatPicker
+                    if case .weekdays(let selected) = draft.recurrence { weekdayPicker(selected: selected) }
+                    categoryPicker
+                    effortPicker
+                }
+            }
+        }
+        .formStyle(.grouped)
+        #else
+        Form {
+            Section("Goal") {
+                TextField("What do you want to do?", text: $draft.title, axis: .vertical)
+                    .hordeSentenceAutocapitalization()
+                    .accessibilityLabel("Goal title, required")
+                    .focused($focusedField, equals: .title)
+                TextField("Notes (optional)", text: $draft.notes, axis: .vertical)
+            }
+            Section("Schedule") {
+                Toggle("Add a date", isOn: dateEnabled)
+                if hasDate {
+                    DatePicker("Date", selection: dueBinding, displayedComponents: .date)
+                    Toggle("Include a time", isOn: $draft.includesTime)
+                    if draft.includesTime { DatePicker("Time", selection: dueBinding, displayedComponents: .hourAndMinute) }
+                }
+                DisclosureGroup("Repeat & context", isExpanded: $advancedExpanded) {
+                    repeatPicker
+                    if case .weekdays(let selected) = draft.recurrence { weekdayPicker(selected: selected) }
+                    categoryPicker
+                    effortPicker
+                }
+            }
+        }
+        #endif
+    }
+
+    private var repeatPicker: some View {
+        Picker("Repeat", selection: recurrenceKind) {
+            Text("Never").tag("never")
+            Text("Daily").tag("daily")
+            Text("Selected Weekdays").tag("weekdays")
+        }
+    }
+
+    private var categoryPicker: some View {
+        Picker("Category", selection: $draft.category) {
+            Text("None").tag(GoalCategory?.none)
+            ForEach(GoalCategory.allCases) { Text($0.rawValue).tag(Optional($0)) }
+        }
+    }
+
+    private var effortPicker: some View {
+        Picker("Effort", selection: $draft.effort) {
+            Text("None").tag(GoalEffort?.none)
+            ForEach(GoalEffort.allCases) { Text($0.rawValue).tag(Optional($0)) }
+        }
     }
 
     private var dueBinding: Binding<Date> { Binding(get: { draft.dueDate ?? .now }, set: { draft.dueDate = $0 }) }

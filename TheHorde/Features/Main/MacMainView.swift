@@ -32,14 +32,15 @@ struct MacMainView: View {
         .tint(DesignTokens.ember)
         .sheet(item: Bindable(app).presentedEditor) { presentation in
             GoalEditorView(presentation: presentation)
-                .frame(minWidth: 520, minHeight: 600)
+                .frame(width: 620, height: 560)
         }
         .sheet(item: Bindable(app).presentedResolution) { event in
             StoryResolutionView(event: event)
-                .frame(minWidth: 620, minHeight: 640)
+                .frame(width: 720, height: 640)
         }
         .sheet(isPresented: Bindable(app).settingsPresented) {
-            SettingsView().frame(minWidth: 620, minHeight: 640)
+            SettingsView()
+                .frame(width: 660, height: 700)
         }
         .alert("Something went wrong", isPresented: Binding(get: { app.errorMessage != nil }, set: { if !$0 { app.errorMessage = nil } })) {
             Button("OK") { app.errorMessage = nil }

@@ -19,7 +19,7 @@ struct DungeonView: View {
         ScrollView {
             if let world = app.world {
                 let presentation = WorldPresentationState(snapshot: world.snapshot)
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: DesignTokens.desktopSpacing) {
                     DungeonSceneView(world: world, cue: .idle)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(world.dungeonName).font(.title.bold())
@@ -66,7 +66,13 @@ struct DungeonView: View {
                             Text(thread.title).font(.title3.bold()); Text(thread.summary)
                         }.hordeCard() }.buttonStyle(.plain) }
                     }
-                }.padding(DesignTokens.margin)
+                }
+                #if os(macOS)
+                .padding(DesignTokens.desktopMargin)
+                .hordeReadableContent()
+                #else
+                .padding(DesignTokens.margin)
+                #endif
             } else { ProgressView("Loading dungeon").padding() }
         }
         .navigationTitle("Dungeon")
@@ -95,5 +101,15 @@ private struct WorldEntityDetail: View {
     let subtitle: String
     let text: String
     init(title: String, subtitle: String, body: String) { self.title = title; self.subtitle = subtitle; self.text = body }
-    var body: some View { ScrollView { VStack(alignment: .leading, spacing: 16) { Text(subtitle).font(.headline).foregroundStyle(.secondary); Text(text).textSelection(.enabled) }.frame(maxWidth: .infinity, alignment: .leading).padding() }.navigationTitle(title) }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(subtitle).font(.headline).foregroundStyle(.secondary)
+                Text(text).textSelection(.enabled)
+            }
+            .padding(DesignTokens.desktopMargin)
+            .hordeReadableContent(maxWidth: 720)
+        }
+        .navigationTitle(title)
+    }
 }

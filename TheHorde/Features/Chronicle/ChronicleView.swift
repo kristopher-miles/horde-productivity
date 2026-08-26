@@ -5,6 +5,7 @@ struct ChronicleView: View {
     @State private var query = ""
     @State private var filter: Filter = .all
     @State private var usesDateRange = false
+    @State private var filtersPresented = false
     @State private var startDate = Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now
     @State private var endDate = Date.now
 
@@ -40,7 +41,10 @@ struct ChronicleView: View {
         .toolbar {
             #if os(macOS)
             ToolbarItem(placement: .primaryAction) {
-                filterMenu
+                Button("Filter", systemImage: "line.3.horizontal.decrease.circle") {
+                    filtersPresented.toggle()
+                }
+                .popover(isPresented: $filtersPresented, arrowEdge: .bottom) { macFilterPopover }
             }
             #else
             ToolbarItem(placement: .topBarTrailing) {
@@ -74,6 +78,27 @@ struct ChronicleView: View {
             }
         }
     }
+
+    #if os(macOS)
+    private var macFilterPopover: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Filter Chronicle").font(.headline)
+            Picker("Event", selection: $filter) {
+                ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Toggle("Use date range", isOn: $usesDateRange)
+            if usesDateRange {
+                VStack(alignment: .leading, spacing: 10) {
+                    LabeledContent("From") { DatePicker("", selection: $startDate, displayedComponents: .date).labelsHidden() }
+                    LabeledContent("Through") { DatePicker("", selection: $endDate, displayedComponents: .date).labelsHidden() }
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 320)
+    }
+    #endif
 }
 
 struct ChronicleDetailView: View {
@@ -97,7 +122,13 @@ struct ChronicleDetailView: View {
                 LabeledContent("Source goal", value: entry.sourceTitle)
                 LabeledContent("Save revision", value: "\(entry.priorRevision) → \(entry.committedRevision)")
                 LabeledContent("Committed", value: entry.committedAt.formatted())
-            }.padding(DesignTokens.margin)
+            }
+            #if os(macOS)
+            .padding(DesignTokens.desktopMargin)
+            .hordeReadableContent()
+            #else
+            .padding(DesignTokens.margin)
+            #endif
         }.navigationTitle("Story Result").hordeInlineNavigationTitle()
     }
 }
