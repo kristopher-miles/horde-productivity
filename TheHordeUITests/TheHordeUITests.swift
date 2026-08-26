@@ -137,7 +137,7 @@ final class TheHordeUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Story Result"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["DungeonScene.DungeonStage1"].exists)
         XCTAssertTrue(app.staticTexts["Expired goal"].exists)
-        XCTAssertTrue(app.staticTexts["New thread: Damp Tool Rack"].exists)
+        XCTAssertTrue(app.staticTexts["New thread: Flooded Threshold"].exists)
         keepScreenshot(of: app, name: "Consequence-negative")
     }
 

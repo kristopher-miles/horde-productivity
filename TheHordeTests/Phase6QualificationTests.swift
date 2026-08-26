@@ -354,15 +354,15 @@ struct Phase6QualificationTests {
         let world = WorldSnapshot.initial()
         let descriptors = WorldContract.descriptors(for: .negative, world: world)
         let stager = PatchStager(world: world, valence: .negative, descriptors: descriptors)
-        let arguments = StageMutationArguments(fieldID: "world.activeThreads", operation: "append", integerValue: 0, recordID: "minor-thread", recordTitle: "Morale Boost", recordSummary: "The residents restored calm.", severityOrRank: 1, involvedEntityIDs: ["dragon"])
+        let arguments = StageMutationArguments(fieldID: "world.activeThreads", operation: "append", integerValue: 0, recordID: "false-victory-thread", recordTitle: "Morale Boost", recordSummary: "The defenders celebrate victory.", severityOrRank: 1, involvedEntityIDs: ["dragon"])
         _ = try await stager.stage(arguments: arguments)
         let snapshot = await stager.snapshot()
         let record = snapshot.0.first?.record
         #expect(record?.title == "A Lasting Threat")
         #expect(record?.summary == "A ruthless enemy exploits the failure, bringing danger, loss, and lasting conflict.")
-        #expect(snapshot.1.first?.recordSummary == "The residents restored calm.")
+        #expect(snapshot.1.first?.recordSummary == "The defenders celebrate victory.")
 
-        let titleOnlyMarker = StageMutationArguments(fieldID: "world.activeThreads", operation: "append", integerValue: 0, recordID: "title-only-thread", recordTitle: "Supply Concern", recordSummary: "The hallway remains quiet.", severityOrRank: 1, involvedEntityIDs: ["dragon"])
+        let titleOnlyMarker = StageMutationArguments(fieldID: "world.activeThreads", operation: "append", integerValue: 0, recordID: "title-only-thread", recordTitle: "Supply Concern", recordSummary: "The guards celebrate their success.", severityOrRank: 1, involvedEntityIDs: ["dragon"])
         let secondStager = PatchStager(world: world, valence: .negative, descriptors: descriptors)
         _ = try await secondStager.stage(arguments: titleOnlyMarker)
         let secondSnapshot = await secondStager.snapshot()

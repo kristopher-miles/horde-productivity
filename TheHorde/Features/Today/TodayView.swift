@@ -57,7 +57,7 @@ struct TodayView: View {
     @ViewBuilder private var goalsContent: some View {
         if app.pendingStoryCount > 0 { pendingStoryBanner }
         if pending.isEmpty {
-            ContentUnavailableView(app.occurrences.isEmpty ? "No goals yet" : "All clear", systemImage: app.occurrences.isEmpty ? "checkmark.circle" : "checkmark.seal.fill", description: Text(app.occurrences.isEmpty ? "Add a goal to begin changing your dungeon." : "Your current goals are resolved. Their stories are safely queued."))
+            ContentUnavailableView(app.occurrences.isEmpty ? "No goals yet" : "No active goals", systemImage: app.occurrences.isEmpty ? "checkmark.circle" : "checkmark.seal.fill", description: Text(app.occurrences.isEmpty ? "Add a goal to begin changing your dungeon." : "Your current goals are resolved. Their stories await your decision."))
         } else {
             section(.overdue, title: "Overdue")
             section(.today, title: "Due Today")

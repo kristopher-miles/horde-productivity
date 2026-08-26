@@ -262,6 +262,44 @@ struct ProductExperienceTests {
         }
     }
 
+    @Test func authoredProductCopyDoesNotCushionNarrativeStakes() throws {
+        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let directories = ["TheHorde/App", "TheHorde/Domain", "TheHorde/Features", "TheHordeUITests"]
+        var files = directories.flatMap { directory -> [URL] in
+            let root = repository.appending(path: directory, directoryHint: .isDirectory)
+            let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
+            return (enumerator?.allObjects as? [URL] ?? []).filter { $0.pathExtension == "swift" }
+        }
+        files += ["TheHordeTests/HardeningTests.swift", "TheHordeTests/WorldResolutionTests.swift"].map {
+            repository.appending(path: $0)
+        }
+
+        let prohibitedPatterns = [
+            #"\bharmless\b"#, #"\bgentle\b"#, #"\brecoverable\b"#, #"\bcalm(?:ly)?\b"#,
+            #"\bsafe(?:ly)?\b"#, #"\bmodest\b"#, #"\bslight\b"#, #"\bmild\b"#,
+            #"\bpeaceful\b"#, #"\bcomfortably\b"#, #"without alarm"#
+        ]
+        let technicalExceptions = [
+            "could not safely create this story",
+            "remains safe to retry"
+        ]
+        var violations: [String] = []
+        for file in files {
+            var source = try String(contentsOf: file, encoding: .utf8)
+            for exception in technicalExceptions {
+                source = source.replacingOccurrences(of: exception, with: "", options: .caseInsensitive)
+            }
+            for (index, line) in source.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+                for pattern in prohibitedPatterns where line.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+                    let relativePath = file.path.replacingOccurrences(of: repository.path + "/", with: "")
+                    violations.append("\(relativePath):\(index + 1)")
+                }
+            }
+        }
+
+        #expect(violations.isEmpty, "Padded narrative copy found at \(violations.joined(separator: ", "))")
+    }
+
     @Test func exportCleanupDoesNotDependOnLiveViewState() throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

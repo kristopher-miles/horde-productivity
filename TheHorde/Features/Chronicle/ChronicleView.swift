@@ -85,7 +85,7 @@ struct ChronicleDetailView: View {
                 DungeonSceneView(
                     world: entry.recordedWorld,
                     cue: entry.cue,
-                    accessibilityDescription: "Authored visual response for \(entry.title). \(entry.valence == .positive ? "A hopeful dungeon moment." : "A small recoverable setback.")"
+                    accessibilityDescription: "Authored visual response for \(entry.title). \(entry.valence == .positive ? "A hard-won dungeon victory." : "A consequential dungeon defeat.")"
                 )
                 Label("Immutable record from save revision \(entry.committedRevision)", systemImage: "lock.fill")
                     .font(.subheadline)

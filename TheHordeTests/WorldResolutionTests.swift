@@ -54,7 +54,7 @@ struct WorldResolutionTests {
     @Test func compactProjectionShrinksContextWithoutDroppingAuthorityBoundaries() {
         var snapshot = WorldSnapshot.initial()
         snapshot.rollingSummary = String(repeating: "The lantern keepers preserve bounded history. ", count: 20)
-        snapshot.activeThreads = [ActiveThreadState(id: "loose-stones", title: "Loose Stones", severity: 2, state: "active", involvedEntityIDs: ["dragon"], summary: String(repeating: "A recoverable concern remains. ", count: 12))]
+        snapshot.activeThreads = [ActiveThreadState(id: "loose-stones", title: "Loose Stones", severity: 2, state: "active", involvedEntityIDs: ["dragon"], summary: String(repeating: "A warband scouts the cavern defenses. ", count: 12))]
         let event = PendingStorySummary(
             id: "compact-event",
             sourceTitle: String(repeating: "Finish the illustrated field guide ", count: 12),

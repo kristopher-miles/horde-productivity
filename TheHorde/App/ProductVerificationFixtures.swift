@@ -49,15 +49,15 @@ struct ProductVerificationFixture {
         case .hazard:
             world.morale = 38
             world.integrity = 42
-            world.activeThreads = [ActiveThreadState(id: "rain-leak", title: "Rain in the North Gallery", severity: 3, state: "active", involvedEntityIDs: ["dragon", "kobold-rill"], summary: "Rill and Ember are containing a small leak before it reaches the lantern stores.")]
-            world.rollingSummary = "A leak has made the north gallery tense, but the household has a safe repair plan."
+            world.activeThreads = [ActiveThreadState(id: "rain-leak", title: "Rain in the North Gallery", severity: 3, state: "active", involvedEntityIDs: ["dragon", "kobold-rill"], summary: "Rill and Ember brace the flooding gallery before the water reaches the lantern stores.")]
+            world.rollingSummary = "Rainwater cuts through the north gallery masonry, threatening the lantern stores as the household races to shore the breach."
         case .recovery:
             world.morale = 63
             world.integrity = 57
             world.food = 61
             world.activeThreads = []
             world.abilities = [AbilityState(id: "ember-memory", name: "Ember Memory", summary: "Finished work helps Ember keep the vault organized.", rank: 2)]
-            world.rollingSummary = "The repaired vault is bright, well supplied, and settling into a hopeful rhythm."
+            world.rollingSummary = "The repaired vault stands fortified, its stores replenished after a hard-won restoration."
         }
         return Self(world: WorldReadModel(dungeonName: "The Cinder Vault", revision: 8, snapshot: world), occurrences: [], pendingStories: [], chronicle: [])
     }
@@ -75,11 +75,11 @@ struct ProductVerificationFixture {
             pendingStories: [pending],
             chronicle: [
                 story(0, "The Lantern Ledger", "File the workshop notes", .positive, .celebrate, "Pip binds the sorted notes beside the hearth while Ember lights a fresh reading lamp.", "The finished notes lift the household.", "Morale: 59 → 63", fixture.world),
-                story(1, "A Careful Patch", "Repair the loose shelf", .positive, .recover, "Rill braces the shelf and uses the spare timber to mend the west passage trim.", "The vault grows sturdier.", "Integrity: 53 → 57", fixture.world),
-                story(2, "Mushrooms for Supper", "Plan tomorrow’s meals", .positive, .resourceChanges, "Moss turns the finished meal plan into a tidy harvest list for the gallery.", "The pantry is comfortably stocked.", "Food: 57 → 61", fixture.world),
-                story(3, "Rain at the Door", "Bring in the garden tools", .negative, .hazardAppears, "A missed deadline leaves two tools in the rain, so the kobolds start a calm drying rota.", "A small recoverable hazard appears.", "New thread: Damp Tool Rack", fixture.world),
-                story(4, "A Dimmer Evening", "Replace the hallway bulb", .negative, .concern, "The hallway stays dim for one evening, and Pip marks the safest lantern route.", "The household adapts without alarm.", "Morale: 61 → 59", fixture.world),
-                story(5, "A Quiet Page", "Read before bed", .positive, .idle, "Ember listens while one more chapter settles the room into a peaceful hush.", "A calm fact joins the Chronicle.", "New fact: The Bedtime Chapter", fixture.world)
+                story(1, "The West Passage Brace", "Repair the loose shelf", .positive, .recover, "Rill reforges the broken shelf braces, then armors the west passage with the salvaged timber.", "The vault’s defenses hold stronger.", "Integrity: 53 → 57", fixture.world),
+                story(2, "The Harvest Muster", "Plan tomorrow’s meals", .positive, .resourceChanges, "Moss turns the finished meal plan into an exacting harvest command for the deep galleries.", "The pantry holds provisions for the trials ahead.", "Food: 57 → 61", fixture.world),
+                story(3, "Rain at the Door", "Bring in the garden tools", .negative, .hazardAppears, "The missed deadline leaves iron tools exposed to a driving storm; rust claims their edges as floodwater breaches the threshold.", "The breach ruins supplies and opens a new threat.", "New thread: Flooded Threshold", fixture.world),
+                story(4, "The Lightless Passage", "Replace the hallway bulb", .negative, .concern, "With the hallway dark, a stalking cave beast forces Pip to abandon the passage.", "Darkness cedes the passage to a lurking threat.", "Morale: 61 → 59", fixture.world),
+                story(5, "The Wyrm-Lore Codex", "Read before bed", .positive, .idle, "Ember studies the final chapter and uncovers the ward-sign that seals the lower vault.", "Ancient ward-lore enters the Chronicle.", "New fact: The Lower Vault Ward", fixture.world)
             ]
         )
         return fixture
