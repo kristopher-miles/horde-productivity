@@ -61,7 +61,7 @@ struct Phase6QualificationTests {
         #expect(showcase.occurrences.contains { if case .weekdays = $0.snapshot.recurrence { true } else { false } })
         #expect(Set(showcase.chronicle.map(\.valence)) == [.positive, .negative])
         #expect(Set(showcase.chronicle.map(\.cue)) == Set(AnimationCue.allCases))
-        #expect(Set(showcase.chronicle.map(\.narration)).count == showcase.chronicle.count)
+        #expect(Set(showcase.chronicle.map(\.finalProse)).count == showcase.chronicle.count)
     }
 
     @Test func scalarToolArgumentsIgnoreGeneratedRecordPlaceholders() async throws {

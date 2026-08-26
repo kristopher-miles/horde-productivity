@@ -54,7 +54,7 @@ struct ChronicleView: View {
     private var filtered: [ChronicleSummary] {
         app.chronicle.filter { entry in
             let valenceMatches = filter == .all || (filter == .completed && entry.valence == .positive) || (filter == .expired && entry.valence == .negative)
-            let queryMatches = query.isEmpty || [entry.sourceTitle, entry.title, entry.summary, entry.narration].contains { $0.localizedCaseInsensitiveContains(query) }
+            let queryMatches = query.isEmpty || [entry.sourceTitle, entry.title, entry.summary, entry.finalProse].contains { $0.localizedCaseInsensitiveContains(query) }
             let dateMatches = !usesDateRange || (entry.committedAt >= Calendar.current.startOfDay(for: startDate) && entry.committedAt <= (Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: Calendar.current.startOfDay(for: endDate)) ?? endDate))
             return valenceMatches && queryMatches && dateMatches
         }
@@ -83,7 +83,7 @@ struct ChronicleDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 DungeonSceneView(
-                    world: WorldReadModel(dungeonName: "Recorded consequence", revision: entry.committedRevision, snapshot: .initial()),
+                    world: entry.recordedWorld,
                     cue: entry.cue,
                     accessibilityDescription: "Authored visual response for \(entry.title). \(entry.valence == .positive ? "A hopeful dungeon moment." : "A small recoverable setback.")"
                 )
@@ -92,7 +92,7 @@ struct ChronicleDetailView: View {
                     .foregroundStyle(.secondary)
                 Label(entry.valence == .positive ? "Completed goal" : "Expired goal", systemImage: entry.valence == .positive ? "checkmark.circle.fill" : "clock.badge.exclamationmark").foregroundStyle(entry.valence == .positive ? DesignTokens.positive : DesignTokens.negative)
                 Text(entry.title).font(.largeTitle.bold())
-                Text(entry.narration).font(.body).textSelection(.enabled)
+                Text(entry.finalProse).font(.body).textSelection(.enabled)
                 VStack(alignment: .leading, spacing: 8) { Text("What changed").font(.headline); ForEach(entry.deltas) { Label($0.description, systemImage: "arrow.right.circle") } }.hordeCard()
                 LabeledContent("Source goal", value: entry.sourceTitle)
                 LabeledContent("Save revision", value: "\(entry.priorRevision) → \(entry.committedRevision)")

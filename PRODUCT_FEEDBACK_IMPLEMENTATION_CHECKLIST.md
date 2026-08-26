@@ -32,7 +32,7 @@ Build these first so every later model request and prompt can be inspected while
 
 Land data contracts and reset behavior before UI or art depends on them.
 
-- [ ] 015 — [QA-01 — Persist all new resolution and visual-progression state (line 178)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L178)
+- [x] 015 — [QA-01 — Persist all new resolution and visual-progression state (line 178)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L178)
 - [ ] 016 — [AP-01 — Initialize Morale 5, Integrity 1, and Food 0 (line 37)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L37)
 - [ ] 017 — [AP-02 — Keep only the Empty Cavern root location in the empty starting world (line 38)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L38)
 - [ ] 018 — [AP-03 — Store the exact young-dragon origin narrative (line 39)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L39)

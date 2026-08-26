@@ -4,6 +4,16 @@ enum EventValence: String, Codable, Sendable, CaseIterable { case positive, nega
 enum EventStatus: String, Codable, Sendable { case pending, resolving, resolved, failedRetryable }
 enum MutationOperation: String, Codable, Sendable, CaseIterable { case increment, set }
 
+enum EffortRating: Int, Codable, Sendable, CaseIterable { case one = 1, two, three }
+enum EffortSource: String, Codable, Sendable { case userSelected, modelEstimated }
+
+struct ResolutionEffort: Codable, Equatable, Sendable {
+    let rating: EffortRating
+    let source: EffortSource
+
+    var value: Int { rating.rawValue }
+}
+
 struct StagedMutation: Codable, Equatable, Sendable, Identifiable {
     var id: String { "\(fieldID):\(operation.rawValue):\(value)" }
     let fieldID: String

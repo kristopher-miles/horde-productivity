@@ -42,7 +42,7 @@ struct StoryResolutionView: View {
         VStack(alignment: .leading, spacing: 16) {
             Label(result.valence == .positive ? "Completion" : "Recoverable setback", systemImage: result.valence == .positive ? "checkmark.circle.fill" : "clock.badge.exclamationmark").foregroundStyle(result.valence == .positive ? DesignTokens.positive : DesignTokens.negative)
             Text(result.title).font(.largeTitle.bold())
-            Text(result.narration).textSelection(.enabled)
+            Text(result.finalProse).textSelection(.enabled)
             VStack(alignment: .leading, spacing: 8) { Text("What changed").font(.headline); ForEach(result.deltas) { Label($0.description, systemImage: "arrow.right.circle") } }.hordeCard()
             Button("Continue") { dismiss() }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity, minHeight: 44)
         }

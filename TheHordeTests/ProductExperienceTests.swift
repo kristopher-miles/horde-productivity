@@ -7,7 +7,7 @@ struct ProductExperienceTests {
     @Test func notificationRoutingTargetsPendingResolvedAndStaleStatesExactly() {
         let occurrence = GoalOccurrenceSummary(id: "occurrence", definitionID: "definition", snapshot: GoalSnapshot(title: "Goal", notes: "", category: nil, effort: nil, recurrence: .never, definitionVersion: 1), dueDate: .distantFuture, includesTime: true, state: .pending, resolvedAt: nil, hasPendingStory: false)
         let pending = PendingStorySummary(id: "occurrence:positive", sourceTitle: "Goal", valence: .positive, status: .pending, failureCode: nil, createdAt: .distantPast)
-        let entry = ChronicleSummary(id: "entry", eventID: pending.id, sourceTitle: "Goal", valence: .positive, title: "Story", narration: "Narration", summary: "Summary", deltas: [], cue: .idle, priorRevision: 0, committedRevision: 1, committedAt: .distantPast)
+        let entry = ChronicleSummary(id: "entry", eventID: pending.id, sourceTitle: "Goal", valence: .positive, title: "Story", finalProse: "Narration", summary: "Summary", deltas: [], cue: .idle, priorRevision: 0, committedRevision: 1, committedAt: .distantPast, effort: nil, comparisonHistoryIDs: [], acceptedAction: nil, recordedWorld: WorldReadModel(dungeonName: "Recorded", revision: 1, snapshot: .initial()))
 
         #expect(NotificationDestination.resolve(occurrenceID: occurrence.id, eventID: nil, occurrences: [occurrence], pendingStories: [pending], chronicle: []) == .resolution(pending.id))
         #expect(NotificationDestination.resolve(occurrenceID: occurrence.id, eventID: pending.id, occurrences: [occurrence], pendingStories: [], chronicle: [entry]) == .chronicle(entry.id))
@@ -38,7 +38,7 @@ struct ProductExperienceTests {
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
         let export = try decoder.decode(LocalDataExport.self, from: data)
         #expect(export.exportVersion == 1)
-        #expect(export.dataSchemaVersion == 2)
+        #expect(export.dataSchemaVersion == 3)
         #expect(export.goals.first?.draft.title == "Export this")
         let text = try #require(String(data: data, encoding: .utf8))
         #expect(!text.localizedCaseInsensitiveContains("transcript"))
@@ -69,7 +69,7 @@ struct ProductExperienceTests {
     }
 
     @Test func newGameSaveUsesTheReleaseSchemaVersion() {
-        #expect(GameSaveRecord().schemaVersion == 2)
+        #expect(GameSaveRecord().schemaVersion == 3)
     }
 
     @Test func exportCleanupDoesNotDependOnLiveViewState() throws {

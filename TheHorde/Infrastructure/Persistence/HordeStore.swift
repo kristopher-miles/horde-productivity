@@ -4,7 +4,7 @@ import SwiftData
 enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevision, eventAlreadyResolved, injectedFailure }
 
 @ModelActor actor HordeStore {
-    static let schema = Schema(HordeSchemaV2.models, version: HordeSchemaV2.versionIdentifier)
+    static let schema = Schema(HordeSchemaV3.models, version: HordeSchemaV3.versionIdentifier)
 
     static func makeContainer(inMemory: Bool = false) throws -> ModelContainer {
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
@@ -19,11 +19,13 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
     #if DEBUG
     func insertChronicleFixture(count: Int) throws {
         try bootstrapForProof()
+        let save = try requireSave()
+        let recordedWorld = try PersistentJSON.encode(WorldReadModel(dungeonName: save.dungeonName, revision: save.revision, snapshot: decodeWorld(save)))
         for index in 0..<count {
             let id = "fixture-event-\(index)"
-            let patch = try JSONEncoder().encode([WorldMutation.increment("world.morale", by: 1)])
-            let deltas = try JSONEncoder().encode([WorldDelta(fieldID: "world.morale", description: "Morale fixture \(index)")])
-            modelContext.insert(ChronicleRecord(eventID: id, sourceTitle: "Fixture goal \(index)", valence: index.isMultiple(of: 2) ? .positive : .negative, generatedTitle: "Fixture Tale \(index)", narration: "A bounded local fixture used to measure Chronicle reads.", summary: "Fixture \(index)", patchJSON: patch, priorRevision: index, committedRevision: index + 1, committedAt: Date(timeIntervalSince1970: Double(index)), deltasJSON: deltas, animationCue: .idle))
+            let patch = try PersistentJSON.encode([WorldMutation.increment("world.morale", by: 1)])
+            let deltas = try PersistentJSON.encode([WorldDelta(fieldID: "world.morale", description: "Morale fixture \(index)")])
+            modelContext.insert(ChronicleRecord(eventID: id, sourceTitle: "Fixture goal \(index)", valence: index.isMultiple(of: 2) ? .positive : .negative, generatedTitle: "Fixture Tale \(index)", finalProse: "A bounded local fixture used to measure Chronicle reads.", summary: "Fixture \(index)", patchJSON: patch, priorRevision: index, committedRevision: index + 1, recordedWorldData: recordedWorld, committedAt: Date(timeIntervalSince1970: Double(index)), deltasJSON: deltas, animationCue: .idle))
         }
         try modelContext.save()
     }
@@ -36,7 +38,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         save.integrity = world.integrity
         save.food = world.food
         save.rollingSummary = world.rollingSummary
-        save.worldData = try JSONEncoder().encode(world)
+        save.worldData = try PersistentJSON.encode(world)
         save.revision = revision
         try modelContext.save()
     }
@@ -61,7 +63,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 if try modelContext.fetch(FetchDescriptor<GameSaveRecord>()).isEmpty {
                     modelContext.insert(GameSaveRecord(dungeonName: dungeon, dragonName: dragon))
                 } else if let save = try modelContext.fetch(FetchDescriptor<GameSaveRecord>()).first, !state.onboardingComplete {
-                    save.dungeonName = dungeon; save.dragonName = dragon; save.worldData = try JSONEncoder().encode(WorldSnapshot.initial(dragonName: dragon, dungeonName: dungeon))
+                    save.dungeonName = dungeon; save.dragonName = dragon; save.worldData = try PersistentJSON.encode(WorldSnapshot.initial(dragonName: dragon, dungeonName: dungeon))
                 }
                 state.onboardingComplete = true
                 try modelContext.save()
@@ -103,8 +105,12 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 let prior = save.revision
                 for mutation in mutations { apply(mutation, to: save) }
                 save.revision += 1
-                let patch = try JSONEncoder().encode(mutations)
-                modelContext.insert(ChronicleRecord(eventID: event.id, sourceTitle: event.sourceTitle, valence: EventValence(rawValue: event.valenceRaw) ?? .positive, generatedTitle: title, narration: narration, summary: summary, patchJSON: patch, priorRevision: prior, committedRevision: save.revision))
+                var world = decodeWorld(save)
+                world.morale = save.morale; world.integrity = save.integrity; world.food = save.food
+                save.worldData = try PersistentJSON.encode(world)
+                let patch = try PersistentJSON.encode(mutations)
+                let recordedWorld = try PersistentJSON.encode(WorldReadModel(dungeonName: save.dungeonName, revision: save.revision, snapshot: world))
+                modelContext.insert(ChronicleRecord(eventID: event.id, sourceTitle: event.sourceTitle, valence: EventValence(rawValue: event.valenceRaw) ?? .positive, generatedTitle: title, finalProse: narration, summary: summary, patchJSON: patch, priorRevision: prior, committedRevision: save.revision, recordedWorldData: recordedWorld))
                 event.statusRaw = EventStatus.resolved.rawValue
                 event.committedRevision = save.revision
                 event.updatedAt = .now
@@ -232,7 +238,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
 
     func chronicle() throws -> [ChronicleSummary] {
         try modelContext.fetch(FetchDescriptor<ChronicleRecord>(sortBy: [SortDescriptor(\.committedAt, order: .reverse)])).map { record in
-            ChronicleSummary(id: record.id, eventID: record.eventID, sourceTitle: record.sourceTitle, valence: EventValence(rawValue: record.valenceRaw) ?? .positive, title: record.generatedTitle, narration: record.narration, summary: record.summary, deltas: (try? JSONDecoder().decode([WorldDelta].self, from: record.deltasJSON)) ?? [], cue: AnimationCue(rawValue: record.animationCueRaw) ?? .idle, priorRevision: record.priorRevision, committedRevision: record.committedRevision, committedAt: record.committedAt)
+            ChronicleSummary(id: record.id, eventID: record.eventID, sourceTitle: record.sourceTitle, valence: EventValence(rawValue: record.valenceRaw) ?? .positive, title: record.generatedTitle, finalProse: record.finalProse, summary: record.summary, deltas: try PersistentJSON.decode([WorldDelta].self, from: record.deltasJSON), cue: AnimationCue(rawValue: record.animationCueRaw) ?? .idle, priorRevision: record.priorRevision, committedRevision: record.committedRevision, committedAt: record.committedAt, effort: resolutionEffort(value: record.effortValue, sourceRaw: record.effortSourceRaw), comparisonHistoryIDs: record.comparisonHistoryIDs, acceptedAction: record.acceptedAction, recordedWorld: try PersistentJSON.decode(WorldReadModel.self, from: record.recordedWorldData))
         }
     }
 
@@ -267,7 +273,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         try modelContext.save()
     }
 
-    func commitResolution(eventID: String, expectedRevision: Int, world: WorldSnapshot, mutations: [WorldMutation], deltas: [WorldDelta], generatedTitle: String, narration: String, summary: String, cue: AnimationCue) throws -> ChronicleSummary {
+    func commitResolution(eventID: String, expectedRevision: Int, world: WorldSnapshot, mutations: [WorldMutation], deltas: [WorldDelta], generatedTitle: String, narration: String, summary: String, cue: AnimationCue, effort: ResolutionEffort? = nil, comparisonHistoryIDs: [String] = [], acceptedAction: String? = nil) throws -> ChronicleSummary {
         do {
             var committed: ChronicleSummary?
             try modelContext.transaction {
@@ -276,17 +282,21 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 guard event.statusRaw != EventStatus.resolved.rawValue else { throw StoreError.eventAlreadyResolved }
                 guard save.revision == expectedRevision, event.expectedRevision == expectedRevision else { throw StoreError.staleRevision }
                 let prior = save.revision
-                save.worldData = try JSONEncoder().encode(world)
+                save.worldData = try PersistentJSON.encode(world)
                 save.morale = world.morale; save.integrity = world.integrity; save.food = world.food; save.rollingSummary = world.rollingSummary
                 save.revision += 1
-                let patch = try JSONEncoder().encode(mutations)
-                let deltaData = try JSONEncoder().encode(deltas)
+                let patch = try PersistentJSON.encode(mutations)
+                let deltaData = try PersistentJSON.encode(deltas)
                 let valence = EventValence(rawValue: event.valenceRaw) ?? .positive
-                let record = ChronicleRecord(eventID: event.id, sourceTitle: event.sourceTitle, valence: valence, generatedTitle: generatedTitle, narration: narration, summary: summary, patchJSON: patch, priorRevision: prior, committedRevision: save.revision, deltasJSON: deltaData, animationCue: cue)
+                let recordedWorld = WorldReadModel(dungeonName: save.dungeonName, revision: save.revision, snapshot: world)
+                let recordedWorldData = try PersistentJSON.encode(recordedWorld)
+                let record = ChronicleRecord(eventID: event.id, sourceTitle: event.sourceTitle, valence: valence, generatedTitle: generatedTitle, finalProse: narration, summary: summary, patchJSON: patch, priorRevision: prior, committedRevision: save.revision, recordedWorldData: recordedWorldData, deltasJSON: deltaData, animationCue: cue, effort: effort, comparisonHistoryIDs: comparisonHistoryIDs, acceptedAction: acceptedAction)
                 modelContext.insert(record)
                 event.statusRaw = EventStatus.resolved.rawValue; event.committedRevision = save.revision; event.failureCode = nil; event.updatedAt = .now
+                event.effortValue = effort?.value; event.effortSourceRaw = effort?.source.rawValue; event.comparisonHistoryIDs = comparisonHistoryIDs; event.acceptedAction = acceptedAction
+                event.finalProse = narration; event.recordedWorldData = recordedWorldData
                 try modelContext.save()
-                committed = ChronicleSummary(id: record.id, eventID: event.id, sourceTitle: event.sourceTitle, valence: valence, title: generatedTitle, narration: narration, summary: summary, deltas: deltas, cue: cue, priorRevision: prior, committedRevision: save.revision, committedAt: record.committedAt)
+                committed = ChronicleSummary(id: record.id, eventID: event.id, sourceTitle: event.sourceTitle, valence: valence, title: generatedTitle, finalProse: narration, summary: summary, deltas: deltas, cue: cue, priorRevision: prior, committedRevision: save.revision, committedAt: record.committedAt, effort: effort, comparisonHistoryIDs: comparisonHistoryIDs, acceptedAction: acceptedAction, recordedWorld: recordedWorld)
             }
             return committed!
         } catch { modelContext.rollback(); throw error }
@@ -294,7 +304,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
 
     func exportLocalData() throws -> Data {
         let definitions = try modelContext.fetch(FetchDescriptor<GoalDefinitionRecord>()).compactMap { try definitionSummary(id: $0.id) }
-        let bundle = LocalDataExport(exportVersion: 1, dataSchemaVersion: 2, promptVersion: HordeModelContract.promptVersion, exportedAt: .now, goals: definitions, occurrences: try occurrenceSummaries(), storyEvents: try allStoryEvents(), world: try worldReadModel(), chronicle: try chronicle())
+        let bundle = LocalDataExport(exportVersion: 1, dataSchemaVersion: 3, promptVersion: HordeModelContract.promptVersion, exportedAt: .now, goals: definitions, occurrences: try occurrenceSummaries(), storyEvents: try allStoryEvents(), world: try worldReadModel(), chronicle: try chronicle())
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]; encoder.dateEncodingStrategy = .iso8601
         return try encoder.encode(bundle)
     }
@@ -307,7 +317,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 events.forEach(modelContext.delete); entries.forEach(modelContext.delete)
                 if let save = try modelContext.fetch(FetchDescriptor<GameSaveRecord>()).first {
                     let world = WorldSnapshot.initial(dragonName: save.dragonName, dungeonName: save.dungeonName)
-                    save.worldData = try JSONEncoder().encode(world); save.morale = world.morale; save.integrity = world.integrity; save.food = world.food; save.rollingSummary = world.rollingSummary; save.revision += 1
+                    save.worldData = try PersistentJSON.encode(world); save.morale = world.morale; save.integrity = world.integrity; save.food = world.food; save.rollingSummary = world.rollingSummary; save.revision += 1
                 }
                 try modelContext.save()
             }
@@ -365,7 +375,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
     }
 
     private func decodeWorld(_ save: GameSaveRecord) -> WorldSnapshot {
-        (try? JSONDecoder().decode(WorldSnapshot.self, from: save.worldData)) ?? .initial(dragonName: save.dragonName, dungeonName: save.dungeonName)
+        (try? PersistentJSON.decode(WorldSnapshot.self, from: save.worldData)) ?? .initial(dragonName: save.dragonName, dungeonName: save.dungeonName)
     }
 
     private func storySummary(_ event: StoryEventRecord, occurrence: GoalOccurrenceRecord?, status: EventStatus? = nil) -> PendingStorySummary {
@@ -381,8 +391,18 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
             valence: EventValence(rawValue: event.valenceRaw) ?? .positive,
             status: status ?? EventStatus(rawValue: event.statusRaw) ?? .pending,
             failureCode: event.failureCode,
-            createdAt: event.createdAt
+            createdAt: event.createdAt,
+            effort: resolutionEffort(value: event.effortValue, sourceRaw: event.effortSourceRaw),
+            comparisonHistoryIDs: event.comparisonHistoryIDs,
+            acceptedAction: event.acceptedAction,
+            finalProse: event.finalProse,
+            recordedWorld: event.recordedWorldData.flatMap { try? PersistentJSON.decode(WorldReadModel.self, from: $0) }
         )
+    }
+
+    private func resolutionEffort(value: Int?, sourceRaw: String?) -> ResolutionEffort? {
+        guard let value, let rating = EffortRating(rawValue: value), let sourceRaw, let source = EffortSource(rawValue: sourceRaw) else { return nil }
+        return ResolutionEffort(rating: rating, source: source)
     }
 
     private func requireSave() throws -> GameSaveRecord {
@@ -408,12 +428,12 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
 
 enum GoalStoreError: Error { case missingDefinition, missingOccurrence }
 
-enum HordeSchemaV2: VersionedSchema {
-    static let versionIdentifier = Schema.Version(2, 0, 0)
+enum HordeSchemaV3: VersionedSchema {
+    static let versionIdentifier = Schema.Version(3, 0, 0)
     static let models: [any PersistentModel.Type] = [AppStateRecord.self, GameSaveRecord.self, GoalDefinitionRecord.self, GoalOccurrenceRecord.self, StoryEventRecord.self, ChronicleRecord.self]
 }
 
 enum HordeMigrationPlan: SchemaMigrationPlan {
-    static let schemas: [any VersionedSchema.Type] = [HordeSchemaV2.self]
+    static let schemas: [any VersionedSchema.Type] = [HordeSchemaV3.self]
     static let stages: [MigrationStage] = []
 }

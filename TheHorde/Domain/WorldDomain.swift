@@ -1,5 +1,40 @@
 import Foundation
 
+enum DragonStage: String, Codable, Equatable, Sendable, CaseIterable {
+    case baby, adolescent, adult, elder, greatWyrm
+}
+
+enum DungeonBackgroundStage: Int, Codable, Equatable, Sendable, CaseIterable {
+    case one = 1, two, three, four, five
+}
+
+enum KoboldAgeStage: String, Codable, Equatable, Sendable, CaseIterable {
+    case baby, kid, adult
+}
+
+struct RGBColor: Codable, Equatable, Sendable {
+    let red: UInt8
+    let green: UInt8
+    let blue: UInt8
+
+    static let ember = RGBColor(red: 224, green: 96, blue: 32)
+}
+
+struct CharacterPalette: Codable, Equatable, Sendable {
+    let primary: RGBColor
+    let secondary: RGBColor
+}
+
+struct DragonVisualState: Codable, Equatable, Sendable {
+    var stage: DragonStage
+    var color: RGBColor
+}
+
+struct KoboldVisualState: Codable, Equatable, Sendable {
+    var age: KoboldAgeStage
+    var colors: CharacterPalette
+}
+
 struct CharacterState: Codable, Equatable, Sendable, Identifiable {
     let id: String
     var name: String
@@ -8,6 +43,7 @@ struct CharacterState: Codable, Equatable, Sendable, Identifiable {
     var vitality: Int
     var bond: Int
     var conditions: [String]
+    var koboldVisual: KoboldVisualState? = nil
 }
 
 struct LocationState: Codable, Equatable, Sendable, Identifiable {
@@ -41,7 +77,9 @@ struct WorldFact: Codable, Equatable, Sendable, Identifiable {
 
 struct WorldSnapshot: Codable, Equatable, Sendable {
     var dragon: CharacterState
+    var dragonVisual: DragonVisualState
     var residents: [CharacterState]
+    var backgroundStage: DungeonBackgroundStage
     var morale: Int
     var integrity: Int
     var food: Int
@@ -54,11 +92,13 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
     static func initial(dragonName: String = "Ember", dungeonName: String = "The Cinder Vault") -> WorldSnapshot {
         WorldSnapshot(
             dragon: CharacterState(id: "dragon", name: dragonName, role: "Young dragon", identity: "A thoughtful ember-scaled dragon learning to care for a small underground home.", vitality: 50, bond: 50, conditions: []),
+            dragonVisual: DragonVisualState(stage: .baby, color: .ember),
             residents: [
                 CharacterState(id: "kobold-pip", name: "Pip", role: "Lantern keeper", identity: "Practical, bright-eyed, and fond of careful lists.", vitality: 50, bond: 45, conditions: []),
                 CharacterState(id: "kobold-moss", name: "Moss", role: "Mushroom tender", identity: "Patient and quietly inventive.", vitality: 52, bond: 45, conditions: []),
                 CharacterState(id: "kobold-rill", name: "Rill", role: "Stone mender", identity: "Steady-handed, curious, and impossible to hurry.", vitality: 55, bond: 45, conditions: [])
             ],
+            backgroundStage: .one,
             morale: 50, integrity: 50, food: 50,
             locations: [LocationState(id: "great-room", name: dungeonName, status: "Quiet", summary: "Warm lanterns pool around a broad stone hearth."), LocationState(id: "mushroom-gallery", name: "Mushroom Gallery", status: "Growing", summary: "Pale caps rise from tidy beds.")],
             abilities: [],
@@ -270,6 +310,11 @@ struct PendingStorySummary: Codable, Identifiable, Equatable, Sendable {
     let status: EventStatus
     let failureCode: String?
     let createdAt: Date
+    var effort: ResolutionEffort? = nil
+    var comparisonHistoryIDs: [String] = []
+    var acceptedAction: String? = nil
+    var finalProse: String? = nil
+    var recordedWorld: WorldReadModel? = nil
 }
 
 struct WorldReadModel: Codable, Equatable, Sendable {
@@ -284,13 +329,17 @@ struct ChronicleSummary: Codable, Identifiable, Equatable, Sendable {
     let sourceTitle: String
     let valence: EventValence
     let title: String
-    let narration: String
+    let finalProse: String
     let summary: String
     let deltas: [WorldDelta]
     let cue: AnimationCue
     let priorRevision: Int
     let committedRevision: Int
     let committedAt: Date
+    let effort: ResolutionEffort?
+    let comparisonHistoryIDs: [String]
+    let acceptedAction: String?
+    let recordedWorld: WorldReadModel
 }
 
 enum ProjectionBuilder {

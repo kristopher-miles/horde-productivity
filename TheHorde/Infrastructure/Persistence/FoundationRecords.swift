@@ -1,6 +1,18 @@
 import Foundation
 import SwiftData
 
+enum PersistentJSON {
+    static func encode<T: Encodable>(_ value: T) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(value)
+    }
+
+    static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        try JSONDecoder().decode(type, from: data)
+    }
+}
+
 @Model final class AppStateRecord {
     @Attribute(.unique) var id: String
     var onboardingComplete: Bool
@@ -22,11 +34,11 @@ import SwiftData
     var rollingSummary: String
     var worldData: Data
 
-    init(id: String = "primary", schemaVersion: Int = 2, revision: Int = 0, dungeonName: String = "The Cinder Vault", dragonName: String = "Ember", morale: Int = 50, integrity: Int = 50, food: Int = 50, rollingSummary: String = "A young dragon and three kobolds tend a quiet vault.") {
+    init(id: String = "primary", schemaVersion: Int = 3, revision: Int = 0, dungeonName: String = "The Cinder Vault", dragonName: String = "Ember", morale: Int = 50, integrity: Int = 50, food: Int = 50, rollingSummary: String = "A young dragon and three kobolds tend a quiet vault.") {
         self.id = id; self.schemaVersion = schemaVersion; self.revision = revision
         self.dungeonName = dungeonName; self.dragonName = dragonName
         self.morale = morale; self.integrity = integrity; self.food = food; self.rollingSummary = rollingSummary
-        self.worldData = (try? JSONEncoder().encode(WorldSnapshot.initial(dragonName: dragonName, dungeonName: dungeonName))) ?? Data()
+        self.worldData = (try? PersistentJSON.encode(WorldSnapshot.initial(dragonName: dragonName, dungeonName: dungeonName))) ?? Data()
     }
 }
 
@@ -45,6 +57,12 @@ import SwiftData
     var failureCode: String?
     var createdAt: Date
     var updatedAt: Date
+    var effortValue: Int?
+    var effortSourceRaw: String?
+    var comparisonHistoryIDs: [String] = []
+    var acceptedAction: String?
+    var finalProse: String?
+    var recordedWorldData: Data?
 
     init(id: String, sourceOccurrenceID: String, sourceTitle: String, sourceNotes: String = "", sourceCategoryRaw: String? = nil, sourceEffortRaw: String? = nil, valence: EventValence, status: EventStatus = .pending, expectedRevision: Int, createdAt: Date = .now) {
         self.id = id; self.sourceOccurrenceID = sourceOccurrenceID; self.sourceTitle = sourceTitle
@@ -119,12 +137,12 @@ import SwiftData
     var createdAt: Date
 
     init(id: String, definitionID: String, snapshot: GoalSnapshot, dueDate: Date?, includesTime: Bool, timeZoneID: String, now: Date = .now) throws {
-        self.id = id; self.definitionID = definitionID; self.snapshotData = try JSONEncoder().encode(snapshot)
+        self.id = id; self.definitionID = definitionID; self.snapshotData = try PersistentJSON.encode(snapshot)
         self.dueDate = dueDate; self.includesTime = includesTime; self.timeZoneID = timeZoneID
         self.stateRaw = GoalOccurrenceState.pending.rawValue; self.createdAt = now
     }
 
-    var snapshot: GoalSnapshot { (try? JSONDecoder().decode(GoalSnapshot.self, from: snapshotData)) ?? GoalSnapshot(title: "Unavailable goal", notes: "", category: nil, effort: nil, recurrence: .never, definitionVersion: 0) }
+    var snapshot: GoalSnapshot { (try? PersistentJSON.decode(GoalSnapshot.self, from: snapshotData)) ?? GoalSnapshot(title: "Unavailable goal", notes: "", category: nil, effort: nil, recurrence: .never, definitionVersion: 0) }
 }
 
 @Model final class ChronicleRecord {
@@ -133,7 +151,7 @@ import SwiftData
     var sourceTitle: String
     var valenceRaw: String
     var generatedTitle: String
-    var narration: String
+    var finalProse: String
     var summary: String
     var patchJSON: Data
     var priorRevision: Int
@@ -142,11 +160,18 @@ import SwiftData
     var deltasJSON: Data
     var animationCueRaw: String
     var promptVersion: Int
+    var effortValue: Int?
+    var effortSourceRaw: String?
+    var comparisonHistoryIDs: [String]
+    var acceptedAction: String?
+    var recordedWorldData: Data
 
-    init(eventID: String, sourceTitle: String, valence: EventValence, generatedTitle: String, narration: String, summary: String, patchJSON: Data, priorRevision: Int, committedRevision: Int, committedAt: Date = .now, deltasJSON: Data = Data(), animationCue: AnimationCue = .idle, promptVersion: Int = HordeModelContract.promptVersion) {
+    init(eventID: String, sourceTitle: String, valence: EventValence, generatedTitle: String, finalProse: String, summary: String, patchJSON: Data, priorRevision: Int, committedRevision: Int, recordedWorldData: Data, committedAt: Date = .now, deltasJSON: Data = Data(), animationCue: AnimationCue = .idle, promptVersion: Int = HordeModelContract.promptVersion, effort: ResolutionEffort? = nil, comparisonHistoryIDs: [String] = [], acceptedAction: String? = nil) {
         self.id = eventID; self.eventID = eventID; self.sourceTitle = sourceTitle; self.valenceRaw = valence.rawValue
-        self.generatedTitle = generatedTitle; self.narration = narration; self.summary = summary; self.patchJSON = patchJSON
+        self.generatedTitle = generatedTitle; self.finalProse = finalProse; self.summary = summary; self.patchJSON = patchJSON
         self.priorRevision = priorRevision; self.committedRevision = committedRevision; self.committedAt = committedAt
         self.deltasJSON = deltasJSON; self.animationCueRaw = animationCue.rawValue; self.promptVersion = promptVersion
+        self.effortValue = effort?.value; self.effortSourceRaw = effort?.source.rawValue; self.comparisonHistoryIDs = comparisonHistoryIDs
+        self.acceptedAction = acceptedAction; self.recordedWorldData = recordedWorldData
     }
 }

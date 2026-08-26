@@ -42,7 +42,7 @@ struct HardeningTests {
     }
 
     @Test func explicitReleaseSchemaAndPromptVersionsAreFrozen() {
-        #expect(HordeSchemaV2.versionIdentifier == .init(2, 0, 0))
+        #expect(HordeSchemaV3.versionIdentifier == .init(3, 0, 0))
         #expect(HordeMigrationPlan.schemas.count == 1)
         #expect(HordeMigrationPlan.stages.isEmpty)
     }

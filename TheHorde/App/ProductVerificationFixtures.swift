@@ -73,12 +73,12 @@ struct ProductVerificationFixture {
             occurrences: [overdue, today, upcoming],
             pendingStories: [pending],
             chronicle: [
-                story(0, "The Lantern Ledger", "File the workshop notes", .positive, .celebrate, "Pip binds the sorted notes beside the hearth while Ember lights a fresh reading lamp.", "The finished notes lift the household.", "Morale: 59 → 63"),
-                story(1, "A Careful Patch", "Repair the loose shelf", .positive, .recover, "Rill braces the shelf and uses the spare timber to mend the west passage trim.", "The vault grows sturdier.", "Integrity: 53 → 57"),
-                story(2, "Mushrooms for Supper", "Plan tomorrow’s meals", .positive, .resourceChanges, "Moss turns the finished meal plan into a tidy harvest list for the gallery.", "The pantry is comfortably stocked.", "Food: 57 → 61"),
-                story(3, "Rain at the Door", "Bring in the garden tools", .negative, .hazardAppears, "A missed deadline leaves two tools in the rain, so the kobolds start a calm drying rota.", "A small recoverable hazard appears.", "New thread: Damp Tool Rack"),
-                story(4, "A Dimmer Evening", "Replace the hallway bulb", .negative, .concern, "The hallway stays dim for one evening, and Pip marks the safest lantern route.", "The household adapts without alarm.", "Morale: 61 → 59"),
-                story(5, "A Quiet Page", "Read before bed", .positive, .idle, "Ember listens while one more chapter settles the room into a peaceful hush.", "A calm fact joins the Chronicle.", "New fact: The Bedtime Chapter")
+                story(0, "The Lantern Ledger", "File the workshop notes", .positive, .celebrate, "Pip binds the sorted notes beside the hearth while Ember lights a fresh reading lamp.", "The finished notes lift the household.", "Morale: 59 → 63", fixture.world),
+                story(1, "A Careful Patch", "Repair the loose shelf", .positive, .recover, "Rill braces the shelf and uses the spare timber to mend the west passage trim.", "The vault grows sturdier.", "Integrity: 53 → 57", fixture.world),
+                story(2, "Mushrooms for Supper", "Plan tomorrow’s meals", .positive, .resourceChanges, "Moss turns the finished meal plan into a tidy harvest list for the gallery.", "The pantry is comfortably stocked.", "Food: 57 → 61", fixture.world),
+                story(3, "Rain at the Door", "Bring in the garden tools", .negative, .hazardAppears, "A missed deadline leaves two tools in the rain, so the kobolds start a calm drying rota.", "A small recoverable hazard appears.", "New thread: Damp Tool Rack", fixture.world),
+                story(4, "A Dimmer Evening", "Replace the hallway bulb", .negative, .concern, "The hallway stays dim for one evening, and Pip marks the safest lantern route.", "The household adapts without alarm.", "Morale: 61 → 59", fixture.world),
+                story(5, "A Quiet Page", "Read before bed", .positive, .idle, "Ember listens while one more chapter settles the room into a peaceful hush.", "A calm fact joins the Chronicle.", "New fact: The Bedtime Chapter", fixture.world)
             ]
         )
         return fixture
@@ -88,8 +88,8 @@ struct ProductVerificationFixture {
         GoalOccurrenceSummary(id: id, definitionID: "definition-\(id)", snapshot: GoalSnapshot(title: title, notes: "A deterministic product-verification example.", category: category, effort: effort, recurrence: recurrence, definitionVersion: 1), dueDate: due, includesTime: true, state: .pending, resolvedAt: nil, hasPendingStory: false)
     }
 
-    private static func story(_ index: Int, _ title: String, _ source: String, _ valence: EventValence, _ cue: AnimationCue, _ narration: String, _ summary: String, _ delta: String) -> ChronicleSummary {
-        ChronicleSummary(id: "story-\(index)", eventID: "fixture-event-\(index)", sourceTitle: source, valence: valence, title: title, narration: narration, summary: summary, deltas: [WorldDelta(fieldID: "fixture", description: delta)], cue: cue, priorRevision: index, committedRevision: index + 1, committedAt: Date.now.addingTimeInterval(Double(-index * 3_600)))
+    private static func story(_ index: Int, _ title: String, _ source: String, _ valence: EventValence, _ cue: AnimationCue, _ finalProse: String, _ summary: String, _ delta: String, _ recordedWorld: WorldReadModel) -> ChronicleSummary {
+        ChronicleSummary(id: "story-\(index)", eventID: "fixture-event-\(index)", sourceTitle: source, valence: valence, title: title, finalProse: finalProse, summary: summary, deltas: [WorldDelta(fieldID: "fixture", description: delta)], cue: cue, priorRevision: index, committedRevision: index + 1, committedAt: Date.now.addingTimeInterval(Double(-index * 3_600)), effort: nil, comparisonHistoryIDs: [], acceptedAction: nil, recordedWorld: recordedWorld)
     }
 }
 #endif
