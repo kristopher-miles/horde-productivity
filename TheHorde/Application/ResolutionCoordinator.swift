@@ -15,6 +15,11 @@ enum CustomActionInterpretationOutcome: Sendable, Equatable {
     case failed(code: String)
 }
 
+enum FinalProseOutcome: Sendable, Equatable {
+    case generated(String)
+    case failed(code: String)
+}
+
 actor ResolutionCoordinator {
     private let store: HordeStore
     private let model: FoundationModelClient
@@ -87,6 +92,43 @@ actor ResolutionCoordinator {
             )
             try await store.checkpointInterpretation(eventID: eventID, result: result)
             return .interpreted(result.action)
+        } catch is CancellationError {
+            try? await store.returnEventToPending(eventID)
+            return .failed(code: "interrupted")
+        } catch {
+            let code = classify(error)
+            try? await store.markEventFailed(eventID, code: code)
+            return .failed(code: code)
+        }
+    }
+
+    func generateFinalProse(eventID: String) async -> FinalProseOutcome {
+        do {
+            if let prose = try await store.persistedFinalProse(eventID: eventID) {
+                return .generated(prose)
+            }
+            let (event, world) = try await store.claimEvent(eventID)
+            let compatibility = await model.compatibility()
+            guard compatibility == .available else {
+                let code = compatibilityCode(compatibility)
+                try await store.markEventFailed(eventID, code: code)
+                return .failed(code: code)
+            }
+            guard let state = event.resolutionState,
+                  state.stage == .actionAccepted,
+                  let acceptedAction = state.acceptedAction,
+                  !acceptedAction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw StoreError.invalidResolutionState
+            }
+            let previousProse = try await store.mostRecentFinalProse()
+            let result = try await generateFinalProseWithTimeout(
+                event: event,
+                world: world,
+                acceptedAction: acceptedAction,
+                previousProse: previousProse
+            )
+            try await store.checkpointFinalProse(eventID: eventID, result: result)
+            return .generated(result.prose)
         } catch is CancellationError {
             try? await store.returnEventToPending(eventID)
             return .failed(code: "interrupted")
@@ -209,6 +251,31 @@ actor ResolutionCoordinator {
                     world: world,
                     customAction: customAction,
                     fallbackAction: fallbackAction
+                )
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(60))
+                throw ModelClientError.timeout
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private func generateFinalProseWithTimeout(
+        event: PendingStorySummary,
+        world: WorldReadModel,
+        acceptedAction: String,
+        previousProse: String
+    ) async throws -> FinalProseResult {
+        try await withThrowingTaskGroup(of: FinalProseResult.self) { group in
+            group.addTask {
+                try await self.model.generateFinalProse(
+                    event: event,
+                    world: world,
+                    acceptedAction: acceptedAction,
+                    previousProse: previousProse
                 )
             }
             group.addTask {

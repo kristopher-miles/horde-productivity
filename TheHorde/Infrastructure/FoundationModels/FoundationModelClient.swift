@@ -56,6 +56,11 @@ struct CustomActionInterpretationResult: Equatable, Sendable {
     let promptVersion: Int
 }
 
+struct FinalProseResult: Equatable, Sendable {
+    let prose: String
+    let promptVersion: Int
+}
+
 struct CustomActionModelResponse: Equatable, Sendable {
     let action: String
     let useGoalFallback: Bool
@@ -324,6 +329,7 @@ actor FoundationModelClient {
     private let effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)?
     private let suggestionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)?
     private let customActionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> CustomActionModelResponse)?
+    private let finalProseResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)?
     private let compatibilityOverride: CompatibilityState?
 
     init(
@@ -335,6 +341,7 @@ actor FoundationModelClient {
         effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)? = nil,
         suggestionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)? = nil,
         customActionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> CustomActionModelResponse)? = nil,
+        finalProseResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)? = nil,
         compatibilityOverride: CompatibilityState? = nil
     ) {
         self.diagnosticsSink = diagnosticsSink
@@ -345,6 +352,7 @@ actor FoundationModelClient {
         self.effortContextFitOverride = effortContextFitOverride
         self.suggestionResponseOverride = suggestionResponseOverride
         self.customActionResponseOverride = customActionResponseOverride
+        self.finalProseResponseOverride = finalProseResponseOverride
         self.compatibilityOverride = compatibilityOverride
     }
 
@@ -601,6 +609,84 @@ actor FoundationModelClient {
                 eventID: event.id,
                 goalTitle: event.sourceTitle,
                 stage: .customActionInterpretation,
+                attempt: 1,
+                outcome: .failed,
+                instructionsText: instructions,
+                promptText: prompt,
+                requestText: requestText,
+                responseText: responseText,
+                responseMaterial: responseMaterial,
+                attemptTranscript: attemptTranscript,
+                errorText: String(reflecting: error)
+            ))
+            throw error
+        }
+    }
+
+    func generateFinalProse(
+        event: PendingStorySummary,
+        world: WorldReadModel,
+        acceptedAction: String,
+        previousProse: String
+    ) async throws -> FinalProseResult {
+        let instructions = FinalProseModelContract.instructions
+        let prompt = FinalProseModelContract.prompt(
+            event: event,
+            world: world,
+            acceptedAction: acceptedAction,
+            previousProse: previousProse
+        )
+        let options = defaultSampling.generationOptions
+        let requestText = Self.fullRequestText(
+            instructions: instructions,
+            prompt: prompt,
+            schema: FinalProseModelContract.schema,
+            options: options
+        )
+        var responseText: String?
+        var responseMaterial: String?
+        var attemptTranscript: String?
+
+        do {
+            let rawProse: String
+            if let finalProseResponseOverride {
+                rawProse = try await finalProseResponseOverride(instructions, prompt)
+                responseText = (try? JSONSerialization.data(withJSONObject: ["prose": rawProse], options: [.sortedKeys]))
+                    .map { String(decoding: $0, as: UTF8.self) }
+            } else {
+                let session = LanguageModelSession(model: model, instructions: instructions)
+                session.prewarm(promptPrefix: Prompt(prompt))
+                let response = try await respond(
+                    session: session,
+                    request: prompt,
+                    schema: FinalProseModelContract.schema,
+                    options: options
+                )
+                responseText = response.rawContent.jsonString
+                responseMaterial = transcriptText(Transcript(entries: response.transcriptEntries))
+                attemptTranscript = transcriptText(session.transcript)
+                rawProse = try response.content.value(forProperty: "prose")
+            }
+            let prose = try FinalProseModelContract.validatedProse(rawProse)
+            await attemptLogger.record(ModelDevLogEntry(
+                eventID: event.id,
+                goalTitle: event.sourceTitle,
+                stage: .finalProse,
+                attempt: 1,
+                outcome: .succeeded,
+                instructionsText: instructions,
+                promptText: prompt,
+                requestText: requestText,
+                responseText: responseText,
+                responseMaterial: responseMaterial,
+                attemptTranscript: attemptTranscript
+            ))
+            return FinalProseResult(prose: prose, promptVersion: FinalProseModelContract.promptVersion)
+        } catch {
+            await attemptLogger.record(ModelDevLogEntry(
+                eventID: event.id,
+                goalTitle: event.sourceTitle,
+                stage: .finalProse,
                 attempt: 1,
                 outcome: .failed,
                 instructionsText: instructions,
@@ -962,7 +1048,7 @@ actor FoundationModelClient {
 enum ModelClientError: Error, LocalizedError {
     case receiptMismatch, invalidCue, textTooLong, unsafeNarrative, valenceMismatch, evaluationRejected, contextOverflow, timeout
     case invalidEffortRating(Int)
-    case invalidActionSuggestion, invalidCustomAction, missingEffort
+    case invalidActionSuggestion, invalidCustomAction, invalidFinalProse, missingEffort
 
     var errorDescription: String? {
         switch self {
@@ -977,6 +1063,7 @@ enum ModelClientError: Error, LocalizedError {
         case .invalidEffortRating(let rating): "The effort rating \(rating) was outside 1 through 3."
         case .invalidActionSuggestion: "The suggested action was not a concrete three-to-five-word action."
         case .invalidCustomAction: "The interpreted action was not a concrete three-to-five-word action."
+        case .invalidFinalProse: "The final prose was not one plain paragraph of 50 through 150 words."
         case .missingEffort: "An effort rating is required before suggesting an action."
         }
     }

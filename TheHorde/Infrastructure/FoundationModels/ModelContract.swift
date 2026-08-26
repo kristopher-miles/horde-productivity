@@ -154,6 +154,81 @@ struct CustomActionModelOutput {
     var useGoalFallback: Bool
 }
 
+enum FinalProseModelContract {
+    static let promptVersion = 43
+
+    static var instructions: String { ModelPromptRegistry.text(.finalProseSystemInstructions) }
+
+    static var schema: GenerationSchema {
+        GenerationSchema(type: FinalProseModelOutput.self, properties: [
+            .init(
+                name: "prose",
+                description: ModelPromptRegistry.text(.finalProseOutputGuide),
+                type: String.self
+            )
+        ])
+    }
+
+    static func prompt(
+        event: PendingStorySummary,
+        world: WorldReadModel,
+        acceptedAction: String,
+        previousProse: String
+    ) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let worldJSON = (try? encoder.encode(world)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+        return ModelPromptRegistry.render(.finalProseRequestTemplate, [
+            "worldContext": ModelPromptRegistry.render(.sharedWorldContext, [
+                "world": "<world-data>\(ModelPromptRegistry.data(worldJSON))</world-data>"
+            ]),
+            "acceptedActionContext": ModelPromptRegistry.render(.sharedAcceptedActionContext, [
+                "acceptedAction": acceptedAction
+            ]),
+            "previousProseContext": ModelPromptRegistry.render(.sharedPreviousProseContext, [
+                "previousProse": previousProse
+            ]),
+            "currentOutcome": event.valence == .positive ? "succeeded" : "failed"
+        ])
+    }
+
+    static func validatedProse(_ raw: String) throws -> String {
+        let prose = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let words = prose.split { !$0.isLetter && !$0.isNumber && $0 != "'" && $0 != "’" }
+            .filter { $0.contains(where: { $0.isLetter || $0.isNumber }) }
+        let lowercased = prose.lowercased()
+        let forbidden = [
+            "\n", "\r", "`", "<", ">", "[", "]", "{", "}", "**", "__", "http://", "https://",
+            "assistant:", "developer:", "function:", "system:", "tool:", "ignore previous",
+            "follow these instructions", "system prompt", "developer instruction", "stagedungeonmutation",
+            "receipt", "hidden.gold", "horde://", "file://"
+        ]
+        let firstToken = prose.prefix { !$0.isWhitespace }
+        let numberedMarker = (firstToken.last == "." || firstToken.last == ")")
+            && firstToken.dropLast().allSatisfy(\.isNumber)
+        let startsWithListMarker = prose.hasPrefix("- ") || prose.hasPrefix("* ") || prose.hasPrefix("• ") || numberedMarker
+        let headingPrefix = prose.prefix { $0 != ":" && $0 != "." && $0 != "!" && $0 != "?" }
+        let colonHeading = prose.dropFirst(headingPrefix.count).first == ":"
+            && headingPrefix.split(whereSeparator: \.isWhitespace).count <= 6
+        let startsWithHeading = prose.hasPrefix("#")
+            || ["title:", "heading:", "outcome:", "result:"].contains(where: lowercased.hasPrefix)
+            || colonHeading
+        guard (50...150).contains(words.count),
+              !prose.unicodeScalars.contains(where: CharacterSet.newlines.contains),
+              !startsWithListMarker,
+              !startsWithHeading,
+              !forbidden.contains(where: lowercased.contains) else {
+            throw ModelClientError.invalidFinalProse
+        }
+        return prose
+    }
+}
+
+@Generable
+struct FinalProseModelOutput {
+    var prose: String
+}
+
 enum HordeModelContract {
     static let promptVersion = 44
     static let schemaVersion = 6

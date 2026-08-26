@@ -217,6 +217,14 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
         return outcome
     }
 
+    func generateFinalProse(eventID: String) async -> FinalProseOutcome {
+        guard let coordinator else { return .failed(code: "persistenceFailure") }
+        let outcome = await coordinator.generateFinalProse(eventID: eventID)
+        await reload()
+        presentedResolution = pendingStories.first { $0.id == eventID }
+        return outcome
+    }
+
     private func configureNotification(for occurrence: GoalOccurrenceSummary) async {
         do {
             let scheduler = NotificationScheduler.shared

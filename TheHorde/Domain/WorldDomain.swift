@@ -428,6 +428,7 @@ struct StagedResolutionState: Codable, Equatable, Sendable {
     var interpretedAction: String? = nil
     var acceptedAction: String? = nil
     var promptVersions = ResolutionPromptVersions()
+    var finalProse: String? = nil
     var finalResult: StagedFinalResolution? = nil
 }
 
