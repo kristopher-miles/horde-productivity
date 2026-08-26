@@ -158,10 +158,99 @@ struct Phase6QualificationTests {
         #expect(DungeonSceneView.emberIdleScenePosition.y.rounded() == DungeonSceneView.emberIdleScenePosition.y)
     }
 
+    @Test func curatedAndCustomDragonColorsPreserveAuthoredDetailTones() {
+        let choices = CuratedDragonColor.allCases.map(\.color)
+        #expect(Set(choices).count == CuratedDragonColor.allCases.count)
+        let sourceBodyTones = [
+            RGBColor(red: 107, green: 25, blue: 10),
+            RGBColor(red: 163, green: 43, blue: 10),
+            RGBColor(red: 217, green: 77, blue: 8),
+            RGBColor(red: 242, green: 118, blue: 13),
+            RGBColor(red: 255, green: 158, blue: 37)
+        ]
+        for color in choices + [RGBColor(red: 17, green: 201, blue: 149), RGBColor(red: 0, green: 0, blue: 0), RGBColor(red: 255, green: 255, blue: 255)] {
+            let shades = sourceBodyTones.map { DragonTextureRecolorer.bodyPixel($0, color: color) }
+            let brightness = shades.map { Int($0.red) + Int($0.green) + Int($0.blue) }
+            #expect(zip(brightness, brightness.dropFirst()).allSatisfy { $0.0 < $0.1 })
+            #expect(DragonTextureRecolorer.bodyPixel(RGBColor(red: 5, green: 4, blue: 11), color: color) == RGBColor(red: 5, green: 4, blue: 11))
+            #expect(DragonTextureRecolorer.bodyPixel(RGBColor(red: 255, green: 224, blue: 138), color: color) == RGBColor(red: 255, green: 224, blue: 138))
+        }
+    }
+
+    @Test @MainActor func everyAvailableDragonFrameUsesOnlyTheRecolorableBodyPalette() throws {
+        let custom = RGBColor(red: 17, green: 201, blue: 149)
+        for (atlasName, names) in [("EmberIdle", DungeonSceneView.emberIdleFrameNames), ("EmberConcern", DungeonSceneView.emberConcernFrameNames)] {
+            let atlas = SKTextureAtlas(named: atlasName)
+            for name in names {
+                let source = atlas.textureNamed(name)
+                let output = DragonTextureRecolorer.texture(source, color: custom)
+                let before = try rgbaBytes(of: source.cgImage())
+                let after = try rgbaBytes(of: output.cgImage())
+                var changedPixelCount = 0
+                var onlyExpectedPixelsChanged = true
+                for offset in stride(from: 0, to: before.count, by: 4) {
+                    let sourcePixel = RGBColor(red: before[offset], green: before[offset + 1], blue: before[offset + 2])
+                    let expected = DragonTextureRecolorer.bodyPixel(sourcePixel, color: custom)
+                    let actual = RGBColor(red: after[offset], green: after[offset + 1], blue: after[offset + 2])
+                    if expected != sourcePixel { changedPixelCount += 1 }
+                    if actual != expected || after[offset + 3] != before[offset + 3] { onlyExpectedPixelsChanged = false }
+                }
+                #expect(changedPixelCount > 0)
+                #expect(onlyExpectedPixelsChanged)
+            }
+        }
+
+        var snapshot = WorldSnapshot.initial(dragonColor: custom)
+        snapshot.residents = []
+        let scene = PixelDungeonScene(world: WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot), cue: .idle, reduceMotion: true)
+        let dragon = try #require(scene.childNode(withName: "EmberPrototype") as? SKSpriteNode)
+        #expect(dragon.texture?.filteringMode == .nearest)
+    }
+
+    @Test func selectedDragonColorSurvivesRelaunchAndDungeonReset() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "TheHorde.store")
+        let custom = RGBColor(red: 17, green: 201, blue: 149)
+
+        do {
+            let store = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+            try await store.completeOnboarding(dragonName: "Verdigris", dungeonName: "Green Vault", dragonColor: custom)
+            #expect(try await store.worldReadModel().snapshot.dragonVisual.color == custom)
+        }
+
+        let reopened = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+        #expect(try await reopened.worldReadModel().snapshot.dragonVisual.color == custom)
+        try await reopened.resetDungeon()
+        #expect(try await reopened.worldReadModel().snapshot.dragonVisual.color == custom)
+    }
+
     private func completeGoal(in store: HordeStore, title: String, now: Date, calendar: Calendar) async throws {
         let definitionID = try await store.createGoal(GoalDraft(title: title), now: now, calendar: calendar)
         let occurrence = try #require(await store.definitionSummary(id: definitionID)?.history.first)
         try await store.completeOccurrence(id: occurrence.id, now: now, calendar: calendar)
+    }
+
+    @MainActor private func rgbaBytes(of image: CGImage) throws -> [UInt8] {
+        let width = image.width
+        let height = image.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let rendered = pixels.withUnsafeMutableBytes { bytes -> Bool in
+            guard let context = CGContext(
+                data: bytes.baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+            ) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        #expect(rendered)
+        return pixels
     }
 
     @Test @MainActor func emberIdleHonorsReducedMotionAndAppInterruption() throws {

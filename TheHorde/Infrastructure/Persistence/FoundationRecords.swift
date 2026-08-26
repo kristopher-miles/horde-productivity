@@ -34,8 +34,8 @@ enum PersistentJSON {
     var rollingSummary: String
     var worldData: Data
 
-    init(id: String = "primary", schemaVersion: Int = 3, revision: Int = 0, dungeonName: String = "The Cinder Vault", dragonName: String = "Ember", morale: Int = 5, integrity: Int = 1, food: Int = 0, rollingSummary: String? = nil) {
-        let world = WorldSnapshot.initial(dragonName: dragonName, dungeonName: dungeonName)
+    init(id: String = "primary", schemaVersion: Int = 3, revision: Int = 0, dungeonName: String = "The Cinder Vault", dragonName: String = "Ember", dragonColor: RGBColor = .ember, morale: Int = 5, integrity: Int = 1, food: Int = 0, rollingSummary: String? = nil) {
+        let world = WorldSnapshot.initial(dragonName: dragonName, dungeonName: dungeonName, dragonColor: dragonColor)
         self.id = id; self.schemaVersion = schemaVersion; self.revision = revision
         self.dungeonName = dungeonName; self.dragonName = dragonName
         self.morale = morale; self.integrity = integrity; self.food = food; self.rollingSummary = rollingSummary ?? world.rollingSummary

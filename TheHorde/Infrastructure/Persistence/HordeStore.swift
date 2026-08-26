@@ -52,7 +52,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         return false
     }
 
-    func completeOnboarding(dragonName: String, dungeonName: String) throws {
+    func completeOnboarding(dragonName: String, dungeonName: String, dragonColor: RGBColor = .ember) throws {
         let dragon = dragonName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Ember" : String(dragonName.prefix(40))
         let dungeon = dungeonName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "The Cinder Vault" : String(dungeonName.prefix(60))
         do {
@@ -61,9 +61,9 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 let state = existingState ?? AppStateRecord()
                 if existingState == nil { modelContext.insert(state) }
                 if try modelContext.fetch(FetchDescriptor<GameSaveRecord>()).isEmpty {
-                    modelContext.insert(GameSaveRecord(dungeonName: dungeon, dragonName: dragon))
+                    modelContext.insert(GameSaveRecord(dungeonName: dungeon, dragonName: dragon, dragonColor: dragonColor))
                 } else if let save = try modelContext.fetch(FetchDescriptor<GameSaveRecord>()).first, !state.onboardingComplete {
-                    let world = WorldSnapshot.initial(dragonName: dragon, dungeonName: dungeon)
+                    let world = WorldSnapshot.initial(dragonName: dragon, dungeonName: dungeon, dragonColor: dragonColor)
                     save.dungeonName = dungeon; save.dragonName = dragon; save.rollingSummary = world.rollingSummary; save.worldData = try PersistentJSON.encode(world)
                 }
                 state.onboardingComplete = true
@@ -317,7 +317,8 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
                 let entries = try modelContext.fetch(FetchDescriptor<ChronicleRecord>())
                 events.forEach(modelContext.delete); entries.forEach(modelContext.delete)
                 if let save = try modelContext.fetch(FetchDescriptor<GameSaveRecord>()).first {
-                    let world = WorldSnapshot.initial(dragonName: save.dragonName, dungeonName: save.dungeonName)
+                    let dragonColor = decodeWorld(save).dragonVisual.color
+                    let world = WorldSnapshot.initial(dragonName: save.dragonName, dungeonName: save.dungeonName, dragonColor: dragonColor)
                     save.worldData = try PersistentJSON.encode(world); save.morale = world.morale; save.integrity = world.integrity; save.food = world.food; save.rollingSummary = world.rollingSummary; save.revision += 1
                 }
                 try modelContext.save()

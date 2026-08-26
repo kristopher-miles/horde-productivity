@@ -227,9 +227,9 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
         for occurrence in occurrences where occurrence.state == .pending && occurrence.dueDate != nil { try? await NotificationScheduler.shared.schedule(occurrence: occurrence) }
     }
 
-    func finishOnboarding(dragonName: String, dungeonName: String) async -> Bool {
+    func finishOnboarding(dragonName: String, dungeonName: String, dragonColor: RGBColor = .ember) async -> Bool {
         do {
-            try await store?.completeOnboarding(dragonName: dragonName, dungeonName: dungeonName)
+            try await store?.completeOnboarding(dragonName: dragonName, dungeonName: dungeonName, dragonColor: dragonColor)
             onboardingComplete = true
             try await reconcileAndReload()
             return true

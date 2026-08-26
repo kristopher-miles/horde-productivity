@@ -32,12 +32,31 @@ enum KoboldAgeStage: String, Codable, Equatable, Sendable, CaseIterable {
     case baby, kid, adult
 }
 
-struct RGBColor: Codable, Equatable, Sendable {
+struct RGBColor: Codable, Equatable, Hashable, Sendable {
     let red: UInt8
     let green: UInt8
     let blue: UInt8
 
     static let ember = RGBColor(red: 224, green: 96, blue: 32)
+}
+
+enum CuratedDragonColor: String, CaseIterable, Identifiable, Sendable {
+    case ember, ruby, moss, azure, amethyst, pearl
+
+    var id: Self { self }
+
+    var name: String { rawValue.capitalized }
+
+    var color: RGBColor {
+        switch self {
+        case .ember: .ember
+        case .ruby: RGBColor(red: 190, green: 57, blue: 65)
+        case .moss: RGBColor(red: 66, green: 137, blue: 75)
+        case .azure: RGBColor(red: 49, green: 111, blue: 190)
+        case .amethyst: RGBColor(red: 125, green: 75, blue: 167)
+        case .pearl: RGBColor(red: 199, green: 183, blue: 143)
+        }
+    }
 }
 
 struct CharacterPalette: Codable, Equatable, Sendable {
@@ -120,10 +139,10 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
         "\(dragonName) has recently left the nest and searched for their own lair. After flying far from home, they arrived at an empty cavern extending deep into the rock. They are small now, but they will grow. They settle onto the cold stone, and plan for what's next."
     }
 
-    static func initial(dragonName: String = "Ember", dungeonName: String = "The Cinder Vault") -> WorldSnapshot {
+    static func initial(dragonName: String = "Ember", dungeonName: String = "The Cinder Vault", dragonColor: RGBColor = .ember) -> WorldSnapshot {
         WorldSnapshot(
-            dragon: CharacterState(id: "dragon", name: dragonName, role: "Baby dragon", identity: "A young, small, newly independent ember-scaled dragon who has just claimed an empty cavern. Not yet powerful or established, they face the untamed lair alone.", vitality: 50, bond: 50, conditions: []),
-            dragonVisual: DragonVisualState(stage: .baby, color: .ember),
+            dragon: CharacterState(id: "dragon", name: dragonName, role: "Baby dragon", identity: "A young, small, newly independent dragon who has just claimed an empty cavern. Not yet powerful or established, they face the untamed lair alone.", vitality: 50, bond: 50, conditions: []),
+            dragonVisual: DragonVisualState(stage: .baby, color: dragonColor),
             dragonGrowth: DragonGrowthState(consecutiveRegularUseDays: 0, lastRegularUseDay: nil),
             residents: [],
             hoard: 0,

@@ -98,7 +98,10 @@ struct DungeonSceneView: View {
         let atlas = SKTextureAtlas(named: atlasName)
         let names = concerned ? DungeonSceneView.emberConcernFrameNames : DungeonSceneView.emberIdleFrameNames
         let frames = names.map { name in
-            let texture = atlas.textureNamed(name)
+            let texture = DragonTextureRecolorer.texture(
+                atlas.textureNamed(name),
+                color: world.snapshot.dragonVisual.color
+            )
             texture.filteringMode = .nearest
             return texture
         }
@@ -122,5 +125,91 @@ struct DungeonSceneView: View {
         case .recover, .resourceChanges: art.run(.sequence([.fadeAlpha(to: 0.72, duration: 0.18), .fadeAlpha(to: 1, duration: 0.28)]))
         case .idle: break
         }
+    }
+}
+
+enum DragonTextureRecolorer {
+    nonisolated static func bodyPixel(_ source: RGBColor, color: RGBColor) -> RGBColor {
+        guard color != .ember else { return source }
+        return switch source {
+        case RGBColor(red: 107, green: 25, blue: 10): color.dragonShade(offset: -0.24)
+        case RGBColor(red: 163, green: 43, blue: 10): color.dragonShade(offset: -0.12)
+        case RGBColor(red: 217, green: 77, blue: 8): color.dragonShade(offset: 0)
+        case RGBColor(red: 242, green: 118, blue: 13): color.dragonShade(offset: 0.12)
+        case RGBColor(red: 255, green: 158, blue: 37): color.dragonShade(offset: 0.24)
+        default: source
+        }
+    }
+
+    @MainActor static func texture(_ source: SKTexture, color: RGBColor) -> SKTexture {
+        guard color != .ember else { return source }
+        let sourceImage = source.cgImage()
+        let width = sourceImage.width
+        let height = sourceImage.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let recoloredImage: CGImage? = pixels.withUnsafeMutableBytes { bytes in
+            guard let context = CGContext(
+                data: bytes.baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+            ) else { return nil }
+            context.interpolationQuality = .none
+            context.draw(sourceImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            let channels = bytes.bindMemory(to: UInt8.self)
+            for offset in stride(from: 0, to: channels.count, by: 4) where channels[offset + 3] == 255 {
+                let replacement = bodyPixel(
+                    RGBColor(red: channels[offset], green: channels[offset + 1], blue: channels[offset + 2]),
+                    color: color
+                )
+                channels[offset] = replacement.red
+                channels[offset + 1] = replacement.green
+                channels[offset + 2] = replacement.blue
+            }
+            return context.makeImage()
+        }
+        return recoloredImage.map(SKTexture.init(cgImage:)) ?? source
+    }
+}
+
+private extension RGBColor {
+    nonisolated func dragonShade(offset: Double) -> RGBColor {
+        let components = [Double(red) / 255, Double(green) / 255, Double(blue) / 255]
+        let maximum = components.max()!
+        let minimum = components.min()!
+        let delta = maximum - minimum
+        let saturation = maximum == 0 ? 0 : delta / maximum
+        let hue: Double
+        if delta == 0 {
+            hue = 0
+        } else if maximum == components[0] {
+            hue = ((components[1] - components[2]) / delta).truncatingRemainder(dividingBy: 6) / 6
+        } else if maximum == components[1] {
+            hue = ((components[2] - components[0]) / delta + 2) / 6
+        } else {
+            hue = ((components[0] - components[1]) / delta + 4) / 6
+        }
+        let normalizedHue = hue < 0 ? hue + 1 : hue
+        let brightness = 0.35 + maximum * 0.35 + offset
+        let sector = normalizedHue * 6
+        let chroma = brightness * saturation
+        let secondary = chroma * (1 - abs(sector.truncatingRemainder(dividingBy: 2) - 1))
+        let match = brightness - chroma
+        let rgb = switch sector {
+        case 0..<1: [chroma, secondary, 0]
+        case 1..<2: [secondary, chroma, 0]
+        case 2..<3: [0, chroma, secondary]
+        case 3..<4: [0, secondary, chroma]
+        case 4..<5: [secondary, 0, chroma]
+        default: [chroma, 0, secondary]
+        }
+        return RGBColor(
+            red: UInt8(((rgb[0] + match) * 255).rounded()),
+            green: UInt8(((rgb[1] + match) * 255).rounded()),
+            blue: UInt8(((rgb[2] + match) * 255).rounded())
+        )
     }
 }
