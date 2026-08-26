@@ -283,6 +283,154 @@ struct Phase6QualificationTests {
         #expect(DungeonSceneView.koboldIdleFrameDuration == 0.2)
     }
 
+    @Test @MainActor func dataDrivenKoboldsFillAllEightSafeLayoutSlots() throws {
+        let residents = (0..<8).map(koboldResident)
+        let sceneBounds = CGRect(x: -160, y: -90, width: 320, height: 180)
+
+        for count in 0...8 {
+            var snapshot = WorldSnapshot.initial()
+            snapshot.residents = Array(residents.prefix(count))
+            let world = WorldReadModel(dungeonName: "Vault", revision: count, snapshot: snapshot)
+            let scene = PixelDungeonScene(world: world, cue: .idle, reduceMotion: false)
+            let kobolds = scene.children.compactMap { $0 as? SKSpriteNode }.filter {
+                $0.name?.hasPrefix("Kobold.") == true
+            }
+
+            #expect(kobolds.count == count)
+            #expect(DungeonSceneView.renderedBackgroundAssetName(world: world, cue: .idle) == nil)
+            for (index, kobold) in kobolds.enumerated() {
+                #expect(kobold.name == DungeonSceneView.koboldNodeName(residentID: residents[index].id))
+                #expect(kobold.position == DungeonSceneView.koboldScenePositions[index])
+                #expect(kobold.anchorPoint == CGPoint(x: 0.5, y: 0))
+                #expect(kobold.size == DungeonSceneView.koboldFrameSize)
+                #expect(kobold.texture?.filteringMode == .nearest)
+                #expect(kobold.action(forKey: "idle") != nil)
+                #expect(sceneBounds.contains(kobold.frame))
+            }
+        }
+
+        #expect(DungeonSceneView.koboldScenePositions.count == 8)
+        #expect(Set(DungeonSceneView.koboldScenePositions).count == 8)
+        #expect(DungeonSceneView.koboldIdleFrameDuration == 0.2)
+    }
+
+    @Test @MainActor func allKoboldFramesAvoidEveryDragonStageAndEachOtherAtNativeScale() throws {
+        let sceneBounds = CGRect(x: -160, y: -90, width: 320, height: 180)
+        let largestKoboldAtlas = SKTextureAtlas(named: DungeonSceneView.koboldIdleAtlasName(age: .adult))
+        let largestKoboldTextures = DungeonSceneView.koboldIdleFrameNames(age: .adult).map(largestKoboldAtlas.textureNamed)
+        let koboldBounds = try DungeonSceneView.koboldScenePositions.map { position in
+            return try visibleUnion(
+                textures: largestKoboldTextures,
+                size: DungeonSceneView.koboldFrameSize,
+                position: position
+            )
+        }
+
+        for (index, bounds) in koboldBounds.enumerated() {
+            #expect(sceneBounds.contains(bounds))
+            for other in koboldBounds.dropFirst(index + 1) {
+                #expect(!bounds.intersects(other))
+            }
+        }
+
+        for stage in DragonStage.allCases {
+            let atlas = SKTextureAtlas(named: DungeonSceneView.dragonAtlasName(stage: stage, cue: .idle))
+            let textures = DungeonSceneView.dragonIdleFrameNames(stage: stage).map(atlas.textureNamed)
+            let dragonBounds = try visibleUnion(
+                textures: textures,
+                size: DungeonSceneView.dragonFrameSize(stage: stage),
+                position: DungeonSceneView.emberIdleScenePosition
+            )
+            #expect(sceneBounds.contains(dragonBounds))
+            #expect(koboldBounds.allSatisfy { !$0.intersects(dragonBounds) })
+        }
+    }
+
+    @Test @MainActor func addingAndRemovingKoboldsChangesOnlyTheirNamedLayers() throws {
+        let residents = (0..<3).map(koboldResident)
+        var snapshot = WorldSnapshot.initial()
+        snapshot.residents = Array(residents.prefix(2))
+        let twoWorld = WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot)
+        let two = PixelDungeonScene(world: twoWorld, cue: .idle, reduceMotion: true)
+
+        snapshot.residents.append(residents[2])
+        let threeWorld = WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot)
+        let three = PixelDungeonScene(world: threeWorld, cue: .idle, reduceMotion: true)
+        let twoNames = Set(two.children.compactMap(\.name))
+        let threeNames = Set(three.children.compactMap(\.name))
+        #expect(threeNames.subtracting(twoNames) == [DungeonSceneView.koboldNodeName(residentID: residents[2].id)])
+        #expect(twoNames.subtracting(threeNames).isEmpty)
+        #expect(DungeonSceneView.assetName(world: twoWorld, cue: .idle) == DungeonSceneView.assetName(world: threeWorld, cue: .idle))
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: twoWorld, cue: .idle) == DungeonSceneView.renderedBackgroundAssetName(world: threeWorld, cue: .idle))
+
+        for resident in residents.prefix(2) {
+            let name = DungeonSceneView.koboldNodeName(residentID: resident.id)
+            let before = try #require(two.children.first { $0.name == name } as? SKSpriteNode)
+            let after = try #require(three.children.first { $0.name == name } as? SKSpriteNode)
+            #expect(before.position == after.position)
+            #expect(before.zPosition == after.zPosition)
+            #expect(try rgbaBytes(of: #require(before.texture).cgImage()) == rgbaBytes(of: #require(after.texture).cgImage()))
+        }
+        let twoDragon = try #require(two.children.first { $0.name == "EmberPrototype" } as? SKSpriteNode)
+        let threeDragon = try #require(three.children.first { $0.name == "EmberPrototype" } as? SKSpriteNode)
+        #expect(try rgbaBytes(of: #require(twoDragon.texture).cgImage()) == rgbaBytes(of: #require(threeDragon.texture).cgImage()))
+
+        snapshot.residents = [residents[0]]
+        let oneWorld = WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot)
+        let one = PixelDungeonScene(world: oneWorld, cue: .idle, reduceMotion: true)
+        snapshot.residents = []
+        let emptyWorld = WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot)
+        let empty = PixelDungeonScene(world: emptyWorld, cue: .idle, reduceMotion: true)
+        #expect(Set(one.children.compactMap(\.name)).subtracting(empty.children.compactMap(\.name)) == [DungeonSceneView.koboldNodeName(residentID: residents[0].id)])
+        #expect(empty.children.map(\.name) == ["EmberPrototype"])
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: oneWorld, cue: .idle) == nil)
+        #expect(DungeonSceneView.renderedBackgroundAssetName(world: emptyWorld, cue: .idle) == nil)
+    }
+
+    @Test @MainActor func koboldLayersRequireVisualDataUseFrameOneForReducedMotionAndKeepAtlasesImmutable() throws {
+        let visualResidents = (0..<9).map(koboldResident)
+        let legacy = CharacterState(id: "legacy", name: "Legacy", role: "Keeper", identity: "No visual data.", vitality: 50, bond: 50, conditions: [])
+        var snapshot = WorldSnapshot.initial()
+        snapshot.residents = [legacy] + Array(visualResidents.prefix(8))
+
+        let adultAtlas = SKTextureAtlas(named: DungeonSceneView.koboldIdleAtlasName(age: .adult))
+        let adultName = DungeonSceneView.koboldIdleFrameNames(age: .adult)[0]
+        let sourceBefore = try rgbaBytes(of: adultAtlas.textureNamed(adultName).cgImage())
+        let scene = PixelDungeonScene(
+            world: WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot),
+            cue: .idle,
+            reduceMotion: true
+        )
+        let kobolds = scene.children.compactMap { $0 as? SKSpriteNode }.filter {
+            $0.name?.hasPrefix("Kobold.") == true
+        }
+
+        #expect(kobolds.count == 8)
+        #expect(kobolds.allSatisfy { $0.action(forKey: "idle") == nil })
+        #expect(kobolds.first?.position == DungeonSceneView.koboldScenePositions[0])
+        #expect(scene.children.contains { $0.name == DungeonSceneView.koboldNodeName(residentID: legacy.id) } == false)
+        #expect(Set(kobolds.compactMap(\.name)) == Set(visualResidents.prefix(8).map { DungeonSceneView.koboldNodeName(residentID: $0.id) }))
+        #expect(Set(try kobolds.map { try rgbaBytes(of: #require($0.texture).cgImage()) }).count == 8)
+        for (kobold, resident) in zip(kobolds, visualResidents) {
+            let visual = try #require(resident.koboldVisual)
+            let atlas = SKTextureAtlas(named: DungeonSceneView.koboldIdleAtlasName(age: visual.age))
+            let frameOne = atlas.textureNamed(DungeonSceneView.koboldIdleFrameNames(age: visual.age)[0])
+            let expected = KoboldTextureRecolorer.texture(frameOne, palette: visual.colors)
+            #expect(try rgbaBytes(of: #require(kobold.texture).cgImage()) == rgbaBytes(of: expected.cgImage()))
+        }
+        let sourceAfter = try rgbaBytes(of: adultAtlas.textureNamed(adultName).cgImage())
+        #expect(sourceBefore == sourceAfter)
+
+        snapshot.residents = visualResidents
+        let capped = PixelDungeonScene(
+            world: WorldReadModel(dungeonName: "Vault", revision: 0, snapshot: snapshot),
+            cue: .idle,
+            reduceMotion: true
+        )
+        #expect(capped.children.filter { $0.name?.hasPrefix("Kobold.") == true }.count == 8)
+        #expect(capped.children.contains { $0.name == DungeonSceneView.koboldNodeName(residentID: visualResidents[8].id) } == false)
+    }
+
     @Test @MainActor func fiveOrderedDragonStagesRenderIncreasingAnchoredIdleLoops() throws {
         #expect(DragonStage.allCases.map(\.displayName) == ["Baby", "Adolescent", "Adult", "Elder", "Great Wyrm"])
         let sizes = DragonStage.allCases.map(DungeonSceneView.dragonFrameSize)
@@ -429,6 +577,38 @@ struct Phase6QualificationTests {
             y: ys.min() ?? first.y,
             width: (xs.max() ?? first.x) - (xs.min() ?? first.x) + 1,
             height: (ys.max() ?? first.y) - (ys.min() ?? first.y) + 1
+        )
+    }
+
+    @MainActor private func visibleUnion(textures: [SKTexture], size: CGSize, position: CGPoint) throws -> CGRect {
+        try textures.reduce(nil as CGRect?) { union, texture in
+            let bounds = try #require(alphaBounds(in: rgbaBytes(of: texture.cgImage()), width: Int(size.width)))
+            let sceneBounds = CGRect(
+                x: position.x - size.width / 2 + bounds.minX,
+                y: position.y + size.height - bounds.maxY,
+                width: bounds.width,
+                height: bounds.height
+            )
+            return union?.union(sceneBounds) ?? sceneBounds
+        } ?? .null
+    }
+
+    private func koboldResident(_ index: Int) -> CharacterState {
+        CharacterState(
+            id: "resident-\(index)",
+            name: "Resident \(index)",
+            role: KoboldAgeStage.allCases[index % KoboldAgeStage.allCases.count].rawValue.capitalized,
+            identity: "A separately rendered kobold.",
+            vitality: 50,
+            bond: 50,
+            conditions: [],
+            koboldVisual: KoboldVisualState(
+                age: KoboldAgeStage.allCases[index % KoboldAgeStage.allCases.count],
+                colors: CharacterPalette(
+                    primary: RGBColor(red: UInt8(40 + index * 20), green: UInt8(55 + index * 11), blue: UInt8(45 + index * 7)),
+                    secondary: RGBColor(red: UInt8(70 + index * 12), green: UInt8(45 + index * 9), blue: UInt8(100 + index * 13))
+                )
+            )
         )
     }
 

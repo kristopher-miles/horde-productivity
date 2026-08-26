@@ -97,7 +97,7 @@ Complete the environment set before scene-wide character composition is finalize
 
 ## 8. Integrate independent environment, dragon, and NPC rendering
 
-- [ ] 056 — [NPC-05 — Add data-driven NPC layers and placement (line 147)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L147)
+- [x] 056 — [NPC-05 — Add data-driven NPC layers and placement (line 147)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L147)
 - [ ] 057 — [VC-04 — Render recorded environment progression consistently on every scene surface (line 119)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L119)
 
 ## 9. Complete automated and visual acceptance coverage

@@ -13,6 +13,7 @@ final class TheHordeUITests: XCTestCase {
             }
         }
         XCTAssertEqual(app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "KoboldPaletteFixture.")).count, 9)
+        XCTAssertTrue(app.otherElements["KoboldLayoutFixture"].exists)
     }
 
     @MainActor func testFiveOrderedAnimatedDragonStageFixture() throws {

@@ -37,6 +37,26 @@ struct KoboldPaletteFixtureView: View {
         )
     ]
 
+    nonisolated static let layoutWorld: WorldReadModel = {
+        var snapshot = WorldSnapshot.initial()
+        snapshot.dragonVisual.stage = .greatWyrm
+        snapshot.residents = (0..<8).map { index in
+            let age = KoboldAgeStage.allCases[index % KoboldAgeStage.allCases.count]
+            let palette = palettes[index % palettes.count]
+            return CharacterState(
+                id: "fixture-kobold-\(index)",
+                name: "Kobold \(index + 1)",
+                role: age.rawValue.capitalized,
+                identity: "A separately rendered resident.",
+                vitality: 50,
+                bond: 50,
+                conditions: [],
+                koboldVisual: KoboldVisualState(age: age, colors: palette.colors)
+            )
+        }
+        return WorldReadModel(dungeonName: "Kobold Layout", revision: 0, snapshot: snapshot)
+    }()
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("motionPreference") private var motionPreference = "system"
 
@@ -44,6 +64,20 @@ struct KoboldPaletteFixtureView: View {
         ScrollView {
             VStack(spacing: 12) {
                 Text("Kobold Palettes").font(.largeTitle.bold())
+                Text("Eight-Resident Layout").font(.title2.bold())
+                SpriteView(
+                    scene: PixelDungeonScene(
+                        world: Self.layoutWorld,
+                        cue: .idle,
+                        reduceMotion: motionPreference == "reduced" || (motionPreference == "system" && reduceMotion)
+                    ),
+                    options: [.allowsTransparency]
+                )
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .background(DesignTokens.dungeon)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Eight separately positioned kobolds and Ember")
+                .accessibilityIdentifier("KoboldLayoutFixture")
                 ForEach(KoboldAgeStage.allCases, id: \.rawValue) { age in
                     Text(age.rawValue.capitalized).font(.title2.bold())
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {

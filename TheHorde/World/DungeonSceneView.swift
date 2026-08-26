@@ -12,6 +12,13 @@ struct DungeonSceneView: View {
     nonisolated static let emberConcernFrameNames = (1...4).map { "ember-concern-\(String(format: "%02d", $0)).png" }
     nonisolated static let emberConcernFrameDuration = 0.14
     nonisolated static let emberIdleScenePosition = CGPoint(x: 24, y: -50)
+    nonisolated static let koboldFrameSize = CGSize(width: 48, height: 64)
+    nonisolated static let koboldScenePositions = [
+        CGPoint(x: -128, y: 26), CGPoint(x: -88, y: 26),
+        CGPoint(x: 96, y: 26), CGPoint(x: 128, y: 26),
+        CGPoint(x: -128, y: -88), CGPoint(x: -88, y: -88),
+        CGPoint(x: 96, y: -88), CGPoint(x: 128, y: -88)
+    ]
 
     nonisolated static func dragonIdleFrameNames(stage: DragonStage) -> [String] {
         let prefix = switch stage {
@@ -82,12 +89,16 @@ struct DungeonSceneView: View {
         (1...4).map { "kobold-\(age.rawValue)-idle-\(String(format: "%02d", $0)).png" }
     }
 
+    nonisolated static func koboldNodeName(residentID: String) -> String {
+        "Kobold.\(residentID)"
+    }
+
     nonisolated static func assetName(world: WorldReadModel, cue _: AnimationCue) -> String {
         "DungeonStage\(world.snapshot.backgroundStage.rawValue)"
     }
 
     nonisolated static func renderedBackgroundAssetName(world: WorldReadModel, cue: AnimationCue) -> String? {
-        world.snapshot.residents.isEmpty ? nil : assetName(world: world, cue: cue)
+        nil
     }
 }
 
@@ -105,6 +116,7 @@ struct DungeonSceneView: View {
         }
         backgroundColor = art == nil ? .clear : .black
         addEmber(world: world, cue: cue, reduceMotion: reduceMotion)
+        addKobolds(world: world, reduceMotion: reduceMotion)
         if !reduceMotion, let art { animate(cue, art: art) }
         #if os(iOS)
         NotificationCenter.default.addObserver(self, selector: #selector(pauseForBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
@@ -146,6 +158,34 @@ struct DungeonSceneView: View {
             ember.run(.repeatForever(.animate(with: frames, timePerFrame: DungeonSceneView.emberIdleFrameDuration, resize: false, restore: false)), withKey: "idle")
         } else if !reduceMotion && concerned {
             ember.run(.animate(with: frames, timePerFrame: DungeonSceneView.emberConcernFrameDuration, resize: false, restore: false), withKey: "concern")
+        }
+    }
+
+    private func addKobolds(world: WorldReadModel, reduceMotion: Bool) {
+        // Resident order is the stable scene-slot contract: additions append and removals pop the tail.
+        let residents = world.snapshot.residents.compactMap { resident in
+            resident.koboldVisual.map { (resident, $0) }
+        }.prefix(DungeonSceneView.koboldScenePositions.count)
+        for (index, entry) in residents.enumerated() {
+            let (resident, visual) = entry
+            let atlas = SKTextureAtlas(named: DungeonSceneView.koboldIdleAtlasName(age: visual.age))
+            let frames = DungeonSceneView.koboldIdleFrameNames(age: visual.age).map { name in
+                let texture = KoboldTextureRecolorer.texture(atlas.textureNamed(name), palette: visual.colors)
+                texture.filteringMode = .nearest
+                return texture
+            }
+            let kobold = SKSpriteNode(texture: frames[0], size: DungeonSceneView.koboldFrameSize)
+            kobold.name = DungeonSceneView.koboldNodeName(residentID: resident.id)
+            kobold.anchorPoint = CGPoint(x: 0.5, y: 0)
+            kobold.position = DungeonSceneView.koboldScenePositions[index]
+            kobold.zPosition = index < 4 ? 0.75 : 1.25
+            addChild(kobold)
+            if !reduceMotion {
+                kobold.run(
+                    .repeatForever(.animate(with: frames, timePerFrame: DungeonSceneView.koboldIdleFrameDuration)),
+                    withKey: "idle"
+                )
+            }
         }
     }
 
