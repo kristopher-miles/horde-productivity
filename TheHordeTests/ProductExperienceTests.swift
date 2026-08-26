@@ -23,6 +23,9 @@ struct ProductExperienceTests {
         let first = try await store.worldReadModel()
         #expect(first.snapshot.dragon.name == "Cinder")
         #expect(first.dungeonName == "Quiet Keep")
+        #expect(first.snapshot.morale == 5)
+        #expect(first.snapshot.integrity == 1)
+        #expect(first.snapshot.food == 0)
         try await store.completeOnboarding(dragonName: "Overwrite", dungeonName: "Overwrite")
         let second = try await store.worldReadModel()
         #expect(second.snapshot.dragon.name == "Cinder")
@@ -55,7 +58,10 @@ struct ProductExperienceTests {
         #expect(try await store.definitionSummary(id: id) != nil)
         #expect(try await store.pendingStoryCount() == 0)
         #expect(try await store.chronicle().isEmpty)
-        #expect(try await store.worldReadModel().snapshot.morale == 50)
+        let world = try await store.worldReadModel().snapshot
+        #expect(world.morale == 5)
+        #expect(world.integrity == 1)
+        #expect(world.food == 0)
     }
 
     @Test func deleteAllReturnsToFirstRunWithNoDomainRecords() async throws {
@@ -69,7 +75,23 @@ struct ProductExperienceTests {
     }
 
     @Test func newGameSaveUsesTheReleaseSchemaVersion() {
-        #expect(GameSaveRecord().schemaVersion == 3)
+        let save = GameSaveRecord()
+        #expect(save.schemaVersion == 3)
+        #expect(save.morale == 5)
+        #expect(save.integrity == 1)
+        #expect(save.food == 0)
+    }
+
+    @Test func initialStatsRetainTheirFullUpwardProgressionRange() throws {
+        let world = WorldSnapshot.initial()
+        let descriptors = WorldContract.descriptors(for: .positive)
+        let upperBound = { (fieldID: String) throws -> Int in
+            try #require(descriptors.first { $0.fieldID == fieldID }?.range?.upperBound)
+        }
+
+        #expect(try upperBound("world.morale") - world.morale == 95)
+        #expect(try upperBound("world.integrity") - world.integrity == 99)
+        #expect(try upperBound("world.food") - world.food == 100)
     }
 
     @Test func exportCleanupDoesNotDependOnLiveViewState() throws {

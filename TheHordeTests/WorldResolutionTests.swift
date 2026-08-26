@@ -15,7 +15,7 @@ struct WorldResolutionTests {
         #expect(throws: WorldPatchError.tooManyMutations) {
             _ = try WorldPatchValidator.applying([.increment("world.morale", by: 1), .increment("world.integrity", by: 1), .increment("world.food", by: 1)], to: world, valence: .negative)
         }
-        #expect(world.morale == 50)
+        #expect(world.morale == 5)
     }
 
     @Test func generatedRecordsMustFitShapeCapsAndReferences() throws {
@@ -91,7 +91,7 @@ struct WorldResolutionTests {
         let (updated, deltas) = try WorldPatchValidator.applying(mutations, to: world.snapshot, valence: .positive)
         let entry = try await store.commitResolution(eventID: eventID, expectedRevision: world.revision, world: updated, mutations: mutations, deltas: deltas, generatedTitle: "Ink by Firelight", narration: "Pip binds the finished pages while Ember keeps the lamps warm.", summary: "The finished writing lifted the vault.", cue: .celebrate)
         #expect(entry.committedRevision == world.revision + 1)
-        #expect(try await store.worldReadModel().snapshot.morale == 53)
+        #expect(try await store.worldReadModel().snapshot.morale == 8)
         #expect(try await store.pendingStoryCount() == 0)
         #expect(try await store.chronicle().count == 1)
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601

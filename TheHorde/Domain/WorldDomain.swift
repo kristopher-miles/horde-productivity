@@ -99,7 +99,7 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
                 CharacterState(id: "kobold-rill", name: "Rill", role: "Stone mender", identity: "Steady-handed, curious, and impossible to hurry.", vitality: 55, bond: 45, conditions: [])
             ],
             backgroundStage: .one,
-            morale: 50, integrity: 50, food: 50,
+            morale: 5, integrity: 1, food: 0,
             locations: [LocationState(id: "great-room", name: dungeonName, status: "Quiet", summary: "Warm lanterns pool around a broad stone hearth."), LocationState(id: "mushroom-gallery", name: "Mushroom Gallery", status: "Growing", summary: "Pale caps rise from tidy beds.")],
             abilities: [],
             activeThreads: [ActiveThreadState(id: "drafty-passage", title: "A Draft in the West Passage", severity: 1, state: "active", involvedEntityIDs: ["kobold-rill"], summary: "A harmless cold draft hints at a loose stone waiting for attention.")],
