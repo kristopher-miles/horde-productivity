@@ -46,7 +46,7 @@ struct ProductExperienceTests {
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
         let export = try decoder.decode(LocalDataExport.self, from: data)
         #expect(export.exportVersion == 1)
-        #expect(export.dataSchemaVersion == 3)
+        #expect(export.dataSchemaVersion == HordeSchemaV4.dataVersion)
         #expect(export.goals.first?.draft.title == "Export this")
         let text = try #require(String(data: data, encoding: .utf8))
         #expect(!text.localizedCaseInsensitiveContains("transcript"))
@@ -83,7 +83,7 @@ struct ProductExperienceTests {
 
     @Test func newGameSaveUsesTheReleaseSchemaVersion() {
         let save = GameSaveRecord(dragonName: "Cinder")
-        #expect(save.schemaVersion == 3)
+        #expect(save.schemaVersion == HordeSchemaV4.dataVersion)
         #expect(save.morale == 5)
         #expect(save.integrity == 1)
         #expect(save.food == 0)

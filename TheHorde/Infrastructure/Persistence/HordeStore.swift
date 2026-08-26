@@ -4,17 +4,46 @@ import SwiftData
 enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevision, eventAlreadyResolved, invalidResolutionState, injectedFailure }
 
 @ModelActor actor HordeStore {
-    static let schema = Schema(HordeSchemaV3.models, version: HordeSchemaV3.versionIdentifier)
+    static let schema = Schema(HordeSchemaV4.models, version: HordeSchemaV4.versionIdentifier)
 
     static func makeContainer(inMemory: Bool = false) throws -> ModelContainer {
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
-        return try ModelContainer(for: schema, migrationPlan: HordeMigrationPlan.self, configurations: [configuration])
+        if inMemory {
+            let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            return try ModelContainer(for: schema, configurations: [configuration])
+        }
+        let url = try defaultStoreURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        return try makeContainer(url: url)
     }
 
     static func makeContainer(url: URL) throws -> ModelContainer {
         let configuration = ModelConfiguration("TheHorde", schema: schema, url: url, cloudKitDatabase: .none)
-        return try ModelContainer(for: schema, migrationPlan: HordeMigrationPlan.self, configurations: [configuration])
+        return try ModelContainer(for: schema, configurations: [configuration])
     }
+
+    static func defaultStoreURL(fileManager: FileManager = .default) throws -> URL {
+        guard let applicationSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return applicationSupport
+            .appending(path: "TheHorde", directoryHint: .isDirectory)
+            .appending(path: "TheHorde-v4.store")
+    }
+
+    #if DEBUG
+    static func resetStoreFiles(at url: URL, fileManager: FileManager = .default) throws {
+        for suffix in ["", "-shm", "-wal"] {
+            let fileURL = URL(filePath: url.path() + suffix)
+            if fileManager.fileExists(atPath: fileURL.path()) {
+                try fileManager.removeItem(at: fileURL)
+            }
+        }
+    }
+
+    static func resetDefaultStore(fileManager: FileManager = .default) throws {
+        try resetStoreFiles(at: defaultStoreURL(fileManager: fileManager), fileManager: fileManager)
+    }
+    #endif
 
     #if DEBUG
     func insertChronicleFixture(count: Int) throws {
@@ -388,7 +417,7 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
 
     func exportLocalData() throws -> Data {
         let definitions = try modelContext.fetch(FetchDescriptor<GoalDefinitionRecord>()).compactMap { try definitionSummary(id: $0.id) }
-        let bundle = LocalDataExport(exportVersion: 1, dataSchemaVersion: 3, promptVersion: HordeModelContract.promptVersion, exportedAt: .now, goals: definitions, occurrences: try occurrenceSummaries(), storyEvents: try allStoryEvents(), world: try worldReadModel(), chronicle: try chronicle())
+        let bundle = LocalDataExport(exportVersion: 1, dataSchemaVersion: HordeSchemaV4.dataVersion, promptVersion: HordeModelContract.promptVersion, exportedAt: .now, goals: definitions, occurrences: try occurrenceSummaries(), storyEvents: try allStoryEvents(), world: try worldReadModel(), chronicle: try chronicle())
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]; encoder.dateEncodingStrategy = .iso8601
         return try encoder.encode(bundle)
     }
@@ -562,12 +591,8 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
 
 enum GoalStoreError: Error { case missingDefinition, missingOccurrence }
 
-enum HordeSchemaV3: VersionedSchema {
-    static let versionIdentifier = Schema.Version(3, 0, 0)
+enum HordeSchemaV4: VersionedSchema {
+    static let dataVersion = 4
+    static let versionIdentifier = Schema.Version(4, 0, 0)
     static let models: [any PersistentModel.Type] = [AppStateRecord.self, GameSaveRecord.self, GoalDefinitionRecord.self, GoalOccurrenceRecord.self, StoryEventRecord.self, ChronicleRecord.self]
-}
-
-enum HordeMigrationPlan: SchemaMigrationPlan {
-    static let schemas: [any VersionedSchema.Type] = [HordeSchemaV3.self]
-    static let stages: [MigrationStage] = []
 }

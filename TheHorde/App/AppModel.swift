@@ -29,10 +29,6 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
     private var store: HordeStore?
     private var coordinator: ResolutionCoordinator?
     private var started = false
-    #if DEBUG
-    private var appliedUITestReset = false
-    #endif
-
     func start() async {
         guard !started else { return }
         started = true
@@ -41,6 +37,12 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
             Task { await self?.routeNotification(occurrenceID: occurrenceID, eventID: eventID) }
         }
         do {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["HORDE_RESET_UI_STATE"] == "1" {
+                try HordeStore.resetDefaultStore()
+                UserDefaults.standard.removeObject(forKey: "onboardingStep")
+            }
+            #endif
             let container = try HordeStore.makeContainer()
             modelContainer = container
             store = HordeStore(modelContainer: container)
@@ -69,11 +71,6 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
             do {
                 initialLoadError = nil
                 #if DEBUG
-                if !appliedUITestReset, ProcessInfo.processInfo.environment["HORDE_RESET_UI_STATE"] == "1" {
-                    try await store?.deleteAllLocalData()
-                    UserDefaults.standard.removeObject(forKey: "onboardingStep")
-                    appliedUITestReset = true
-                }
                 if ProcessInfo.processInfo.environment["HORDE_FORCE_LOAD_FAILURE"] == "1" {
                     initialLoadError = "Your local data could not be loaded."
                     rootReady = true

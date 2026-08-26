@@ -37,6 +37,24 @@ The desktop interaction and layout contract is documented in [The Horde for Mac 
 
 The UI target is a bounded product tour: it checks the promised screens, options, settings, three authored graphic states, positive/negative consequence presentation, and one real local-model flow. To run the fast deterministic product tour without the model, use the `-skip-testing` command in [Phase 6 — User-Facing Product Verification](06-user-facing-product-verification.md). Remaining physical-device evidence is tracked in [OUTSTANDING_REQUIREMENTS.md](OUTSTANDING_REQUIREMENTS.md).
 
+## Development data resets
+
+Schema 4 intentionally starts a fresh local store; obsolete development saves are not migrated. Unit tests use new in-memory or temporary stores, and UI tests set `HORDE_RESET_UI_STATE=1`, which deletes the store before SwiftData opens it.
+
+For a manual iOS Simulator reset, uninstall the development app before the next run:
+
+```sh
+xcrun simctl uninstall booted com.kris.TheHorde
+```
+
+For a manual Mac development reset, quit The Horde and remove only its versioned store files:
+
+```sh
+rm -f "$HOME/Library/Application Support/TheHorde/TheHorde-v4.store" \
+  "$HOME/Library/Application Support/TheHorde/TheHorde-v4.store-shm" \
+  "$HOME/Library/Application Support/TheHorde/TheHorde-v4.store-wal"
+```
+
 ## Architecture
 
 - `Domain`: pure scheduling, world, mutation, validation, and projection rules.

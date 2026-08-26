@@ -4,6 +4,42 @@ import Testing
 
 @Suite("Resolution and visual persistence contracts")
 struct PersistenceContractTests {
+    @Test func preflightResetReplacesDevelopmentDataWithV4EmptyDefaults() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "TheHorde-v4.store")
+
+        do {
+            let store = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+            _ = try await store.prepareAppState()
+            try await store.completeOnboarding(dragonName: "Legacy", dungeonName: "Populated Keep")
+            var populated = try await store.worldReadModel().snapshot
+            populated.residents = [CharacterState(id: "obsolete-kobold", name: "Old Fixture", role: "Keeper", identity: "Must not survive reset.", vitality: 50, bond: 50, conditions: [])]
+            try await store.installWorldFixture(populated, dungeonName: "Populated Keep", revision: 9)
+            _ = try await store.createGoal(GoalDraft(title: "Obsolete fixture goal"))
+        }
+
+        try HordeStore.resetStoreFiles(at: url)
+
+        let reset = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+        #expect(try await reset.prepareAppState() == false)
+        try await reset.completeOnboarding(dragonName: "Ember", dungeonName: "The Cinder Vault")
+        let world = try await reset.worldReadModel().snapshot
+        #expect(world.morale == 5)
+        #expect(world.integrity == 1)
+        #expect(world.food == 0)
+        #expect(world.residents.isEmpty)
+        #expect(world.facts.isEmpty)
+        #expect(world.activeThreads.isEmpty)
+        #expect(try await reset.occurrenceSummaries().isEmpty)
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let export = try decoder.decode(LocalDataExport.self, from: await reset.exportLocalData())
+        #expect(export.dataSchemaVersion == HordeSchemaV4.dataVersion)
+    }
+
     @Test func visualContractsEncodeDeterministicallyAndRoundTrip() throws {
         var world = WorldSnapshot.initial(dragonName: "Cinder", dungeonName: "Deep Vault")
         world.dragonVisual = DragonVisualState(stage: .greatWyrm, color: RGBColor(red: 17, green: 34, blue: 51))

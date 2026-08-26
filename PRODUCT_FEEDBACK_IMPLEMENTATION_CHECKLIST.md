@@ -46,7 +46,7 @@ Land data contracts and reset behavior before UI or art depends on them.
 - [x] 026 — [VC-09 — Persist non-regressing regular-use streak dragon growth (line 129)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L129)
 - [x] 027 — [VC-07 — Persist curated or custom dragon color selection (line 127)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L127)
 - [x] 028 — [RF-10 — Persist staged-resolution state and retain atomic final commit (line 104)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L104)
-- [ ] 029 — [QA-02 — Replace migration work with reliable development and test resets (line 179)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L179)
+- [x] 029 — [QA-02 — Replace migration work with reliable development and test resets (line 179)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L179)
 
 ## 3. Replace the consequence engine with the staged model workflow
 

@@ -34,7 +34,7 @@ enum PersistentJSON {
     var rollingSummary: String
     var worldData: Data
 
-    init(id: String = "primary", schemaVersion: Int = 3, revision: Int = 0, dungeonName: String = "The Cinder Vault", dragonName: String = "Ember", dragonColor: RGBColor = .ember, morale: Int = 5, integrity: Int = 1, food: Int = 0, rollingSummary: String? = nil) {
+    init(id: String = "primary", schemaVersion: Int = HordeSchemaV4.dataVersion, revision: Int = 0, dungeonName: String = "The Cinder Vault", dragonName: String = "Ember", dragonColor: RGBColor = .ember, morale: Int = 5, integrity: Int = 1, food: Int = 0, rollingSummary: String? = nil) {
         let world = WorldSnapshot.initial(dragonName: dragonName, dungeonName: dungeonName, dragonColor: dragonColor)
         self.id = id; self.schemaVersion = schemaVersion; self.revision = revision
         self.dungeonName = dungeonName; self.dragonName = dragonName
