@@ -1,0 +1,108 @@
+{
+  "contract": "contract.json",
+  "result": "pass",
+  "frames": {
+    "baby": {
+      "kobold-baby-idle-01.png": {
+        "sourceSHA256": "8496b7a0b3467f6814419623a9786acf2645a7207b5a50b8fb60e09bad42745f",
+        "outputs": {
+          "cinder-iron": "2519862932a1316b02f82889f81216c3776cf8772fd173a558ac892cbd8de06b",
+          "moss-gold": "fb4c829e7711286057e3032721f2e5e5bd296a2744f06290f4df4eeebd99c042",
+          "moon-plum": "53aaebf3203a1ea073fafceb75fde71018517a8ca17d79ce9e1db369bde312aa"
+        }
+      },
+      "kobold-baby-idle-02.png": {
+        "sourceSHA256": "828529cb9495fc65bf0488544b7d3dd2b40772095b55807ed63c046d99b62523",
+        "outputs": {
+          "cinder-iron": "ad2e7610c87b569c725a98ac202ffb7362be9a17ddd4fe9b23e826fbf7474851",
+          "moss-gold": "2594beb56ca487e2f2d46c836a0bbdd5bb48211e0f4d17d475b3330d2daf1547",
+          "moon-plum": "be2d5ca8c256a90988d1861882a4356f5adf6615ec023a6345773fa6b84ebf17"
+        }
+      },
+      "kobold-baby-idle-03.png": {
+        "sourceSHA256": "2b9277ee1ba37a83dbe4c5a33599077d34b36a407642732f6a86477db137a0b4",
+        "outputs": {
+          "cinder-iron": "eb549173f025788e4c54231b6e55652a581d226f4a0d65886fa3b66fb0b9572d",
+          "moss-gold": "63fce43816a35977708e092377f2a5373d00774befc9ac2fad9d14d049e59211",
+          "moon-plum": "1277127b5a333d72394540d01f909a9f44e08106127929d7ab2fe9ce03c620d1"
+        }
+      },
+      "kobold-baby-idle-04.png": {
+        "sourceSHA256": "79790c362c86bc3fa5953d38792dcbb720a76456c51e4cd25b9741dc7a74d92a",
+        "outputs": {
+          "cinder-iron": "970c56a54e558422da212ca2a72df23b14324def6e8cc5add6896ef616646843",
+          "moss-gold": "cb40d13ad7299438accbee7288796f636250e47747635e1ca28452aea6b854b7",
+          "moon-plum": "852b798318f880e585c476040c1af51fdb8a9fe5389b3d89118b3fd315079ca7"
+        }
+      }
+    },
+    "kid": {
+      "kobold-kid-idle-01.png": {
+        "sourceSHA256": "21377b029b15e3f740a2fe0c86477b7862cb595694c41cdc3fc7992149a3b6b9",
+        "outputs": {
+          "cinder-iron": "8b2de6e1d07212e871e44fa57e637f49036adb26685a53e954bf7eefc505b070",
+          "moss-gold": "9a172381d6b569b27128c399d2b87f603fb0e473ca420b481fc434654a67c683",
+          "moon-plum": "dde757362b1833a6cb502d52eda7335d6f55ef5682944981bf5c09d08bfc264d"
+        }
+      },
+      "kobold-kid-idle-02.png": {
+        "sourceSHA256": "7b43cc672acaa1093330a13b5ee9df1569c84d1155b4ae08728c29273dd8f3d5",
+        "outputs": {
+          "cinder-iron": "42a0675938211a84cf86a83d159b3e476b4cac2790f2699b123c80ac8ade87e4",
+          "moss-gold": "a03c633b4146d34ede3d743bd7ee7bba22631938240c97b00fb4c562d56788b8",
+          "moon-plum": "66e74409b2f6ac902bc28b77754e9ec407e0546aaa2473c6b8b56825f75ca130"
+        }
+      },
+      "kobold-kid-idle-03.png": {
+        "sourceSHA256": "b4eb145d262c368b1f04848831667ab2ec939bbba978d24463970af459a0a376",
+        "outputs": {
+          "cinder-iron": "12453bc9031666031a1bea770e3abd6c3f87814e71e76606369421c583af46cf",
+          "moss-gold": "17dfbb8768995dc24ea2693d8089be12d318f4b3c13fcf70028bb9e23348d54c",
+          "moon-plum": "8a877cbaf8069b790c97994ce2b53305da0601a92294e5e29e68a6190654bc0a"
+        }
+      },
+      "kobold-kid-idle-04.png": {
+        "sourceSHA256": "a466ddd78cda746bc203a25630da67a4b89df998a87a504a29eb57707e7c024c",
+        "outputs": {
+          "cinder-iron": "e54f2ab11da395048cf42dcdce0e31ddf82de910e999bd87bd924f0cd33c70ba",
+          "moss-gold": "769329dee467a82d7b12c18c691b7fe4aa2a7fb3b25588527915ed5e68feb54f",
+          "moon-plum": "c78c70fabdcc719c67b232e61fcf4e3d1f50137c802812caf2665da48606735a"
+        }
+      }
+    },
+    "adult": {
+      "kobold-adult-idle-01.png": {
+        "sourceSHA256": "cdb375cd8f4662b80202f416303d40987f6ba6e6488d495a54db462bcd9c7a0b",
+        "outputs": {
+          "cinder-iron": "79ec983918589bd98a75c4246ecce78928a07fce3334e5ad2f6b9771c1a56f6b",
+          "moss-gold": "82898efa088b2396d1881429e9539e17b901f485abf3765b7c40c42ad266f0b8",
+          "moon-plum": "c11b969386ee3d51faa572317fab7d5ee8ce969f7b8e9daa0e2988f2529d9795"
+        }
+      },
+      "kobold-adult-idle-02.png": {
+        "sourceSHA256": "48b541c7eb2c73f9f9da9df05a1b96c98cb4185859e4f67d2dbdea2011011167",
+        "outputs": {
+          "cinder-iron": "f48a4c75d883a8ee1130959aac960a32913336e416c90abb180c9121bedd77dc",
+          "moss-gold": "fe2d0ade87d458fed8e3cd13e48e78df128de6cff733682c014eefd4d6c337ae",
+          "moon-plum": "666c51e4938a2672acb09bde8dd9786e1439b2eebb29c614f6e0654bbe27f403"
+        }
+      },
+      "kobold-adult-idle-03.png": {
+        "sourceSHA256": "2d2a978f2f5dfdebf806c355f2ede6ea2f34e2dbfc942a4eb65ad509b9aee7c7",
+        "outputs": {
+          "cinder-iron": "bdf4fdb21cb5b5c7d0317a3f7c7f2922d71d9d301c8296752c8b484358e769b1",
+          "moss-gold": "7ea75292cbf15819b124fae92fdf031566cc8654464f4ae84a2892b1b3a55eca",
+          "moon-plum": "e750fbf07a386e94228e90c0823f020138dfda08a42c32c1a1b7900cb5205a53"
+        }
+      },
+      "kobold-adult-idle-04.png": {
+        "sourceSHA256": "9a1a024149f0ba3c64f5faa677f2a72cff01c7fcab0ac96551e75befbd7d7be8",
+        "outputs": {
+          "cinder-iron": "df2c988453e12aec4fd354dd23f8e084de7ab9351a38e81a28e93e21f745bce6",
+          "moss-gold": "37585884e78e8d64f60f40e1fb832aaa72dce1bb592491717b214b5be1297c10",
+          "moon-plum": "431a622f19e27098572b631a6e233ee254ad67c2a29646e9c8500f309c42b37e"
+        }
+      }
+    }
+  }
+}

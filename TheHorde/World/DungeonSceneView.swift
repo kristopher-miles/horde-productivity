@@ -163,17 +163,42 @@ enum DragonTextureRecolorer {
     nonisolated static func bodyPixel(_ source: RGBColor, color: RGBColor) -> RGBColor {
         guard color != .ember else { return source }
         return switch source {
-        case RGBColor(red: 107, green: 25, blue: 10): color.dragonShade(offset: -0.24)
-        case RGBColor(red: 163, green: 43, blue: 10): color.dragonShade(offset: -0.12)
-        case RGBColor(red: 217, green: 77, blue: 8): color.dragonShade(offset: 0)
-        case RGBColor(red: 242, green: 118, blue: 13): color.dragonShade(offset: 0.12)
-        case RGBColor(red: 255, green: 158, blue: 37): color.dragonShade(offset: 0.24)
+        case RGBColor(red: 107, green: 25, blue: 10): color.shade(offset: -0.24)
+        case RGBColor(red: 163, green: 43, blue: 10): color.shade(offset: -0.12)
+        case RGBColor(red: 217, green: 77, blue: 8): color.shade(offset: 0)
+        case RGBColor(red: 242, green: 118, blue: 13): color.shade(offset: 0.12)
+        case RGBColor(red: 255, green: 158, blue: 37): color.shade(offset: 0.24)
         default: source
         }
     }
 
     @MainActor static func texture(_ source: SKTexture, color: RGBColor) -> SKTexture {
         guard color != .ember else { return source }
+        return TextureRecolorer.texture(source) { bodyPixel($0, color: color) }
+    }
+}
+
+enum KoboldTextureRecolorer {
+    nonisolated static func pixel(_ source: RGBColor, palette: CharacterPalette) -> RGBColor {
+        switch source {
+        case RGBColor(red: 81, green: 36, blue: 15): palette.primary.shade(offset: -0.18)
+        case RGBColor(red: 117, green: 54, blue: 21): palette.primary.shade(offset: -0.06)
+        case RGBColor(red: 166, green: 83, blue: 31): palette.primary.shade(offset: 0.08)
+        case RGBColor(red: 208, green: 122, blue: 47): palette.primary.shade(offset: 0.22)
+        case RGBColor(red: 106, green: 85, blue: 70): palette.secondary.shade(offset: -0.12)
+        case RGBColor(red: 154, green: 122, blue: 91): palette.secondary.shade(offset: 0.04)
+        case RGBColor(red: 208, green: 181, blue: 138): palette.secondary.shade(offset: 0.20)
+        default: source
+        }
+    }
+
+    @MainActor static func texture(_ source: SKTexture, palette: CharacterPalette) -> SKTexture {
+        TextureRecolorer.texture(source) { pixel($0, palette: palette) }
+    }
+}
+
+private enum TextureRecolorer {
+    @MainActor static func texture(_ source: SKTexture, replacement: (RGBColor) -> RGBColor) -> SKTexture {
         let sourceImage = source.cgImage()
         let width = sourceImage.width
         let height = sourceImage.height
@@ -192,13 +217,10 @@ enum DragonTextureRecolorer {
             context.draw(sourceImage, in: CGRect(x: 0, y: 0, width: width, height: height))
             let channels = bytes.bindMemory(to: UInt8.self)
             for offset in stride(from: 0, to: channels.count, by: 4) where channels[offset + 3] == 255 {
-                let replacement = bodyPixel(
-                    RGBColor(red: channels[offset], green: channels[offset + 1], blue: channels[offset + 2]),
-                    color: color
-                )
-                channels[offset] = replacement.red
-                channels[offset + 1] = replacement.green
-                channels[offset + 2] = replacement.blue
+                let color = replacement(RGBColor(red: channels[offset], green: channels[offset + 1], blue: channels[offset + 2]))
+                channels[offset] = color.red
+                channels[offset + 1] = color.green
+                channels[offset + 2] = color.blue
             }
             return context.makeImage()
         }
@@ -207,7 +229,7 @@ enum DragonTextureRecolorer {
 }
 
 private extension RGBColor {
-    nonisolated func dragonShade(offset: Double) -> RGBColor {
+    nonisolated func shade(offset: Double) -> RGBColor {
         let components = [Double(red) / 255, Double(green) / 255, Double(blue) / 255]
         let maximum = components.max()!
         let minimum = components.min()!

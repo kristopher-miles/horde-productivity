@@ -24,7 +24,9 @@ import SwiftUI
 
     @ViewBuilder private var root: some View {
         #if DEBUG
-        if DragonStageFixtureView.isEnabled {
+        if KoboldPaletteFixtureView.isEnabled {
+            KoboldPaletteFixtureView()
+        } else if DragonStageFixtureView.isEnabled {
             DragonStageFixtureView()
         } else {
             RootView().environment(app)

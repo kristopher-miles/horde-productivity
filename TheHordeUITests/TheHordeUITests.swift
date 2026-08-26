@@ -1,6 +1,20 @@
 import XCTest
 
 final class TheHordeUITests: XCTestCase {
+    @MainActor func testThreeKoboldAgesExposeThreeRuntimeRecolorsEach() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["HORDE_KOBOLD_PALETTE_FIXTURE"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Kobold Palettes"].waitForExistence(timeout: 5))
+        for age in ["baby", "kid", "adult"] {
+            for palette in ["Cinder & Iron", "Moss & Gold", "Moon & Plum"] {
+                XCTAssertTrue(app.otherElements["KoboldPaletteFixture.\(age).\(palette)"].exists)
+            }
+        }
+        XCTAssertEqual(app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "KoboldPaletteFixture.")).count, 9)
+    }
+
     @MainActor func testFiveOrderedAnimatedDragonStageFixture() throws {
         let app = XCUIApplication()
         app.launchEnvironment["HORDE_DRAGON_STAGE_FIXTURE"] = "1"

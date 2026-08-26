@@ -206,6 +206,83 @@ struct Phase6QualificationTests {
         #expect(DungeonSceneView.koboldIdleFrameDuration == 0.2)
     }
 
+    @Test @MainActor func everyKoboldFrameSupportsThreeExactPaletteRecolors() throws {
+        let bodyRamp = [
+            RGBColor(red: 81, green: 36, blue: 15),
+            RGBColor(red: 117, green: 54, blue: 21),
+            RGBColor(red: 166, green: 83, blue: 31),
+            RGBColor(red: 208, green: 122, blue: 47)
+        ]
+        let tunicRamp = [
+            RGBColor(red: 106, green: 85, blue: 70),
+            RGBColor(red: 154, green: 122, blue: 91),
+            RGBColor(red: 208, green: 181, blue: 138)
+        ]
+        let mappedTones = Set(bodyRamp + tunicRamp)
+
+        for palette in KoboldPaletteFixtureView.palettes.map(\.colors) {
+            #expect(bodyRamp.allSatisfy { KoboldTextureRecolorer.pixel($0, palette: palette) != $0 })
+            #expect(tunicRamp.allSatisfy { KoboldTextureRecolorer.pixel($0, palette: palette) != $0 })
+            #expect(KoboldTextureRecolorer.pixel(RGBColor(red: 5, green: 4, blue: 11), palette: palette) == RGBColor(red: 5, green: 4, blue: 11))
+            #expect(KoboldTextureRecolorer.pixel(RGBColor(red: 255, green: 224, blue: 138), palette: palette) == RGBColor(red: 255, green: 224, blue: 138))
+        }
+
+        for age in KoboldAgeStage.allCases {
+            let atlas = SKTextureAtlas(named: DungeonSceneView.koboldIdleAtlasName(age: age))
+            for name in DungeonSceneView.koboldIdleFrameNames(age: age) {
+                let source = atlas.textureNamed(name)
+                let before = try rgbaBytes(of: source.cgImage())
+                var outputs: Set<[UInt8]> = []
+                for palette in KoboldPaletteFixtureView.palettes.map(\.colors) {
+                    let output = KoboldTextureRecolorer.texture(source, palette: palette)
+                    let after = try rgbaBytes(of: output.cgImage())
+                    outputs.insert(after)
+                    #expect(after.count == before.count)
+                    #expect(alphaBounds(in: after, width: 48) == alphaBounds(in: before, width: 48))
+
+                    var changedMappedTones: Set<RGBColor> = []
+                    for offset in stride(from: 0, to: before.count, by: 4) {
+                        let sourceColor = RGBColor(red: before[offset], green: before[offset + 1], blue: before[offset + 2])
+                        let outputColor = RGBColor(red: after[offset], green: after[offset + 1], blue: after[offset + 2])
+                        let expected = before[offset + 3] == 255
+                            ? KoboldTextureRecolorer.pixel(sourceColor, palette: palette)
+                            : sourceColor
+                        #expect(outputColor == expected)
+                        #expect(after[offset + 3] == before[offset + 3])
+                        if mappedTones.contains(sourceColor), before[offset + 3] == 255 {
+                            #expect(outputColor != sourceColor)
+                            changedMappedTones.insert(sourceColor)
+                        } else {
+                            #expect(outputColor == sourceColor)
+                        }
+                    }
+                    #expect(changedMappedTones == mappedTones)
+                }
+                #expect(outputs.count == 3)
+            }
+        }
+    }
+
+    @Test @MainActor func koboldPaletteFixtureKeepsNativeAnimationAndReducedMotionContracts() throws {
+        for age in KoboldAgeStage.allCases {
+            for palette in KoboldPaletteFixtureView.palettes.map(\.colors) {
+                let animated = KoboldPaletteScene(age: age, palette: palette, reduceMotion: false)
+                let kobold = try #require(animated.childNode(withName: "KoboldPalettePrototype") as? SKSpriteNode)
+                #expect(kobold.size == CGSize(width: 48, height: 64))
+                #expect(kobold.anchorPoint == CGPoint(x: 0.5, y: 0))
+                #expect(kobold.position == CGPoint(x: 24, y: 0))
+                #expect(kobold.texture?.filteringMode == .nearest)
+                #expect(kobold.action(forKey: "idle") != nil)
+
+                let reduced = KoboldPaletteScene(age: age, palette: palette, reduceMotion: true)
+                let still = try #require(reduced.childNode(withName: "KoboldPalettePrototype") as? SKSpriteNode)
+                #expect(still.texture?.filteringMode == .nearest)
+                #expect(still.action(forKey: "idle") == nil)
+            }
+        }
+        #expect(DungeonSceneView.koboldIdleFrameDuration == 0.2)
+    }
+
     @Test @MainActor func fiveOrderedDragonStagesRenderIncreasingAnchoredIdleLoops() throws {
         #expect(DragonStage.allCases.map(\.displayName) == ["Baby", "Adolescent", "Adult", "Elder", "Great Wyrm"])
         let sizes = DragonStage.allCases.map(DungeonSceneView.dragonFrameSize)
@@ -336,6 +413,23 @@ struct Phase6QualificationTests {
         }
         #expect(rendered)
         return pixels
+    }
+
+    private func alphaBounds(in pixels: [UInt8], width: Int) -> CGRect? {
+        let occupied = stride(from: 0, to: pixels.count, by: 4).compactMap { offset -> CGPoint? in
+            guard pixels[offset + 3] > 0 else { return nil }
+            let pixel = offset / 4
+            return CGPoint(x: pixel % width, y: pixel / width)
+        }
+        guard let first = occupied.first else { return nil }
+        let xs = occupied.map(\.x)
+        let ys = occupied.map(\.y)
+        return CGRect(
+            x: xs.min() ?? first.x,
+            y: ys.min() ?? first.y,
+            width: (xs.max() ?? first.x) - (xs.min() ?? first.x) + 1,
+            height: (ys.max() ?? first.y) - (ys.min() ?? first.y) + 1
+        )
     }
 
     @Test @MainActor func emberIdleHonorsReducedMotionAndAppInterruption() throws {

@@ -1,0 +1,28 @@
+{
+  "frameSize": { "width": 48, "height": 64 },
+  "frameCount": 4,
+  "durationMilliseconds": 200,
+  "anchor": { "x": 0.5, "y": 0.0 },
+  "reduceMotionFrame": 1,
+  "bodyRamp": [
+    { "source": [81, 36, 15], "offset": -0.18 },
+    { "source": [117, 54, 21], "offset": -0.06 },
+    { "source": [166, 83, 31], "offset": 0.08 },
+    { "source": [208, 122, 47], "offset": 0.22 }
+  ],
+  "tunicRamp": [
+    { "source": [106, 85, 70], "offset": -0.12 },
+    { "source": [154, 122, 91], "offset": 0.04 },
+    { "source": [208, 181, 138], "offset": 0.20 }
+  ],
+  "palettes": [
+    { "id": "cinder-iron", "label": "Cinder & Iron", "primary": [193, 67, 36], "secondary": [68, 91, 128] },
+    { "id": "moss-gold", "label": "Moss & Gold", "primary": [57, 134, 82], "secondary": [196, 149, 42] },
+    { "id": "moon-plum", "label": "Moon & Plum", "primary": [58, 107, 190], "secondary": [145, 69, 160] }
+  ],
+  "ages": [
+    { "id": "baby", "label": "Baby", "prefix": "kobold-baby-idle", "atlas": "TheHorde/Resources/KoboldBabyIdle.atlas", "normalized": "PrototypeArt/pilots/kobold-baby-idle/normalized" },
+    { "id": "kid", "label": "Kid", "prefix": "kobold-kid-idle", "atlas": "TheHorde/Resources/KoboldKidIdle.atlas", "normalized": "PrototypeArt/pilots/kobold-kid-idle/normalized" },
+    { "id": "adult", "label": "Adult", "prefix": "kobold-adult-idle", "atlas": "TheHorde/Resources/KoboldAdultIdle.atlas", "normalized": "PrototypeArt/pilots/kobold-adult-idle/normalized" }
+  ]
+}
