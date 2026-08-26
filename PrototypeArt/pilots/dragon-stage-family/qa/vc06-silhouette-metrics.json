@@ -1,0 +1,252 @@
+{
+  "Baby": [
+    {
+      "frame": "ember-idle-01.png",
+      "visibleBounds": [
+        4,
+        2,
+        92,
+        78
+      ],
+      "silhouetteWidth": 88,
+      "silhouetteHeight": 76,
+      "visiblePixelCount": 4295
+    },
+    {
+      "frame": "ember-idle-02.png",
+      "visibleBounds": [
+        3,
+        3,
+        92,
+        78
+      ],
+      "silhouetteWidth": 89,
+      "silhouetteHeight": 75,
+      "visiblePixelCount": 4396
+    },
+    {
+      "frame": "ember-idle-03.png",
+      "visibleBounds": [
+        4,
+        3,
+        92,
+        78
+      ],
+      "silhouetteWidth": 88,
+      "silhouetteHeight": 75,
+      "visiblePixelCount": 4333
+    },
+    {
+      "frame": "ember-idle-04.png",
+      "visibleBounds": [
+        4,
+        2,
+        92,
+        78
+      ],
+      "silhouetteWidth": 88,
+      "silhouetteHeight": 76,
+      "visiblePixelCount": 4393
+    }
+  ],
+  "Adolescent": [
+    {
+      "frame": "ember-adolescent-idle-01.png",
+      "visibleBounds": [
+        10,
+        5,
+        98,
+        88
+      ],
+      "silhouetteWidth": 88,
+      "silhouetteHeight": 83,
+      "visiblePixelCount": 4610
+    },
+    {
+      "frame": "ember-adolescent-idle-02.png",
+      "visibleBounds": [
+        8,
+        2,
+        99,
+        88
+      ],
+      "silhouetteWidth": 91,
+      "silhouetteHeight": 86,
+      "visiblePixelCount": 4683
+    },
+    {
+      "frame": "ember-adolescent-idle-03.png",
+      "visibleBounds": [
+        10,
+        6,
+        97,
+        88
+      ],
+      "silhouetteWidth": 87,
+      "silhouetteHeight": 82,
+      "visiblePixelCount": 4470
+    },
+    {
+      "frame": "ember-adolescent-idle-04.png",
+      "visibleBounds": [
+        10,
+        5,
+        97,
+        88
+      ],
+      "silhouetteWidth": 87,
+      "silhouetteHeight": 83,
+      "visiblePixelCount": 4497
+    }
+  ],
+  "Adult": [
+    {
+      "frame": "ember-adult-idle-01.png",
+      "visibleBounds": [
+        12,
+        2,
+        107,
+        98
+      ],
+      "silhouetteWidth": 95,
+      "silhouetteHeight": 96,
+      "visiblePixelCount": 6040
+    },
+    {
+      "frame": "ember-adult-idle-02.png",
+      "visibleBounds": [
+        11,
+        2,
+        108,
+        98
+      ],
+      "silhouetteWidth": 97,
+      "silhouetteHeight": 96,
+      "visiblePixelCount": 6322
+    },
+    {
+      "frame": "ember-adult-idle-03.png",
+      "visibleBounds": [
+        12,
+        2,
+        108,
+        98
+      ],
+      "silhouetteWidth": 96,
+      "silhouetteHeight": 96,
+      "visiblePixelCount": 6195
+    },
+    {
+      "frame": "ember-adult-idle-04.png",
+      "visibleBounds": [
+        12,
+        2,
+        108,
+        98
+      ],
+      "silhouetteWidth": 96,
+      "silhouetteHeight": 96,
+      "visiblePixelCount": 6142
+    }
+  ],
+  "Elder": [
+    {
+      "frame": "ember-elder-idle-01.png",
+      "visibleBounds": [
+        18,
+        2,
+        114,
+        108
+      ],
+      "silhouetteWidth": 96,
+      "silhouetteHeight": 106,
+      "visiblePixelCount": 6553
+    },
+    {
+      "frame": "ember-elder-idle-02.png",
+      "visibleBounds": [
+        18,
+        2,
+        114,
+        108
+      ],
+      "silhouetteWidth": 96,
+      "silhouetteHeight": 106,
+      "visiblePixelCount": 6622
+    },
+    {
+      "frame": "ember-elder-idle-03.png",
+      "visibleBounds": [
+        18,
+        2,
+        114,
+        108
+      ],
+      "silhouetteWidth": 96,
+      "silhouetteHeight": 106,
+      "visiblePixelCount": 6580
+    },
+    {
+      "frame": "ember-elder-idle-04.png",
+      "visibleBounds": [
+        18,
+        2,
+        114,
+        108
+      ],
+      "silhouetteWidth": 96,
+      "silhouetteHeight": 106,
+      "visiblePixelCount": 6593
+    }
+  ],
+  "Great Wyrm": [
+    {
+      "frame": "ember-great-wyrm-idle-01.png",
+      "visibleBounds": [
+        19,
+        3,
+        125,
+        118
+      ],
+      "silhouetteWidth": 106,
+      "silhouetteHeight": 115,
+      "visiblePixelCount": 7820
+    },
+    {
+      "frame": "ember-great-wyrm-idle-02.png",
+      "visibleBounds": [
+        19,
+        2,
+        125,
+        118
+      ],
+      "silhouetteWidth": 106,
+      "silhouetteHeight": 116,
+      "visiblePixelCount": 7973
+    },
+    {
+      "frame": "ember-great-wyrm-idle-03.png",
+      "visibleBounds": [
+        19,
+        3,
+        125,
+        118
+      ],
+      "silhouetteWidth": 106,
+      "silhouetteHeight": 115,
+      "visiblePixelCount": 7914
+    },
+    {
+      "frame": "ember-great-wyrm-idle-04.png",
+      "visibleBounds": [
+        19,
+        3,
+        125,
+        118
+      ],
+      "silhouetteWidth": 106,
+      "silhouetteHeight": 115,
+      "visiblePixelCount": 7844
+    }
+  ]
+}
