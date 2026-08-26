@@ -19,7 +19,7 @@ struct ConsequenceContractTests {
             let effort = ResolutionEffort(rating: rating, source: .modelEstimated)
             let descriptors = WorldContract.descriptors(for: valence, effort: effort, world: original)
             let scalarFields = Set(descriptors.filter { $0.kind == .integer }.map(\.fieldID))
-            #expect(Set(["world.morale", "world.integrity", "world.food"]).isSubset(of: scalarFields))
+            #expect(Set(["world.morale", "world.integrity", "world.food", "world.hoard"]).isSubset(of: scalarFields))
             #expect(descriptors.first { $0.fieldID == fieldID }?.maxDelta == abs(delta))
 
             let (updated, changes) = try WorldPatchValidator.applying(
@@ -36,6 +36,116 @@ struct ConsequenceContractTests {
             default: #expect(updated.morale == original.morale + delta)
             }
         }
+    }
+
+    @Test func hoardChangesOnlyWhenExplicitlySelectedWithinEffortAndDirectionBounds() throws {
+        var original = WorldSnapshot.initial()
+        original.morale = 50
+        original.hoard = 29
+        let effort = ResolutionEffort(rating: .one, source: .userSelected)
+        let positive = WorldContract.descriptors(for: .positive, effort: effort, world: original)
+        for rating in EffortRating.allCases {
+            let descriptors = WorldContract.descriptors(for: .positive, effort: ResolutionEffort(rating: rating, source: .modelEstimated), world: original)
+            #expect(descriptors.first { $0.fieldID == "world.hoard" }?.maxDelta == rating.rawValue * 4)
+        }
+
+        let nonWealthOutcome = try WorldPatchValidator.applying(
+            [.increment("world.morale", by: 4)],
+            to: original,
+            valence: .positive,
+            descriptors: positive
+        ).0
+        #expect(nonWealthOutcome.morale == 54)
+        #expect(nonWealthOutcome.hoard == 29)
+        #expect(nonWealthOutcome.backgroundStage == .two)
+
+        let wealthOutcome = try WorldPatchValidator.applying(
+            [.increment("world.hoard", by: 1)],
+            to: original,
+            valence: .positive,
+            descriptors: positive
+        ).0
+        #expect(wealthOutcome.hoard == 30)
+        #expect(wealthOutcome.backgroundStage == .three)
+        #expect(throws: WorldPatchError.deltaExceeded("world.hoard")) {
+            _ = try WorldPatchValidator.applying([.increment("world.hoard", by: 5)], to: original, valence: .positive, descriptors: positive)
+        }
+
+        let negative = WorldContract.descriptors(for: .negative, effort: effort, world: original)
+        let loss = try WorldPatchValidator.applying(
+            [.increment("world.hoard", by: -4)],
+            to: original,
+            valence: .negative,
+            descriptors: negative
+        ).0
+        #expect(loss.hoard == 25)
+        #expect(loss.backgroundStage == .two)
+        #expect(throws: WorldPatchError.deltaExceeded("world.hoard")) {
+            _ = try WorldPatchValidator.applying([.increment("world.hoard", by: 1)], to: original, valence: .negative, descriptors: negative)
+        }
+
+        let empty = WorldSnapshot.initial()
+        #expect(WorldContract.descriptors(for: .negative, effort: effort, world: empty).first { $0.fieldID == "world.hoard" }?.maxDelta == 0)
+        #expect(original.hoard == 29)
+    }
+
+    @Test func roomThresholdsFollowOnlyExplicitHoardMutations() throws {
+        for (before, after, expected) in [(9, 10, DungeonBackgroundStage.two), (29, 30, .three), (59, 60, .four), (99, 100, .five)] {
+            var world = WorldSnapshot.initial()
+            world.hoard = before
+            let descriptors = WorldContract.descriptors(
+                for: .positive,
+                effort: ResolutionEffort(rating: .one, source: .modelEstimated),
+                world: world
+            )
+            let updated = try WorldPatchValidator.applying(
+                [.increment("world.hoard", by: after - before)],
+                to: world,
+                valence: .positive,
+                descriptors: descriptors
+            ).0
+            #expect(updated.hoard == after)
+            #expect(updated.backgroundStage == expected)
+            #expect(world.backgroundStage.rawValue == expected.rawValue - 1)
+        }
+    }
+
+    @Test func committedSuccessPreservesHoardUnlessTheAcceptedActionSelectsWealth() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "TheHorde.store")
+        let store = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+        try await store.bootstrapForProof()
+
+        try await commitSuccess(
+            in: store,
+            title: "Chart the cavern vents",
+            acceptedAction: "Chart the cavern vents",
+            mutation: .increment("world.morale", by: 4),
+            effort: .one
+        )
+        var persisted = try await store.worldReadModel()
+        #expect(persisted.snapshot.morale == 9)
+        #expect(persisted.snapshot.hoard == 0)
+        #expect(persisted.snapshot.backgroundStage == .one)
+
+        try await commitSuccess(
+            in: store,
+            title: "Claim the silver cache",
+            acceptedAction: "Claim the silver cache for the Hoard",
+            mutation: .increment("world.hoard", by: 10),
+            effort: .three
+        )
+        persisted = try await store.worldReadModel()
+        #expect(persisted.snapshot.hoard == 10)
+        #expect(persisted.snapshot.backgroundStage == .two)
+
+        let reopened = HordeStore(modelContainer: try HordeStore.makeContainer(url: url))
+        let restored = try await reopened.worldReadModel()
+        #expect(restored.snapshot.hoard == 10)
+        #expect(restored.snapshot.backgroundStage == .two)
+        #expect(Set(try await reopened.chronicle().flatMap { $0.deltas.map(\.fieldID) }) == ["world.morale", "world.hoard"])
     }
 
     @Test func bothOutcomesExposeTheSameAuthorizedFieldsAndPreserveReplacementDirection() throws {
@@ -193,7 +303,9 @@ struct ConsequenceContractTests {
         var event = PendingStorySummary(id: "context", sourceTitle: "Secure the eastern gate", sourceEffort: .small, valence: .positive, status: .resolving, failureCode: nil, createdAt: .distantPast)
         event.effort = ResolutionEffort(rating: .three, source: .modelEstimated)
         event.acceptedAction = "Bind the gate with dragonfire"
-        let world = WorldReadModel(dungeonName: "The Vault", revision: 4, snapshot: .initial())
+        var snapshot = WorldSnapshot.initial()
+        snapshot.hoard = 37
+        let world = WorldReadModel(dungeonName: "The Vault", revision: 4, snapshot: snapshot)
         let descriptors = WorldContract.descriptors(for: .positive, effort: event.effort, world: world.snapshot)
         let projection = ProjectionBuilder.projection(event: event, world: world, descriptors: descriptors)
 
@@ -202,6 +314,47 @@ struct ConsequenceContractTests {
         #expect(projection.contains("world.morale"))
         #expect(projection.contains("world.integrity"))
         #expect(projection.contains("world.food"))
+        #expect(projection.contains("hoard=37"))
+        #expect(projection.contains("world.hoard"))
+    }
+
+    private func commitSuccess(
+        in store: HordeStore,
+        title: String,
+        acceptedAction: String,
+        mutation: WorldMutation,
+        effort rating: EffortRating
+    ) async throws {
+        let definitionID = try await store.createGoal(GoalDraft(title: title))
+        let occurrence = try #require(await store.definitionSummary(id: definitionID)?.history.first)
+        try await store.completeOccurrence(id: occurrence.id)
+        let eventID = occurrence.id + ":positive"
+        let (_, base) = try await store.claimEvent(eventID)
+        let effort = ResolutionEffort(rating: rating, source: .userSelected)
+        try await store.checkpointEffort(eventID: eventID, result: EffortEvaluationResult(effort: effort, comparisonHistoryIDs: [], promptVersion: nil))
+        var (world, deltas) = try WorldPatchValidator.applying(
+            [mutation],
+            to: base.snapshot,
+            valence: .positive,
+            descriptors: WorldContract.descriptors(for: .positive, effort: effort, world: base.snapshot)
+        )
+        let summary = "The accepted action changes the cavern."
+        world.rollingSummary = String((world.rollingSummary + " " + summary).suffix(600))
+        try await store.stageFinalResolution(
+            eventID: eventID,
+            expectedRevision: base.revision,
+            world: world,
+            mutations: [mutation],
+            deltas: deltas,
+            generatedTitle: title,
+            narration: summary,
+            summary: summary,
+            cue: .resourceChanges,
+            effort: effort,
+            acceptedAction: acceptedAction,
+            promptVersions: ResolutionPromptVersions()
+        )
+        _ = try await store.commitStagedResolution(eventID: eventID)
     }
 
     private func record(id: String, title: String, value: Int?, involved: [String] = []) -> GeneratedRecord {

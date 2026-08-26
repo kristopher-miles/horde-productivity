@@ -93,7 +93,7 @@ struct ModelPromptRegistryTests {
         ]
         let text = threatComponents.map { ModelPromptRegistry.text($0) }.joined(separator: " ")
 
-        #expect(HordeModelContract.promptVersion == 40)
+        #expect(HordeModelContract.promptVersion == 41)
         #expect(text.localizedCaseInsensitiveContains("consequential"))
         #expect(text.localizedCaseInsensitiveContains("epic-fantasy threat"))
         #expect(!text.localizedCaseInsensitiveContains("no threats"))

@@ -36,9 +36,9 @@ struct EffortModelOutput {
 }
 
 enum HordeModelContract {
-    static let promptVersion = 40
+    static let promptVersion = 41
     static let schemaVersion = 5
-    static let projectionVersion = 15
+    static let projectionVersion = 16
 
     static var instructions: String { ModelPromptRegistry.text(.legacySystemInstructions) }
 

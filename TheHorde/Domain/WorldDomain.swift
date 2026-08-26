@@ -253,7 +253,7 @@ enum WorldContract {
     static func descriptors(for valence: EventValence, effort: ResolutionEffort? = nil) -> [WorldMutationDescriptor] {
         let effortValue = effort?.value ?? EffortRating.one.rawValue
         let maxDelta = effortValue * 4
-        var result = ["world.morale", "world.integrity", "world.food"].map {
+        var result = ["world.morale", "world.integrity", "world.food", "world.hoard"].map {
             WorldMutationDescriptor(fieldID: $0, kind: .integer, operations: [.increment], range: 0...100, maxDelta: maxDelta, collectionCap: nil, description: ModelPromptRegistry.text(.legacyScalarDescriptor))
         }
         result += [
@@ -265,7 +265,7 @@ enum WorldContract {
     }
 
     static func descriptors(for valence: EventValence, effort: ResolutionEffort? = nil, world: WorldSnapshot) -> [WorldMutationDescriptor] {
-        let values = ["world.morale": world.morale, "world.integrity": world.integrity, "world.food": world.food]
+        let values = ["world.morale": world.morale, "world.integrity": world.integrity, "world.food": world.food, "world.hoard": world.hoard]
         let counts = ["world.abilities": world.abilities.count, "world.activeThreads": world.activeThreads.count, "world.facts": world.facts.count]
         return descriptors(for: valence, effort: effort).compactMap { descriptor in
             if descriptor.kind == .integer, let current = values[descriptor.fieldID], let range = descriptor.range {
@@ -327,10 +327,10 @@ enum WorldPatchValidator {
         guard mutation.operation == .increment, let value = mutation.integerValue, mutation.record == nil else { throw WorldPatchError.wrongValueType(mutation.fieldID) }
         guard abs(value) <= descriptor.maxDelta! else { throw WorldPatchError.deltaExceeded(mutation.fieldID) }
         let old: Int
-        switch mutation.fieldID { case "world.morale": old = world.morale; case "world.integrity": old = world.integrity; case "world.food": old = world.food; default: throw WorldPatchError.unknownField(mutation.fieldID) }
+        switch mutation.fieldID { case "world.morale": old = world.morale; case "world.integrity": old = world.integrity; case "world.food": old = world.food; case "world.hoard": old = world.hoard; default: throw WorldPatchError.unknownField(mutation.fieldID) }
         let new = old + value
         guard descriptor.range!.contains(new) else { throw WorldPatchError.outOfBounds(mutation.fieldID) }
-        switch mutation.fieldID { case "world.morale": world.morale = new; case "world.integrity": world.integrity = new; default: world.food = new }
+        switch mutation.fieldID { case "world.morale": world.morale = new; case "world.integrity": world.integrity = new; case "world.food": world.food = new; case "world.hoard": world.hoard = new; default: throw WorldPatchError.unknownField(mutation.fieldID) }
         deltas.append(WorldDelta(fieldID: mutation.fieldID, description: "\(mutation.fieldID.split(separator: ".").last!.capitalized): \(old) → \(new)"))
     }
 
@@ -539,6 +539,7 @@ enum ProjectionBuilder {
             "morale": String(world.snapshot.morale),
             "integrity": String(world.snapshot.integrity),
             "food": String(world.snapshot.food),
+            "hoard": String(world.snapshot.hoard),
             "residents": residents,
             "locations": locations,
             "referenceIDs": referenceIDs,
