@@ -27,7 +27,7 @@ struct DungeonView: View {
                         ForEach(world.snapshot.abilities) { ability in NavigationLink { WorldEntityDetail(title: ability.name, subtitle: "Ability • Rank \(ability.rank)", body: ability.summary) } label: { Label { VStack(alignment: .leading) { Text(ability.name).font(.headline); Text("Rank \(ability.rank) • \(ability.summary)").font(.subheadline) } } icon: { Image(systemName: "sparkles") }.hordeCard() }.buttonStyle(.plain) }
                     }
                     Text("Places & Facts").font(.title2.bold())
-                    ForEach(world.snapshot.locations) { location in NavigationLink { WorldEntityDetail(title: location.name, subtitle: location.status, body: location.summary) } label: { Label(location.name, systemImage: "mappin.and.ellipse").frame(maxWidth: .infinity, alignment: .leading).hordeCard() }.buttonStyle(.plain) }
+                    ForEach(world.snapshot.locations) { location in NavigationLink { WorldEntityDetail(title: location.name, subtitle: location.status, body: location.summary) } label: { Label { VStack(alignment: .leading) { Text(location.name); Text(location.status).font(.caption).foregroundStyle(.secondary) } } icon: { Image(systemName: "mappin.and.ellipse") }.frame(maxWidth: .infinity, alignment: .leading).hordeCard() }.buttonStyle(.plain) }
                     ForEach(world.snapshot.facts.suffix(4)) { fact in NavigationLink { WorldEntityDetail(title: fact.title, subtitle: "Persistent fact", body: fact.summary) } label: { Label(fact.title, systemImage: "scroll").frame(maxWidth: .infinity, alignment: .leading).hordeCard() }.buttonStyle(.plain) }
                 }.padding(DesignTokens.margin)
             } else { ProgressView("Loading dungeon").padding() }

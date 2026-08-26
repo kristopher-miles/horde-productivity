@@ -95,12 +95,12 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
 
     static func initial(dragonName: String = "Ember", dungeonName: String = "The Cinder Vault") -> WorldSnapshot {
         WorldSnapshot(
-            dragon: CharacterState(id: "dragon", name: dragonName, role: "Young dragon", identity: "A thoughtful ember-scaled dragon learning to care for a small underground home.", vitality: 50, bond: 50, conditions: []),
+            dragon: CharacterState(id: "dragon", name: dragonName, role: "Young dragon", identity: "A thoughtful ember-scaled dragon alone in an untamed cavern.", vitality: 50, bond: 50, conditions: []),
             dragonVisual: DragonVisualState(stage: .baby, color: .ember),
             residents: [],
             backgroundStage: .one,
             morale: 5, integrity: 1, food: 0,
-            locations: [LocationState(id: "empty-cavern", name: "Empty Cavern", status: "Empty", summary: "An empty cavern extends into the rock.")],
+            locations: [LocationState(id: "empty-cavern", name: "Empty Cavern", status: "Untamed", summary: "A dirty, cold, empty, and unruly cavern where unstable stone and dark passages make every step dangerous.")],
             abilities: [],
             activeThreads: [],
             facts: [],
@@ -350,6 +350,11 @@ enum ProjectionBuilder {
                 "id": $0.id, "name": $0.name, "role": $0.role
             ])
         }.joined(separator: "; ")
+        let locations = world.snapshot.locations.map {
+            ModelPromptRegistry.render(.legacyLocationTemplate, [
+                "id": $0.id, "name": $0.name, "status": $0.status, "summary": $0.summary
+            ])
+        }.joined(separator: "; ")
         let sourceTitle = String(event.sourceTitle.prefix(compact ? 160 : 240))
         let sourceNotes = String(event.sourceNotes.prefix(compact ? 160 : 400))
         let referenceIDs = ([world.snapshot.dragon.id] + world.snapshot.residents.map(\.id) + world.snapshot.locations.map(\.id)).joined(separator: ",")
@@ -397,6 +402,7 @@ enum ProjectionBuilder {
             "integrity": String(world.snapshot.integrity),
             "food": String(world.snapshot.food),
             "residents": residents,
+            "locations": locations,
             "referenceIDs": referenceIDs,
             "recordIDs": recordIDs,
             "activeThread": thread.map {

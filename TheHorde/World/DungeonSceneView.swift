@@ -26,13 +26,17 @@ struct DungeonSceneView: View {
             .background(DesignTokens.dungeon)
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.radius))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(accessibilityDescription ?? sceneDescription)
+            .accessibilityLabel(accessibilityDescription ?? Self.sceneDescription(for: world))
             .accessibilityIdentifier("DungeonScene.\(Self.assetName(world: world, cue: cue))")
     }
 
-    private var sceneDescription: String {
+    nonisolated static func sceneDescription(for world: WorldReadModel) -> String {
         let thread = world.snapshot.activeThreads.first
-        return "\(world.dungeonName). \(world.snapshot.dragon.name) and \(world.snapshot.residents.count) kobolds are gathered in a warm stone room. Morale \(world.snapshot.morale), integrity \(world.snapshot.integrity), food \(world.snapshot.food). \(thread.map { "Active concern: \($0.title), severity \($0.severity)." } ?? "There is no active concern.")"
+        let population = world.snapshot.residents.isEmpty
+            ? "\(world.snapshot.dragon.name) is alone"
+            : "\(world.snapshot.dragon.name) and \(world.snapshot.residents.count) kobolds are gathered"
+        let place = world.snapshot.locations.first.map { "in \($0.name). \($0.status). \($0.summary)" } ?? "in an unmapped cavern."
+        return "\(world.dungeonName). \(population) \(place) Morale \(world.snapshot.morale), integrity \(world.snapshot.integrity), food \(world.snapshot.food). \(thread.map { "Active concern: \($0.title), severity \($0.severity)." } ?? "There is no active concern.")"
     }
 
     nonisolated static func assetName(world: WorldReadModel, cue: AnimationCue) -> String {

@@ -88,6 +88,7 @@ enum ModelPromptComponentID: String, CaseIterable, Codable, Sendable {
     case legacyDescriptorCollectionCapTemplate = "legacy.descriptor.collection-cap-template"
     case legacyResidentCompactTemplate = "legacy.context.resident-compact-template"
     case legacyResidentFullTemplate = "legacy.context.resident-full-template"
+    case legacyLocationTemplate = "legacy.context.location-template"
     case legacyRecordIDsTemplate = "legacy.context.record-ids-template"
     case legacyActiveThreadCompactTemplate = "legacy.context.active-thread-compact-template"
     case legacyActiveThreadFullTemplate = "legacy.context.active-thread-full-template"
@@ -189,7 +190,7 @@ private extension ModelPromptComponentID {
              .legacyProjectionTemplate, .legacyDescriptorTemplate, .legacyScalarDescriptor, .legacyAbilityDescriptor,
              .legacyDescriptorRangeTemplate, .legacyDescriptorMaxDeltaTemplate, .legacyDescriptorLegalStrengthTemplate,
              .legacyDescriptorCollectionCapTemplate,
-             .legacyResidentCompactTemplate, .legacyResidentFullTemplate, .legacyRecordIDsTemplate,
+             .legacyResidentCompactTemplate, .legacyResidentFullTemplate, .legacyLocationTemplate, .legacyRecordIDsTemplate,
              .legacyActiveThreadCompactTemplate, .legacyActiveThreadFullTemplate, .legacyMissingValue,
              .legacyFactDescriptor, .legacyThreadDescriptor, .legacyDirectionalBoundary, .legacyDirectionalInterval,
              .legacyAppendOrReplace, .legacyReplaceOnly, .legacyAppendOnly:
@@ -279,6 +280,7 @@ private extension ModelPromptComponentID {
             SOURCE CONTEXT category={{category}} effort={{effort}} due={{due}} includesTime={{includesTime}} timeZone={{timeZone}}
             WORLD dungeon={{dungeonName}} dragon={{dragonName}} morale={{morale}} integrity={{integrity}} food={{food}}
             RESIDENTS {{residents}}
+            LOCATIONS {{locations}}
             ALLOWED ENTITY REFERENCES {{referenceIDs}}
             EXISTING RECORD IDS {{recordIDs}}
             ACTIVE THREAD {{activeThread}}
@@ -302,6 +304,8 @@ private extension ModelPromptComponentID {
             "{{id}}={{name}}"
         case .legacyResidentFullTemplate:
             "{{id}}={{name}}, {{role}}"
+        case .legacyLocationTemplate:
+            "{{id}}={{name}}, {{status}}, {{summary}}"
         case .legacyRecordIDsTemplate:
             "abilities={{abilities}}; activeThreads={{activeThreads}}; facts={{facts}}"
         case .legacyActiveThreadCompactTemplate:

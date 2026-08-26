@@ -119,6 +119,25 @@ struct ProductExperienceTests {
         #expect(try upperBound("world.food") - world.food == 100)
     }
 
+    @Test func startingLairIsUntamedInPersistenceModelContextAndAccessibility() throws {
+        let world = WorldSnapshot.initial(dragonName: "Cinder")
+        let location = try #require(world.locations.first)
+        let event = PendingStorySummary(id: "starting-lair", sourceTitle: "Survey the cavern", valence: .positive, status: .pending, failureCode: nil, createdAt: .distantPast)
+        let readModel = WorldReadModel(dungeonName: "The Cinder Vault", revision: 0, snapshot: world)
+        let projection = ProjectionBuilder.projection(event: event, world: readModel, descriptors: WorldContract.descriptors(for: .positive, world: world))
+        let sceneDescription = DungeonSceneView.sceneDescription(for: readModel)
+        let presentations = [location.summary, projection, sceneDescription, OnboardingView.startingCavernAccessibilityLabel]
+
+        #expect(location.status == "Untamed")
+        #expect(world.rollingSummary == Self.cinderOrigin)
+        for trait in ["dirty", "cold", "empty", "unruly", "dangerous"] {
+            #expect(presentations.allSatisfy { $0.localizedCaseInsensitiveContains(trait) })
+        }
+        for contradiction in ["tidy", "calm", "warm", "comfortable", "safe", "cared for"] {
+            #expect(presentations.allSatisfy { !$0.localizedCaseInsensitiveContains(contradiction) })
+        }
+    }
+
     @Test func exportCleanupDoesNotDependOnLiveViewState() throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

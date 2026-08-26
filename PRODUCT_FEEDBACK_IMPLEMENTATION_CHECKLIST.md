@@ -36,7 +36,7 @@ Land data contracts and reset behavior before UI or art depends on them.
 - [x] 016 — [AP-01 — Initialize Morale 5, Integrity 1, and Food 0 (line 37)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L37)
 - [x] 017 — [AP-02 — Keep only the Empty Cavern root location in the empty starting world (line 38)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L38)
 - [x] 018 — [AP-03 — Store the exact young-dragon origin narrative (line 39)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L39)
-- [ ] 019 — [AP-04 — Define the starting lair as dirty, cold, empty, unruly, and dangerous (line 40)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L40)
+- [x] 019 — [AP-04 — Define the starting lair as dirty, cold, empty, unruly, and dangerous (line 40)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L40)
 - [ ] 020 — [AP-05 — Remove the seeded harmless draft and padded threat default (line 41)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L41)
 - [ ] 021 — [AP-06 — Align the starting character record with a young Baby dragon (line 42)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L42)
 - [ ] 022 — [NPC-01 — Enforce zero kobolds on new and reset saves (line 138)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L138)

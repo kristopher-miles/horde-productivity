@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct OnboardingView: View {
+    nonisolated static let startingCavernAccessibilityLabel = "A small dragon rests alone in a dirty, cold, empty, unruly, and dangerous cavern."
     @Environment(AppModel.self) private var app
     @AppStorage("onboardingStep") private var step = 0
     @State private var dragonName = "Ember"
@@ -41,7 +42,7 @@ struct OnboardingView: View {
             .aspectRatio(16 / 9, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 24))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Ember, a small dragon, rests alone in an empty cavern.")
+        .accessibilityLabel(Self.startingCavernAccessibilityLabel)
     }
 
     private func finish() {

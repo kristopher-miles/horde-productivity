@@ -1,9 +1,9 @@
 import Foundation
 
 enum HordeModelContract {
-    static let promptVersion = 34
+    static let promptVersion = 35
     static let schemaVersion = 5
-    static let projectionVersion = 11
+    static let projectionVersion = 12
 
     static var instructions: String { ModelPromptRegistry.text(.legacySystemInstructions) }
 
@@ -12,7 +12,7 @@ enum HordeModelContract {
         .legacyNegativeOutcomeRule, .legacyTaskInstructions, .legacyCorrection, .legacyUnknownRejection,
         .legacyProjectionTemplate, .legacyDescriptorTemplate, .legacyDescriptorRangeTemplate,
         .legacyDescriptorMaxDeltaTemplate, .legacyDescriptorLegalStrengthTemplate, .legacyDescriptorCollectionCapTemplate,
-        .legacyResidentCompactTemplate, .legacyResidentFullTemplate, .legacyRecordIDsTemplate,
+        .legacyResidentCompactTemplate, .legacyResidentFullTemplate, .legacyLocationTemplate, .legacyRecordIDsTemplate,
         .legacyActiveThreadCompactTemplate, .legacyActiveThreadFullTemplate, .legacyMissingValue,
         .legacyScalarDescriptor,
         .legacyAbilityDescriptor, .legacyFactDescriptor, .legacyThreadDescriptor,
