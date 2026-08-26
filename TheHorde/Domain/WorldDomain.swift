@@ -93,18 +93,14 @@ struct WorldSnapshot: Codable, Equatable, Sendable {
         WorldSnapshot(
             dragon: CharacterState(id: "dragon", name: dragonName, role: "Young dragon", identity: "A thoughtful ember-scaled dragon learning to care for a small underground home.", vitality: 50, bond: 50, conditions: []),
             dragonVisual: DragonVisualState(stage: .baby, color: .ember),
-            residents: [
-                CharacterState(id: "kobold-pip", name: "Pip", role: "Lantern keeper", identity: "Practical, bright-eyed, and fond of careful lists.", vitality: 50, bond: 45, conditions: []),
-                CharacterState(id: "kobold-moss", name: "Moss", role: "Mushroom tender", identity: "Patient and quietly inventive.", vitality: 52, bond: 45, conditions: []),
-                CharacterState(id: "kobold-rill", name: "Rill", role: "Stone mender", identity: "Steady-handed, curious, and impossible to hurry.", vitality: 55, bond: 45, conditions: [])
-            ],
+            residents: [],
             backgroundStage: .one,
             morale: 5, integrity: 1, food: 0,
-            locations: [LocationState(id: "great-room", name: dungeonName, status: "Quiet", summary: "Warm lanterns pool around a broad stone hearth."), LocationState(id: "mushroom-gallery", name: "Mushroom Gallery", status: "Growing", summary: "Pale caps rise from tidy beds.")],
+            locations: [LocationState(id: "empty-cavern", name: "Empty Cavern", status: "Empty", summary: "An empty cavern extends into the rock.")],
             abilities: [],
-            activeThreads: [ActiveThreadState(id: "drafty-passage", title: "A Draft in the West Passage", severity: 1, state: "active", involvedEntityIDs: ["kobold-rill"], summary: "A harmless cold draft hints at a loose stone waiting for attention.")],
-            facts: [WorldFact(id: "home-begins", title: "A Small Home", summary: "Ember and the kobolds have chosen the vault as their shared home.")],
-            rollingSummary: "Ember and three kobolds are making a calm home in the Cinder Vault. A loose stone causes a mild draft."
+            activeThreads: [],
+            facts: [],
+            rollingSummary: "\(dragonName) stands alone in an empty cavern."
         )
     }
 }

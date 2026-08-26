@@ -118,7 +118,8 @@ struct Phase6QualificationTests {
     }
 
     @Test func stagerRejectsInvalidCallWithoutContaminatingReceipt() async throws {
-        let world = WorldSnapshot.initial()
+        var world = WorldSnapshot.initial()
+        world.activeThreads = [ActiveThreadState(id: "existing-thread", title: "Existing", severity: 1, state: "active", involvedEntityIDs: ["dragon"], summary: "Existing thread.")]
         let descriptors = WorldContract.descriptors(for: .negative, world: world)
         let stager = PatchStager(world: world, valence: .negative, descriptors: descriptors)
         let invalid = StageMutationArguments(fieldID: "world.activeThreads", operation: "replace", integerValue: 0, recordID: "new-thread", recordTitle: "New", recordSummary: "Must not stage.", severityOrRank: 1, involvedEntityIDs: ["dragon"])
@@ -195,7 +196,7 @@ struct Phase6QualificationTests {
 
         let initial = WorldContract.descriptors(for: .positive, world: .initial())
         #expect(initial.first { $0.fieldID == "world.abilities" }?.operations == [.append])
-        #expect(initial.first { $0.fieldID == "world.activeThreads" }?.operations == [.append, .replace])
+        #expect(initial.first { $0.fieldID == "world.activeThreads" }?.operations == [.append])
     }
 
     @Test func existingCollectionsPermitUpdatesBeforeTheyAreFullAndUseFullRanges() async throws {

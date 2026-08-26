@@ -41,7 +41,7 @@ struct OnboardingView: View {
             .aspectRatio(16 / 9, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 24))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Ember, a small dragon, rests beside three kobolds in a warm stone room.")
+        .accessibilityLabel("Ember, a small dragon, rests alone in an empty cavern.")
     }
 
     private func finish() {

@@ -26,6 +26,7 @@ struct ProductExperienceTests {
         #expect(first.snapshot.morale == 5)
         #expect(first.snapshot.integrity == 1)
         #expect(first.snapshot.food == 0)
+        assertEmptyStartingWorld(first.snapshot)
         try await store.completeOnboarding(dragonName: "Overwrite", dungeonName: "Overwrite")
         let second = try await store.worldReadModel()
         #expect(second.snapshot.dragon.name == "Cinder")
@@ -62,6 +63,7 @@ struct ProductExperienceTests {
         #expect(world.morale == 5)
         #expect(world.integrity == 1)
         #expect(world.food == 0)
+        assertEmptyStartingWorld(world)
     }
 
     @Test func deleteAllReturnsToFirstRunWithNoDomainRecords() async throws {
@@ -80,6 +82,10 @@ struct ProductExperienceTests {
         #expect(save.morale == 5)
         #expect(save.integrity == 1)
         #expect(save.food == 0)
+        #expect(!save.rollingSummary.localizedCaseInsensitiveContains("kobold"))
+        let world = try? PersistentJSON.decode(WorldSnapshot.self, from: save.worldData)
+        #expect(world != nil)
+        if let world { assertEmptyStartingWorld(world) }
     }
 
     @Test func initialStatsRetainTheirFullUpwardProgressionRange() throws {
@@ -114,5 +120,16 @@ struct ProductExperienceTests {
         _ = try await store.prepareAppState()
         try await store.completeOnboarding(dragonName: "Ember", dungeonName: "The Cinder Vault")
         return store
+    }
+
+    private func assertEmptyStartingWorld(_ world: WorldSnapshot, sourceLocation: SourceLocation = #_sourceLocation) {
+        #expect(world.locations.count == 1, sourceLocation: sourceLocation)
+        #expect(world.locations.first?.id == "empty-cavern", sourceLocation: sourceLocation)
+        #expect(world.locations.first?.name == "Empty Cavern", sourceLocation: sourceLocation)
+        #expect(world.residents.isEmpty, sourceLocation: sourceLocation)
+        #expect(world.abilities.isEmpty, sourceLocation: sourceLocation)
+        #expect(world.facts.isEmpty, sourceLocation: sourceLocation)
+        #expect(world.activeThreads.isEmpty, sourceLocation: sourceLocation)
+        #expect(!world.rollingSummary.localizedCaseInsensitiveContains("kobold"), sourceLocation: sourceLocation)
     }
 }
