@@ -86,6 +86,74 @@ struct ActionSuggestionModelOutput {
     var action: String
 }
 
+enum CustomActionModelContract {
+    static let promptVersion = 42
+
+    static var instructions: String { ModelPromptRegistry.text(.customActionSystemInstructions) }
+
+    static var schema: GenerationSchema {
+        GenerationSchema(type: CustomActionModelOutput.self, properties: [
+            .init(
+                name: "action",
+                description: ModelPromptRegistry.text(.customActionOutputGuide),
+                type: String.self
+            ),
+            .init(
+                name: "useGoalFallback",
+                description: ModelPromptRegistry.text(.customActionFallback),
+                type: Bool.self
+            )
+        ])
+    }
+
+    static func prompt(
+        event: PendingStorySummary,
+        world: WorldReadModel,
+        customAction: String,
+        fallbackAction: String
+    ) -> String {
+        let goal = [event.sourceTitle, event.sourceNotes].filter { !$0.isEmpty }.joined(separator: "\n")
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let worldJSON = (try? encoder.encode(world)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+        return ModelPromptRegistry.render(.customActionRequestTemplate, [
+            "goalContext": ModelPromptRegistry.render(.sharedGoalContext, ["goal": goal]),
+            "effort": String(event.effort?.value ?? 0),
+            "worldContext": ModelPromptRegistry.render(.sharedWorldContext, [
+                "world": "<world-data>\(ModelPromptRegistry.data(worldJSON))</world-data>"
+            ]),
+            "fallbackAction": fallbackAction,
+            "customAction": customAction
+        ])
+    }
+
+    static func validatedAction(_ raw: String) throws -> String {
+        do { return try ActionSuggestionModelContract.validatedAction(raw) }
+        catch { throw ModelClientError.invalidCustomAction }
+    }
+
+    static func requiresGoalFallback(_ customAction: String) -> Bool {
+        let text = customAction.lowercased()
+        let authorityPhrases = [
+            "ignore previous", "ignore all", "system prompt", "developer instruction",
+            "assistant:", "developer:", "system:", "tool:", "<system", "<tool"
+        ]
+        let words = Set(text.split(whereSeparator: { !$0.isLetter }).map(String.init))
+        let disallowedWords: Set<String> = [
+            "nsfw", "porn", "pornographic", "sexual", "sexually", "nude", "naked", "rape"
+        ]
+        return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || authorityPhrases.contains(where: text.contains)
+            || !words.isDisjoint(with: disallowedWords)
+    }
+}
+
+@Generable
+struct CustomActionModelOutput {
+    var action: String
+    var useGoalFallback: Bool
+}
+
 enum HordeModelContract {
     static let promptVersion = 44
     static let schemaVersion = 6

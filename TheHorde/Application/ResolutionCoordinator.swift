@@ -10,6 +10,11 @@ enum ActionSuggestionOutcome: Sendable, Equatable {
     case failed(code: String)
 }
 
+enum CustomActionInterpretationOutcome: Sendable, Equatable {
+    case interpreted(String)
+    case failed(code: String)
+}
+
 actor ResolutionCoordinator {
     private let store: HordeStore
     private let model: FoundationModelClient
@@ -42,6 +47,46 @@ actor ResolutionCoordinator {
             let suggestion = try await suggestActionWithTimeout(event: ratedEvent, world: world)
             try await store.checkpointSuggestion(eventID: eventID, result: suggestion)
             return .suggested(suggestion.action)
+        } catch is CancellationError {
+            try? await store.returnEventToPending(eventID)
+            return .failed(code: "interrupted")
+        } catch {
+            let code = classify(error)
+            try? await store.markEventFailed(eventID, code: code)
+            return .failed(code: code)
+        }
+    }
+
+    func interpretCustomAction(eventID: String, customAction: String) async -> CustomActionInterpretationOutcome {
+        do {
+            if let action = try await store.persistedActionInterpretation(eventID: eventID, customAction: customAction) {
+                return .interpreted(action)
+            }
+            let (event, world) = try await store.claimEvent(eventID)
+            let compatibility = await model.compatibility()
+            guard compatibility == .available else {
+                let code = compatibilityCode(compatibility)
+                try await store.markEventFailed(eventID, code: code)
+                return .failed(code: code)
+            }
+            guard let state = event.resolutionState,
+                  state.stage == .actionSuggestion || state.stage == .customActionEntry,
+                  let effort = state.effort,
+                  let fallbackAction = state.suggestedAction,
+                  state.customAction == nil || state.customAction == customAction else {
+                throw StoreError.invalidResolutionState
+            }
+            try await store.checkpointCustomActionEntry(eventID: eventID, customAction: customAction)
+            var ratedEvent = event
+            ratedEvent.effort = effort
+            let result = try await interpretCustomActionWithTimeout(
+                event: ratedEvent,
+                world: world,
+                customAction: customAction,
+                fallbackAction: fallbackAction
+            )
+            try await store.checkpointInterpretation(eventID: eventID, result: result)
+            return .interpreted(result.action)
         } catch is CancellationError {
             try? await store.returnEventToPending(eventID)
             return .failed(code: "interrupted")
@@ -141,6 +186,31 @@ actor ResolutionCoordinator {
     private func suggestActionWithTimeout(event: PendingStorySummary, world: WorldReadModel) async throws -> ActionSuggestionResult {
         try await withThrowingTaskGroup(of: ActionSuggestionResult.self) { group in
             group.addTask { try await self.model.suggestAction(event: event, world: world) }
+            group.addTask {
+                try await Task.sleep(for: .seconds(60))
+                throw ModelClientError.timeout
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private func interpretCustomActionWithTimeout(
+        event: PendingStorySummary,
+        world: WorldReadModel,
+        customAction: String,
+        fallbackAction: String
+    ) async throws -> CustomActionInterpretationResult {
+        try await withThrowingTaskGroup(of: CustomActionInterpretationResult.self) { group in
+            group.addTask {
+                try await self.model.interpretCustomAction(
+                    event: event,
+                    world: world,
+                    customAction: customAction,
+                    fallbackAction: fallbackAction
+                )
+            }
             group.addTask {
                 try await Task.sleep(for: .seconds(60))
                 throw ModelClientError.timeout

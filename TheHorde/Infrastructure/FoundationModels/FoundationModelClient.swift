@@ -51,6 +51,16 @@ struct ActionSuggestionResult: Equatable, Sendable {
     let promptVersion: Int
 }
 
+struct CustomActionInterpretationResult: Equatable, Sendable {
+    let action: String
+    let promptVersion: Int
+}
+
+struct CustomActionModelResponse: Equatable, Sendable {
+    let action: String
+    let useGoalFallback: Bool
+}
+
 enum ModelSampling: Codable, Equatable, Sendable {
     case productionDefault
     case greedy
@@ -313,6 +323,7 @@ actor FoundationModelClient {
     private let effortResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> Int)?
     private let effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)?
     private let suggestionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)?
+    private let customActionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> CustomActionModelResponse)?
     private let compatibilityOverride: CompatibilityState?
 
     init(
@@ -323,6 +334,7 @@ actor FoundationModelClient {
         effortResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> Int)? = nil,
         effortContextFitOverride: (@Sendable (_ history: [AttemptedGoalContext]) async -> Bool)? = nil,
         suggestionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> String)? = nil,
+        customActionResponseOverride: (@Sendable (_ instructions: String, _ prompt: String) async throws -> CustomActionModelResponse)? = nil,
         compatibilityOverride: CompatibilityState? = nil
     ) {
         self.diagnosticsSink = diagnosticsSink
@@ -332,6 +344,7 @@ actor FoundationModelClient {
         self.effortResponseOverride = effortResponseOverride
         self.effortContextFitOverride = effortContextFitOverride
         self.suggestionResponseOverride = suggestionResponseOverride
+        self.customActionResponseOverride = customActionResponseOverride
         self.compatibilityOverride = compatibilityOverride
     }
 
@@ -501,6 +514,93 @@ actor FoundationModelClient {
                 eventID: event.id,
                 goalTitle: event.sourceTitle,
                 stage: .actionSuggestion,
+                attempt: 1,
+                outcome: .failed,
+                instructionsText: instructions,
+                promptText: prompt,
+                requestText: requestText,
+                responseText: responseText,
+                responseMaterial: responseMaterial,
+                attemptTranscript: attemptTranscript,
+                errorText: String(reflecting: error)
+            ))
+            throw error
+        }
+    }
+
+    func interpretCustomAction(
+        event: PendingStorySummary,
+        world: WorldReadModel,
+        customAction: String,
+        fallbackAction: String
+    ) async throws -> CustomActionInterpretationResult {
+        guard event.effort != nil else { throw ModelClientError.missingEffort }
+        let fallback = try CustomActionModelContract.validatedAction(fallbackAction)
+        let instructions = CustomActionModelContract.instructions
+        let prompt = CustomActionModelContract.prompt(
+            event: event,
+            world: world,
+            customAction: customAction,
+            fallbackAction: fallback
+        )
+        let options = defaultSampling.generationOptions
+        let requestText = Self.fullRequestText(
+            instructions: instructions,
+            prompt: prompt,
+            schema: CustomActionModelContract.schema,
+            options: options
+        )
+        var responseText: String?
+        var responseMaterial: String?
+        var attemptTranscript: String?
+
+        do {
+            let response: CustomActionModelResponse
+            if let customActionResponseOverride {
+                response = try await customActionResponseOverride(instructions, prompt)
+                responseText = (try? JSONSerialization.data(withJSONObject: [
+                    "action": response.action,
+                    "useGoalFallback": response.useGoalFallback
+                ], options: [.sortedKeys])).map { String(decoding: $0, as: UTF8.self) }
+            } else {
+                let session = LanguageModelSession(model: model, instructions: instructions)
+                session.prewarm(promptPrefix: Prompt(prompt))
+                let generated = try await respond(
+                    session: session,
+                    request: prompt,
+                    schema: CustomActionModelContract.schema,
+                    options: options
+                )
+                responseText = generated.rawContent.jsonString
+                responseMaterial = transcriptText(Transcript(entries: generated.transcriptEntries))
+                attemptTranscript = transcriptText(session.transcript)
+                response = CustomActionModelResponse(
+                    action: try generated.content.value(forProperty: "action"),
+                    useGoalFallback: try generated.content.value(forProperty: "useGoalFallback")
+                )
+            }
+            let action = response.useGoalFallback || CustomActionModelContract.requiresGoalFallback(customAction)
+                ? fallback
+                : try CustomActionModelContract.validatedAction(response.action)
+            await attemptLogger.record(ModelDevLogEntry(
+                eventID: event.id,
+                goalTitle: event.sourceTitle,
+                stage: .customActionInterpretation,
+                attempt: 1,
+                outcome: .succeeded,
+                instructionsText: instructions,
+                promptText: prompt,
+                requestText: requestText,
+                responseText: responseText,
+                responseMaterial: responseMaterial,
+                attemptTranscript: attemptTranscript
+            ))
+            return CustomActionInterpretationResult(action: action, promptVersion: CustomActionModelContract.promptVersion)
+        } catch {
+            await attemptLogger.record(ModelDevLogEntry(
+                eventID: event.id,
+                goalTitle: event.sourceTitle,
+                stage: .customActionInterpretation,
                 attempt: 1,
                 outcome: .failed,
                 instructionsText: instructions,
@@ -862,7 +962,7 @@ actor FoundationModelClient {
 enum ModelClientError: Error, LocalizedError {
     case receiptMismatch, invalidCue, textTooLong, unsafeNarrative, valenceMismatch, evaluationRejected, contextOverflow, timeout
     case invalidEffortRating(Int)
-    case invalidActionSuggestion, missingEffort
+    case invalidActionSuggestion, invalidCustomAction, missingEffort
 
     var errorDescription: String? {
         switch self {
@@ -876,6 +976,7 @@ enum ModelClientError: Error, LocalizedError {
         case .timeout: "Generation exceeded the 60-second limit."
         case .invalidEffortRating(let rating): "The effort rating \(rating) was outside 1 through 3."
         case .invalidActionSuggestion: "The suggested action was not a concrete three-to-five-word action."
+        case .invalidCustomAction: "The interpreted action was not a concrete three-to-five-word action."
         case .missingEffort: "An effort rating is required before suggesting an action."
         }
     }

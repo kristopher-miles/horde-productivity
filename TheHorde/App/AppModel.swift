@@ -209,6 +209,14 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
         return outcome
     }
 
+    func interpretCustomAction(eventID: String, customAction: String) async -> CustomActionInterpretationOutcome {
+        guard let coordinator else { return .failed(code: "persistenceFailure") }
+        let outcome = await coordinator.interpretCustomAction(eventID: eventID, customAction: customAction)
+        await reload()
+        presentedResolution = pendingStories.first { $0.id == eventID }
+        return outcome
+    }
+
     private func configureNotification(for occurrence: GoalOccurrenceSummary) async {
         do {
             let scheduler = NotificationScheduler.shared
