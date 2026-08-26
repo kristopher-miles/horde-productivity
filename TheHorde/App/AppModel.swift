@@ -209,6 +209,14 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
         return outcome
     }
 
+    func acceptSuggestedAction(eventID: String) async -> ActionAcceptanceOutcome {
+        guard let coordinator else { return .failed(code: "persistenceFailure") }
+        let outcome = await coordinator.acceptSuggestedAction(eventID: eventID)
+        await reload()
+        presentedResolution = pendingStories.first { $0.id == eventID }
+        return outcome
+    }
+
     func interpretCustomAction(eventID: String, customAction: String) async -> CustomActionInterpretationOutcome {
         guard let coordinator else { return .failed(code: "persistenceFailure") }
         let outcome = await coordinator.interpretCustomAction(eventID: eventID, customAction: customAction)

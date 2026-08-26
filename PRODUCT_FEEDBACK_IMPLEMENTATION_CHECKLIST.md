@@ -68,7 +68,7 @@ Build and validate the service pipeline before connecting screens to it.
 
 Connect the staged services only after their persistence and request contracts are stable.
 
-- [ ] 041 — [RF-04 — Add suggestion acceptance and the custom-action branch (line 88)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L88)
+- [x] 041 — [RF-04 — Add suggestion acceptance and the custom-action branch (line 88)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L88)
 - [ ] 042 — [RF-05 — Add free-text custom action entry without committing state (line 94)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L94)
 - [ ] 043 — [RF-07 — Add the 3–5 word interpreted-action review screen (line 96)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L96)
 - [ ] 044 — [RF-08 — Require explicit action acceptance before final narration (line 102)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L102)

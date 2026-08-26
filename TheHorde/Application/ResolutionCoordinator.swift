@@ -10,6 +10,11 @@ enum ActionSuggestionOutcome: Sendable, Equatable {
     case failed(code: String)
 }
 
+enum ActionAcceptanceOutcome: Sendable, Equatable {
+    case accepted(String)
+    case failed(code: String)
+}
+
 enum CustomActionInterpretationOutcome: Sendable, Equatable {
     case interpreted(String)
     case failed(code: String)
@@ -59,6 +64,14 @@ actor ResolutionCoordinator {
             let code = classify(error)
             try? await store.markEventFailed(eventID, code: code)
             return .failed(code: code)
+        }
+    }
+
+    func acceptSuggestedAction(eventID: String) async -> ActionAcceptanceOutcome {
+        do {
+            return .accepted(try await store.acceptSuggestedAction(eventID: eventID))
+        } catch {
+            return .failed(code: classify(error))
         }
     }
 

@@ -430,6 +430,43 @@ enum StoreError: Error, Equatable { case missingSave, missingEvent, staleRevisio
         } catch { modelContext.rollback(); throw error }
     }
 
+    func acceptSuggestedAction(eventID: String) throws -> String {
+        do {
+            var acceptedAction: String?
+            try modelContext.transaction {
+                let event = try requireEvent(eventID)
+                guard event.statusRaw != EventStatus.resolved.rawValue,
+                      var state = resolutionState(event),
+                      state.stage == .actionSuggestion || state.stage == .actionAccepted,
+                      let effort = state.effort,
+                      (effort.source == .userSelected && state.promptVersions.effort == nil)
+                        || (effort.source == .modelEstimated && state.promptVersions.effort == EffortModelContract.promptVersion),
+                      state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+                      let suggestion = state.suggestedAction,
+                      let action = try? ActionSuggestionModelContract.validatedAction(suggestion),
+                      state.customAction == nil,
+                      state.interpretedAction == nil,
+                      state.promptVersions.interpretation == nil,
+                      state.promptVersions.finalProse == nil,
+                      state.finalProse == nil,
+                      state.finalResult == nil else { throw StoreError.invalidResolutionState }
+                if state.stage == .actionAccepted {
+                    guard state.acceptedAction == action else { throw StoreError.invalidResolutionState }
+                    acceptedAction = action
+                    return
+                }
+                guard state.acceptedAction == nil else { throw StoreError.invalidResolutionState }
+                state.stage = .actionAccepted
+                state.acceptedAction = action
+                try persist(state, on: event)
+                try modelContext.save()
+                acceptedAction = action
+            }
+            guard let acceptedAction else { throw StoreError.invalidResolutionState }
+            return acceptedAction
+        } catch { modelContext.rollback(); throw error }
+    }
+
     func checkpointCustomActionEntry(eventID: String, customAction: String) throws {
         do {
             try modelContext.transaction {

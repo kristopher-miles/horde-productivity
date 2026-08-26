@@ -1,41 +1,157 @@
 import SwiftUI
 
+enum StoryResolutionPhase: Equatable {
+    case loading
+    case suggestion(String)
+    case accepting(String)
+    case customActionEntry(String)
+    case accepted(String)
+    case committed(ChronicleSummary)
+    case failed(String)
+
+    static func opening(_ event: PendingStorySummary) -> Self {
+        guard let state = event.resolutionState else {
+            return event.status == .failedRetryable ? .failed(event.failureCode ?? "modelFailure") : .loading
+        }
+        if state.stage == .actionAccepted {
+            guard state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+                  let suggestion = state.suggestedAction,
+                  let action = try? ActionSuggestionModelContract.validatedAction(suggestion),
+                  state.acceptedAction == action else { return .failed("persistenceFailure") }
+            return .accepted(action)
+        }
+        if state.stage == .customActionEntry,
+           state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+           let suggestion = state.suggestedAction,
+           let action = try? ActionSuggestionModelContract.validatedAction(suggestion) {
+            return .customActionEntry(action)
+        }
+        if state.stage == .actionSuggestion,
+           state.promptVersions.suggestion == ActionSuggestionModelContract.promptVersion,
+           let suggestion = state.suggestedAction,
+           let action = try? ActionSuggestionModelContract.validatedAction(suggestion) {
+            return .suggestion(action)
+        }
+        return event.status == .failedRetryable ? .failed(event.failureCode ?? "modelFailure") : .loading
+    }
+
+    mutating func openCustomActionEntry() {
+        guard case .suggestion(let action) = self else { return }
+        self = .customActionEntry(action)
+    }
+}
+
+enum StoryResolutionAccessibility {
+    static let suggestion = "StoryResolution.Suggestion"
+    static let acceptSuggestion = "StoryResolution.AcceptSuggestion"
+    static let customAction = "StoryResolution.CustomAction"
+    static let customActionEntry = "StoryResolution.CustomActionEntry"
+    static let backToSuggestion = "StoryResolution.BackToSuggestion"
+    static let retrySuggestion = "StoryResolution.RetrySuggestion"
+    static let close = "StoryResolution.Close"
+}
+
 struct StoryResolutionView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     let event: PendingStorySummary
-    @State private var phase: Phase = .idle
-    @AppStorage("hapticsEnabled") private var hapticsEnabled = true
+    @State private var phase: StoryResolutionPhase
 
-    enum Phase { case idle, generating, committed(ChronicleSummary), failed(String) }
+    init(event: PendingStorySummary) {
+        self.event = event
+        _phase = State(initialValue: .opening(event))
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    if let world = app.world { DungeonSceneView(world: world, cue: committed?.cue ?? (event.valence == .positive ? .celebrate : .concern)) }
+                    if let world = app.world { DungeonSceneView(world: world, cue: .idle) }
                     switch phase {
-                    case .idle: Color.clear.frame(height: 1)
-                    case .generating: generating
+                    case .loading: loading
+                    case .suggestion(let action): suggestionView(action)
+                    case .accepting(let action): acceptingView(action)
+                    case .customActionEntry(let action): customActionEntry(action)
+                    case .accepted(let action): acceptedView(action)
                     case .committed(let result): committedView(result)
                     case .failed(let code): failureView(code)
                     }
                 }.padding(DesignTokens.margin)
             }
-            .navigationTitle("Dungeon Consequence")
+            .navigationTitle("Choose an Action")
             .hordeInlineNavigationTitle()
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                        .accessibilityIdentifier(StoryResolutionAccessibility.close)
+                }
+            }
         }
         .interactiveDismissDisabled(false)
-        .task { if event.status == .failedRetryable { phase = .failed(event.failureCode ?? "modelFailure") } else { await resolve() } }
+        .task { if phase == .loading { await loadSuggestion() } }
     }
 
-    private var generating: some View {
+    private var loading: some View {
         VStack(alignment: .leading, spacing: 12) {
             ProgressView().controlSize(.large)
-            Text(event.valence == .positive ? "Interpreting your completion…" : "Interpreting the missed deadline…").font(.title2.bold())
-            Text("“\(event.sourceTitle)” is already saved. You can close this sheet; no dungeon change appears unless the complete result commits.")
-        }.accessibilityElement(children: .combine).accessibilityLabel("Generating one local dungeon consequence. The goal event is already saved.")
+            Text("Preparing an action…").font(.title2.bold())
+            Text("“\(event.sourceTitle)” is saved. No story or dungeon change is applied while you choose.")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Preparing a suggested action. No dungeon change has been applied.")
+    }
+
+    private func suggestionView(_ action: String) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Suggested action").font(.headline).foregroundStyle(.secondary)
+            Text(action).font(.largeTitle.bold()).textSelection(.enabled)
+                .accessibilityIdentifier(StoryResolutionAccessibility.suggestion)
+                .accessibilityLabel("Suggested action: \(action)")
+            Text("Choose this action or write your own. Nothing changes in the dungeon until a later final result is committed.")
+            Button("Accept & Continue") { Task { await acceptSuggestion(action) } }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: 240)
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier(StoryResolutionAccessibility.acceptSuggestion)
+                .accessibilityHint("Accepts this exact suggestion without generating the final story yet.")
+            Button("Write My Own Action") { phase.openCustomActionEntry() }
+                .controlSize(.large)
+                .keyboardShortcut("e", modifiers: .command)
+                .accessibilityIdentifier(StoryResolutionAccessibility.customAction)
+                .accessibilityHint("Opens the separate custom action path without accepting the suggestion.")
+        }
+    }
+
+    private func acceptingView(_ action: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ProgressView().controlSize(.large)
+            Text("Accepting “\(action)”…").font(.title2.bold())
+            Text("No story or dungeon change is being generated yet.")
+        }
+    }
+
+    private func customActionEntry(_ suggestion: String) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Write your own action", systemImage: "square.and.pencil").font(.largeTitle.bold())
+            Text("Custom action entry is the next step. The suggestion has not been accepted, and the dungeon is unchanged.")
+            Button("Back to Suggestion") { phase = .suggestion(suggestion) }
+                .keyboardShortcut("[", modifiers: .command)
+                .accessibilityIdentifier(StoryResolutionAccessibility.backToSuggestion)
+                .accessibilityHint("Returns without accepting or submitting an action.")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(StoryResolutionAccessibility.customActionEntry)
+    }
+
+    private func acceptedView(_ action: String) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Action accepted", systemImage: "checkmark.circle.fill").font(.title2.bold()).foregroundStyle(DesignTokens.positive)
+            Text(action).font(.largeTitle.bold()).textSelection(.enabled)
+            Text("The action is saved. No final story or dungeon change has been generated yet.")
+            Button("Close") { dismiss() }.buttonStyle(.borderedProminent).controlSize(.large)
+        }
     }
 
     private func committedView(_ result: ChronicleSummary) -> some View {
@@ -52,20 +168,28 @@ struct StoryResolutionView: View {
         VStack(alignment: .leading, spacing: 14) {
             Label("No dungeon change was applied", systemImage: "arrow.counterclockwise.circle").font(.title2.bold())
             Text(failureMessage(code))
-            Text("Your goal completion or expiration is saved. The world is unchanged, and this story remains available to retry.")
-            Button("Retry") { Task { await resolve() } }.buttonStyle(.borderedProminent).controlSize(.large).frame(minHeight: 44)
+            Text("Your goal completion or expiration is saved. The world is unchanged, and this suggestion remains available to retry.")
+            Button("Retry") { Task { await loadSuggestion() } }
+                .buttonStyle(.borderedProminent).controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier(StoryResolutionAccessibility.retrySuggestion)
+                .frame(minHeight: 44)
             Button("Return to Today") { dismiss() }.frame(minHeight: 44)
         }
     }
 
-    private var committed: ChronicleSummary? { if case .committed(let result) = phase { result } else { nil } }
+    private func loadSuggestion() async {
+        phase = .loading
+        switch await app.suggestAction(eventID: event.id) {
+        case .suggested(let action): phase = .suggestion(action)
+        case .failed(let code): phase = .failed(code)
+        }
+    }
 
-    private func resolve() async {
-        phase = .generating
-        switch await app.resolve(eventID: event.id) {
-        case .committed(let result):
-            phase = .committed(result)
-            if hapticsEnabled { PlatformSupport.resolutionFeedback(positive: result.valence == .positive) }
+    private func acceptSuggestion(_ action: String) async {
+        phase = .accepting(action)
+        switch await app.acceptSuggestedAction(eventID: event.id) {
+        case .accepted(let accepted): phase = .accepted(accepted)
         case .failed(let code): phase = .failed(code)
         }
     }
