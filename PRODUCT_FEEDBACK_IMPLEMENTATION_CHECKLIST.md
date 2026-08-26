@@ -86,7 +86,7 @@ Connect the staged services only after their persistence and request contracts a
 Complete the environment set before scene-wide character composition is finalized.
 
 - [x] 050 — [VC-01 — Create five desolate-cave-to-golden-fortress backgrounds (line 116)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L116)
-- [ ] 051 — [VC-02 — Remove every living creature from every background (line 117)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L117)
+- [x] 051 — [VC-02 — Remove every living creature from every background (line 117)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L117)
 
 ## 7. Produce dragon and kobold progression assets
 

@@ -32,6 +32,6 @@
     "pipeline": "horde-sprite-prototype",
     "selectedAttempt": "generated/dungeon-progression-static-family-attempt-02.png",
     "promptFiles": ["prompt-family-attempt-01.md", "prompt-family-attempt-02.md"],
-    "cleanupFiles": ["cleanup-stage1.py"]
+    "cleanupFiles": ["cleanup-stage1.py", "cleanup-vc02.py"]
   }
 }

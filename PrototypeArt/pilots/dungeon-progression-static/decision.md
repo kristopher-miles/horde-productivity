@@ -15,6 +15,7 @@ Both generated attempts inherited a worked hearth, fitted masonry, and heraldic 
 - Stage 5 reads as a vast underground fortress whose receding vault is surrounded by overflowing gold, treasure chests, ingots, and multicolored gemstones.
 - The unlabeled native contact sheet reads unambiguously poorest-to-richest.
 - The five frames retain a fixed front-facing camera and a usable open lower-center staging area.
-- No obvious living creature appears in native review. Shield-like motifs in later stages are nonliving architectural heraldry, not faces or characters. VC-02 remains the separate dedicated creature-removal audit.
+- The dedicated VC-02 review rejected the dragon-like emblems inside the stage 2–4 fireplace shields. `cleanup-vc02.py` replaces only those three shield interiors with plain project-palette metal at native resolution; the shield outlines, room progression, camera, and composition are unchanged.
+- All five standalone environment frames contain no living creature, face, statue, or character silhouette after cleanup. Stage 5's colored clusters read as faceted gemstones and its upper shelf ornament reads as a vessel, not as a living figure.
 
-Result: deterministic and visual VC-01 gates pass. The complete family is marked replaceable prototype art, remains outside the app bundle, and is not integrated into runtime or VC-04 consumers by this item.
+Result: deterministic and visual VC-01 and VC-02 gates pass. The complete family is marked replaceable prototype art, remains outside the app bundle, and is not integrated into runtime or VC-04 consumers by this item.
