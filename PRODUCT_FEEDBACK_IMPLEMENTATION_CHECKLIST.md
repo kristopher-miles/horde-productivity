@@ -72,7 +72,7 @@ Connect the staged services only after their persistence and request contracts a
 - [x] 042 — [RF-05 — Add free-text custom action entry without committing state (line 94)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L94)
 - [x] 043 — [RF-07 — Add the 3–5 word interpreted-action review screen (line 96)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L96)
 - [x] 044 — [RF-08 — Require explicit action acceptance before final narration (line 102)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L102)
-- [ ] 045 — [RF-12 — Add distinct Cancel and story-advancing Fail actions (line 106)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L106)
+- [x] 045 — [RF-12 — Add distinct Cancel and story-advancing Fail actions (line 106)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L106)
 - [ ] 046 — [TN-06 — Make the accepted staged flow the only normal commit path (line 72)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L72)
 
 ## 5. Update first-run, Dungeon, Today, and authored copy

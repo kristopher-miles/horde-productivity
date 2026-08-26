@@ -25,10 +25,18 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
     var exportURL: URL?
     var errorMessage: String?
     var notificationPermissionOccurrence: GoalOccurrenceSummary?
-    private let modelClient = AppModel.makeModelClient()
+    private let modelClient: FoundationModelClient
     private var store: HordeStore?
     private var coordinator: ResolutionCoordinator?
     private var started = false
+
+    init(store: HordeStore? = nil, modelClient: FoundationModelClient? = nil) {
+        let client = modelClient ?? Self.makeModelClient()
+        self.modelClient = client
+        self.store = store
+        self.coordinator = store.map { ResolutionCoordinator(store: $0, model: client) }
+    }
+
     func start() async {
         guard !started else { return }
         started = true
@@ -169,6 +177,37 @@ enum TodayRoute: Hashable { case goal(String), chronicle(String) }
             if let successorID, let successor = occurrences.first(where: { $0.id == successorID }) { await configureNotification(for: successor) }
             presentedResolution = pendingStories.first { $0.id.hasPrefix(occurrence.id + ":") }
         } catch { errorMessage = "Completion could not be saved. Please try again." }
+    }
+
+    func cancel(_ occurrence: GoalOccurrenceSummary) async -> Bool {
+        guard occurrence.state == .pending, let store else { return false }
+        do {
+            let ids = occurrences.filter { $0.definitionID == occurrence.definitionID && $0.state == .pending }.map(\.id)
+            try await store.archiveGoal(id: occurrence.definitionID)
+            await NotificationScheduler.shared.cancel(occurrenceIDs: ids)
+            await reload()
+            return true
+        } catch {
+            errorMessage = "The goal could not be cancelled."
+            return false
+        }
+    }
+
+    func fail(_ occurrence: GoalOccurrenceSummary) async -> Bool {
+        guard occurrence.state == .pending, let store else { return false }
+        do {
+            let successorID = try await store.failOccurrence(id: occurrence.id)
+            await NotificationScheduler.shared.cancel(occurrenceIDs: [occurrence.id])
+            await reload()
+            if let successorID, let successor = occurrences.first(where: { $0.id == successorID }) {
+                await configureNotification(for: successor)
+            }
+            presentedResolution = pendingStories.first { $0.id == occurrence.id + ":negative" }
+            return true
+        } catch {
+            errorMessage = "The failed attempt could not be saved. Please try again."
+            return false
+        }
     }
 
     func definition(id: String) async -> GoalDefinitionSummary? {
