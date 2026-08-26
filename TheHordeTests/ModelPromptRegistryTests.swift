@@ -86,18 +86,32 @@ struct ModelPromptRegistryTests {
         #expect(rendered == "GOAL <user-goal>literal {{history}} marker</user-goal>")
     }
 
-    @Test func legacyContractPermitsConsequentialEpicFantasyThreats() {
-        let threatComponents: [ModelPromptComponentID] = [
-            .legacySystemInstructions, .legacyNegativeOutcomeRule, .legacyThreadDescriptor,
-            .legacyNegativeTitleGuide, .legacyNegativeNarrationGuide, .legacyNegativeSummaryGuide
-        ]
-        let text = threatComponents.map { ModelPromptRegistry.text($0) }.joined(separator: " ")
+    @Test func systemInstructionsRejectCushioningAndContractSupportsMeaningfulOutcomes() {
+        let prohibitedCushioning = ["gentle", "harmless", "modest", "calm", "recoverable", "slight"]
+        let systemInstructions = ModelPromptRegistry.editorEntries.filter { $0.kind == .systemInstructions }
+        for component in systemInstructions {
+            for term in prohibitedCushioning {
+                #expect(!component.defaultText.localizedCaseInsensitiveContains(term))
+            }
+        }
 
-        #expect(HordeModelContract.promptVersion == 41)
-        #expect(text.localizedCaseInsensitiveContains("consequential"))
-        #expect(text.localizedCaseInsensitiveContains("epic-fantasy threat"))
-        #expect(!text.localizedCaseInsensitiveContains("no threats"))
-        #expect(!text.localizedCaseInsensitiveContains("recoverable"))
+        let success = ModelPromptRegistry.text(.legacyPositiveOutcomeRule)
+        let failure = ModelPromptRegistry.text(.legacyNegativeOutcomeRule)
+        let direction = ModelPromptRegistry.text(.legacySystemInstructions)
+        for term in prohibitedCushioning {
+            #expect(!success.localizedCaseInsensitiveContains(term))
+            #expect(!failure.localizedCaseInsensitiveContains(term))
+        }
+
+        #expect(HordeModelContract.promptVersion == 42)
+        #expect(direction.localizedCaseInsensitiveContains("adult epic-fantasy"))
+        #expect(direction.localizedCaseInsensitiveContains("accepted action"))
+        #expect(direction.localizedCaseInsensitiveContains("established world"))
+        #expect(direction.localizedCaseInsensitiveContains("effort rating"))
+        #expect(direction.localizedCaseInsensitiveContains("real, lasting consequences"))
+        #expect(success.localizedCaseInsensitiveContains("meaningful success"))
+        #expect(failure.localizedCaseInsensitiveContains("meaningful failure"))
+        #expect(failure.localizedCaseInsensitiveContains("epic-fantasy threat"))
     }
 
     private func assertStage(_ stage: ModelRequestStageID, contains ids: Set<ModelPromptComponentID>) {

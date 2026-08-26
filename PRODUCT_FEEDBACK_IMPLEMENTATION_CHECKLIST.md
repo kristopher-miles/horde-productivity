@@ -56,7 +56,7 @@ Build and validate the service pipeline before connecting screens to it.
 - [x] 031 — [RF-02 — Use optional user effort or model-estimated effort from 1–3 (line 81)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L81)
 - [x] 032 — [TN-04 — Allow varied model-selected consequences across authorized attributes (line 65)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L65)
 - [x] 033 — [VC-10 — Make Hoard one non-guaranteed model-selected world consequence (line 130)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L130)
-- [ ] 034 — [TN-01 — Replace gentle model instructions with mature epic-fantasy direction (line 62)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L62)
+- [x] 034 — [TN-01 — Replace gentle model instructions with mature epic-fantasy direction (line 62)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L62)
 - [ ] 035 — [TN-02 — Remove padded tone from schemas, fallbacks, validators, and corrections (line 63)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L63)
 - [ ] 036 — [TN-03 — Preserve security and structure without suppressing serious consequences (line 64)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L64)
 - [ ] 037 — [RF-03 — Generate a few-word suggested story action from effort (line 87)](PRODUCT_FEEDBACK_REQUIREMENTS.md#L87)
