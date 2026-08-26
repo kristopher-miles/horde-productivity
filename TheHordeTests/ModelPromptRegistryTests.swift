@@ -114,7 +114,6 @@ struct ModelPromptRegistryTests {
     }
 
     @Test func everyModelVisibleContractRejectsCushioningAndSupportsMeaningfulOutcomes() {
-        let prohibitedCushioning = ["gentle", "harmless", "modest", "calm", "recoverable", "slight", "minor", "mild", "little"]
         let tool = StageMutationTool(stager: PatchStager())
         let modelVisibleText = ModelPromptRegistry.editorEntries.map { ($0.id.rawValue, $0.defaultText) } + [
             ("positive generated schema", LegacyModelSchemas.story(for: .positive).debugDescription),
@@ -124,7 +123,7 @@ struct ModelPromptRegistryTests {
             ("correction rejection", HordeModelContract.correctedPrompt("", rejection: ModelClientError.valenceMismatch.localizedDescription))
         ]
         for component in modelVisibleText {
-            for term in prohibitedCushioning {
+            for term in QA03Contract.prohibitedPromptCushioning {
                 #expect(!component.1.localizedCaseInsensitiveContains(term), Comment(rawValue: "\(component.0) contains \(term)"))
             }
         }

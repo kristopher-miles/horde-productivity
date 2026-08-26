@@ -19,7 +19,16 @@ struct WorldPresentationStateTests {
 
     @Test func populatedWorldProjectsEveryGrowingCollectionNormally() {
         var world = WorldSnapshot.initial(dragonName: "Cinder")
-        world.residents = [CharacterState(id: "kobold", name: "Rill", role: "Scout", identity: "A scout.", vitality: 50, bond: 50, conditions: [])]
+        world.residents = [CharacterState(
+            id: "kobold", name: "Rill", role: "Scout", identity: "A scout.", vitality: 50, bond: 50, conditions: [],
+            koboldVisual: KoboldVisualState(
+                age: .kid,
+                colors: CharacterPalette(
+                    primary: RGBColor(red: 58, green: 107, blue: 190),
+                    secondary: RGBColor(red: 145, green: 69, blue: 160)
+                )
+            )
+        )]
         world.locations.append(LocationState(id: "depths", name: "Echoing Depths", status: "Discovered", summary: "A passage."))
         world.facts = [WorldFact(id: "mark", title: "Wyrm Mark", summary: "A sign.")]
         world.abilities = [AbilityState(id: "memory", name: "Ember Memory", summary: "A skill.", rank: 1)]

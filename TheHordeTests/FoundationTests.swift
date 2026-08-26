@@ -19,7 +19,7 @@ struct FoundationTests {
         let container = try HordeStore.makeContainer(inMemory: true)
         let store = HordeStore(modelContainer: container)
         try await store.insertProofEvent()
-        try await store.commitProof(eventID: "proof-event", mutations: [StagedMutation(fieldID: "world.morale", operation: .increment, value: 2)], title: "A Brighter Vault", narration: "The finished work steadies the little household.", summary: "Morale rose.")
+        try await store.commitProof(eventID: "proof-event", mutations: [StagedMutation(fieldID: "world.morale", operation: .increment, value: 2)], title: "A Brighter Vault", narration: "The finished work hardens Ember’s resolve.", summary: "Morale rose.")
         let snapshot = try await store.proofSnapshot(eventID: "proof-event")
         #expect(snapshot.revision == 1)
         #expect(snapshot.status == EventStatus.resolved.rawValue)

@@ -89,7 +89,7 @@ struct WorldResolutionTests {
         let (_, world) = try await store.claimEvent(eventID)
         let mutations = [WorldMutation.increment("world.morale", by: 3)]
         let (updated, deltas) = try WorldPatchValidator.applying(mutations, to: world.snapshot, valence: .positive)
-        let entry = try await store.commitResolution(eventID: eventID, expectedRevision: world.revision, world: updated, mutations: mutations, deltas: deltas, generatedTitle: "Ink by Firelight", narration: "Pip binds the finished pages while Ember keeps the lamps warm.", summary: "The finished writing lifted the vault.", cue: .celebrate)
+        let entry = try await store.commitResolution(eventID: eventID, expectedRevision: world.revision, world: updated, mutations: mutations, deltas: deltas, generatedTitle: "Ink by Firelight", narration: "Ember binds the finished pages and seals their hard-won lore in the vault.", summary: "The finished writing strengthened the vault.", cue: .celebrate)
         #expect(entry.committedRevision == world.revision + 1)
         #expect(try await store.worldReadModel().snapshot.morale == 8)
         #expect(try await store.pendingStoryCount() == 0)
