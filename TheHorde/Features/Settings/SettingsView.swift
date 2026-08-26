@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("motionPreference") private var motionPreference = "system"
+    @AppStorage(DeveloperMode.defaultsKey) private var developerModeEnabled = DeveloperMode.defaultEnabled
     @State private var notificationStatus = "Checking…"
     @State private var confirmReset = false
     @State private var confirmDelete = false
@@ -35,6 +36,16 @@ struct SettingsView: View {
                     if let url = app.exportURL { ShareLink(item: url) { Label("Share Local Data JSON", systemImage: "doc.text") } }
                     Button("Reset Dungeon", systemImage: "arrow.counterclockwise") { confirmReset = true }
                     Button("Delete All Local Data", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                }
+                Section("Developer") {
+                    Toggle("Developer Mode", isOn: $developerModeEnabled)
+                    ForEach(DeveloperMode.visibleSurfaces(isEnabled: developerModeEnabled), id: \.title) { surface in
+                        NavigationLink {
+                            DeveloperSurfaceView(surface: surface)
+                        } label: {
+                            Label(surface.title, systemImage: surface.systemImage)
+                        }
+                    }
                 }
                 Section("About") {
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
@@ -65,6 +76,20 @@ struct SettingsView: View {
         case .denied: notificationStatus = "Denied"
         case .notDetermined: notificationStatus = "Not requested"
         @unknown default: notificationStatus = "Unknown"
+        }
+    }
+}
+
+private struct DeveloperSurfaceView: View {
+    let surface: DeveloperSurface
+    @AppStorage(DeveloperMode.defaultsKey) private var developerModeEnabled = DeveloperMode.defaultEnabled
+
+    var body: some View {
+        if developerModeEnabled {
+            ContentUnavailableView(surface.title, systemImage: surface.systemImage, description: Text("This developer surface is ready for its implementation."))
+                .navigationTitle(surface.title)
+        } else {
+            ContentUnavailableView("Developer Mode Off", systemImage: "lock")
         }
     }
 }
