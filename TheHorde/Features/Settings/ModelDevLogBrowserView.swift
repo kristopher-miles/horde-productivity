@@ -182,12 +182,12 @@ private struct MacModelDevLogInspectorView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
-            ScrollView([.horizontal, .vertical]) {
+            ScrollView(.vertical) {
                 Text(verbatim: text)
                     .font(.body.monospaced())
                     .textSelection(.enabled)
-                    .fixedSize()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .padding()

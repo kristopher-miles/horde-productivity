@@ -1,3 +1,28 @@
+# macOS metadata
+.DS_Store
+._*
+
+# Xcode and Swift build state
 .build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# Local prerelease artifacts
+Prereleases/
+
+# Python and diagnostic output
 *.trace
 __pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local configuration and generated art checks
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.mobileprovision
+PrototypeArt/**/qa/

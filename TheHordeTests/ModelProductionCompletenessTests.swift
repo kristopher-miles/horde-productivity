@@ -189,7 +189,7 @@ private struct FidelityFixture {
         case .actionSuggestion:
             ActionSuggestionModelContract.prompt(event: event, world: world)
         case .customActionInterpretation:
-            CustomActionModelContract.prompt(event: event, world: world, customAction: "Scout café beyond walls ", fallbackAction: "Raise the iron gate")
+            CustomActionModelContract.prompt(event: event, world: world, customAction: "Scout café beyond walls ")
         case .finalProse:
             FinalProseModelContract.prompt(event: event, world: world, acceptedAction: "Raise the iron gate", previousProse: "Prior prose\r\nexact ")
         case .legacyConsequence:
@@ -201,7 +201,7 @@ private struct FidelityFixture {
         switch stage {
         case .effortEvaluation: "{\"rating\":2}"
         case .actionSuggestion: "{\"action\":\"Raise the iron gate\"}"
-        case .customActionInterpretation: "{\"action\":\"Scout the obsidian road\",\"useGoalFallback\":false}"
+        case .customActionInterpretation: "{\"action\":\"Scout the obsidian road\"}"
         case .finalProse: "{\"prose\":\"\(finalProse)\"}"
         case .legacyConsequence: nil
         }
@@ -221,7 +221,7 @@ private struct FidelityFixture {
             },
             customActionResponseOverride: { _, _ in
                 if shouldFail { throw FidelityFailure.expected }
-                return CustomActionModelResponse(action: "Scout the obsidian road", useGoalFallback: false)
+                return CustomActionModelResponse(action: "Scout the obsidian road")
             },
             finalProseResponseOverride: { _, _ in
                 if shouldFail { throw FidelityFailure.expected }
@@ -240,8 +240,7 @@ private struct FidelityFixture {
             _ = try await client.interpretCustomAction(
                 event: event,
                 world: world,
-                customAction: "Scout café beyond walls ",
-                fallbackAction: "Raise the iron gate"
+                customAction: "Scout café beyond walls "
             )
         case .finalProse:
             _ = try await client.generateFinalProse(

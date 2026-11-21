@@ -7,6 +7,7 @@
 | Scene | Native `320x180` |
 | Palette | `palette.png`, maximum 32 visible colors plus transparency |
 | Pixel treatment | Hard clusters, nearest-neighbor transforms, no antialiasing |
+| Silhouette border | Transparent inset assets use only the first six palette colors on exposed opaque edges |
 | Character anchor | Bottom-center `(0.5, 0.0)` |
 | Safety inset | Two pixels unless the brief explicitly proves another value |
 | Naming | `<asset>-<cue>-<two-digit-frame>.png` |

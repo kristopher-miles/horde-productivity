@@ -127,7 +127,7 @@ actor ResolutionCoordinator {
             guard let state = event.resolutionState,
                   state.stage == .actionSuggestion || state.stage == .customActionEntry,
                   let effort = state.effort,
-                  let fallbackAction = state.suggestedAction else {
+                  state.suggestedAction != nil else {
                 throw StoreError.invalidResolutionState
             }
             try await store.checkpointCustomActionEntry(eventID: eventID, customAction: customAction)
@@ -136,8 +136,7 @@ actor ResolutionCoordinator {
             let result = try await interpretCustomActionWithTimeout(
                 event: ratedEvent,
                 world: world,
-                customAction: customAction,
-                fallbackAction: fallbackAction
+                customAction: customAction
             )
             try await store.checkpointInterpretation(eventID: eventID, result: result)
             return .interpreted(result.action)
@@ -350,16 +349,14 @@ actor ResolutionCoordinator {
     private func interpretCustomActionWithTimeout(
         event: PendingStorySummary,
         world: WorldReadModel,
-        customAction: String,
-        fallbackAction: String
+        customAction: String
     ) async throws -> CustomActionInterpretationResult {
         try await withThrowingTaskGroup(of: CustomActionInterpretationResult.self) { group in
             group.addTask {
                 try await self.model.interpretCustomAction(
                     event: event,
                     world: world,
-                    customAction: customAction,
-                    fallbackAction: fallbackAction
+                    customAction: customAction
                 )
             }
             group.addTask {

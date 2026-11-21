@@ -87,7 +87,7 @@ struct StagedOutcomePipelineTests {
                     },
                     customActionResponseOverride: { _, prompt in
                         #expect(prompt.contains("CURRENT OUTCOME \(source.promptLabel)"))
-                        return CustomActionModelResponse(action: "Defend the broken threshold", useGoalFallback: false)
+                        return CustomActionModelResponse(action: "Defend the broken threshold")
                     },
                     finalProseResponseOverride: { _, prompt in
                         #expect(prompt.contains("CURRENT OUTCOME \(source.promptLabel)"))

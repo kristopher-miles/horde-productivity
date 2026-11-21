@@ -96,13 +96,8 @@ enum CustomActionModelContract {
         GenerationSchema(type: CustomActionModelOutput.self, properties: [
             .init(
                 name: "action",
-                description: ModelPromptRegistry.text(.customActionOutputGuide),
+                description: "\(ModelPromptRegistry.text(.customActionOutputGuide)) \(ModelPromptRegistry.text(.customActionInvalidInput))",
                 type: String.self
-            ),
-            .init(
-                name: "useGoalFallback",
-                description: ModelPromptRegistry.text(.customActionFallback),
-                type: Bool.self
             )
         ])
     }
@@ -110,8 +105,7 @@ enum CustomActionModelContract {
     static func prompt(
         event: PendingStorySummary,
         world: WorldReadModel,
-        customAction: String,
-        fallbackAction: String
+        customAction: String
     ) -> String {
         let goal = [event.sourceTitle, event.sourceNotes].filter { !$0.isEmpty }.joined(separator: "\n")
         let encoder = JSONEncoder()
@@ -124,18 +118,21 @@ enum CustomActionModelContract {
             "worldContext": ModelPromptRegistry.render(.sharedWorldContext, [
                 "world": "<world-data>\(ModelPromptRegistry.data(worldJSON))</world-data>"
             ]),
-            "fallbackAction": fallbackAction,
             "customAction": customAction
         ])
     }
 
     static func validatedAction(_ raw: String) throws -> String {
-        do { return try ActionSuggestionModelContract.validatedAction(raw) }
+        do {
+            let action = try ActionSuggestionModelContract.validatedAction(raw)
+            guard !containsDisallowedText(action) else { throw ModelClientError.invalidCustomAction }
+            return action
+        }
         catch { throw ModelClientError.invalidCustomAction }
     }
 
-    static func requiresGoalFallback(_ customAction: String) -> Bool {
-        let text = customAction.lowercased()
+    private static func containsDisallowedText(_ action: String) -> Bool {
+        let text = action.lowercased()
         let authorityPhrases = [
             "ignore previous", "ignore all", "system prompt", "developer instruction",
             "assistant:", "developer:", "system:", "tool:", "<system", "<tool"
@@ -144,8 +141,7 @@ enum CustomActionModelContract {
         let disallowedWords: Set<String> = [
             "nsfw", "porn", "pornographic", "sexual", "sexually", "nude", "naked", "rape"
         ]
-        return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || authorityPhrases.contains(where: text.contains)
+        return authorityPhrases.contains(where: text.contains)
             || !words.isDisjoint(with: disallowedWords)
     }
 }
@@ -153,7 +149,6 @@ enum CustomActionModelContract {
 @Generable
 struct CustomActionModelOutput {
     var action: String
-    var useGoalFallback: Bool
 }
 
 enum FinalProseModelContract {

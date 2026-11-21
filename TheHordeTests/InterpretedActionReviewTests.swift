@@ -95,7 +95,7 @@ struct InterpretedActionReviewTests {
                     attemptLogger: logger,
                     suggestionResponseOverride: { _, _ in "Search the hidden crossing" },
                     customActionResponseOverride: { _, _ in
-                        CustomActionModelResponse(action: "Scout beneath the bridge", useGoalFallback: false)
+                        CustomActionModelResponse(action: "Scout beneath the bridge")
                     },
                     compatibilityOverride: .available
                 )
@@ -123,7 +123,7 @@ struct InterpretedActionReviewTests {
                 attemptLogger: logger,
                 suggestionResponseOverride: { _, _ in throw ModelClientError.invalidActionSuggestion },
                 customActionResponseOverride: { _, _ in
-                    CustomActionModelResponse(action: "Circle the bridge with scouts", useGoalFallback: false)
+                    CustomActionModelResponse(action: "Circle the bridge with scouts")
                 },
                 compatibilityOverride: .available
             )

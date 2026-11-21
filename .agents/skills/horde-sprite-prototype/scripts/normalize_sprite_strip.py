@@ -15,6 +15,9 @@ from pathlib import Path
 from PIL import Image
 
 
+OUTLINE_COLOR_COUNT = 6
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
@@ -166,6 +169,31 @@ def apply_palette(image: Image.Image, palette_image: Image.Image) -> Image.Image
     return output
 
 
+def repair_invalid_border_pixels(image: Image.Image, palette_image: Image.Image) -> Image.Image:
+    """Replace exposed non-outline colors without changing the silhouette."""
+
+    palette = list(dict.fromkeys(palette_image.convert("RGB").getdata()))
+    outline_colors = set(palette[:OUTLINE_COLOR_COUNT])
+    replacement = palette[1] if len(palette) > 1 else palette[0]
+    output = image.copy().convert("RGBA")
+    pixels = output.load()
+    width, height = output.size
+    invalid = []
+    for y in range(height):
+        for x in range(width):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha == 0 or (red, green, blue) in outline_colors:
+                continue
+            if any(
+                nx < 0 or ny < 0 or nx >= width or ny >= height or pixels[nx, ny][3] == 0
+                for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
+            ):
+                invalid.append((x, y))
+    for x, y in invalid:
+        pixels[x, y] = (*replacement, pixels[x, y][3])
+    return output
+
+
 def main() -> None:
     args = parse_args()
     if min(args.frames, args.frame_width, args.frame_height) < 1 or args.padding < 0:
@@ -209,6 +237,8 @@ def main() -> None:
             frame = compose(content, args.frame_width, args.frame_height, scale, args.padding, baseline)
         if palette_image is not None:
             frame = apply_palette(frame, palette_image)
+            if args.padding > 0:
+                frame = repair_invalid_border_pixels(frame, palette_image)
         frame.save(output / f"{args.name}-{index:02d}.png")
 
 

@@ -61,6 +61,31 @@ class ValidatorTests(unittest.TestCase):
 
             self.assertTrue(any("visible colors exceed limit" in error for error in errors))
 
+    def test_rejects_non_outline_silhouette_border_pixels(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            palette = Image.new("RGB", (7, 1))
+            palette.putdata([
+                (5, 4, 11), (14, 11, 25), (23, 21, 42),
+                (36, 34, 58), (52, 51, 76), (74, 70, 94), (220, 80, 10),
+            ])
+            palette.save(root / "palette.png")
+            manifest = {
+                "asset": "ember", "cue": "idle",
+                "frameSize": {"width": 5, "height": 5}, "safetyInsetPixels": 1,
+                "frames": [{"file": "ember-idle-01.png", "durationMilliseconds": 180}],
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest))
+            frame = Image.new("RGBA", (5, 5), (0, 0, 0, 0))
+            for y in range(1, 4):
+                for x in range(1, 4):
+                    frame.putpixel((x, y), (220, 80, 10, 255))
+            frame.save(root / "ember-idle-01.png")
+
+            errors = validator.validate(root / "manifest.json", root, root / "palette.png")
+
+            self.assertTrue(any("silhouette border pixels" in error for error in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

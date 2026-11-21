@@ -63,7 +63,6 @@ struct FinalProseResult: Equatable, Sendable {
 
 struct CustomActionModelResponse: Equatable, Sendable {
     let action: String
-    let useGoalFallback: Bool
 }
 
 enum ModelSampling: Codable, Equatable, Sendable {
@@ -542,17 +541,14 @@ actor FoundationModelClient {
     func interpretCustomAction(
         event: PendingStorySummary,
         world: WorldReadModel,
-        customAction: String,
-        fallbackAction: String
+        customAction: String
     ) async throws -> CustomActionInterpretationResult {
         guard event.effort != nil else { throw ModelClientError.missingEffort }
-        let fallback = try CustomActionModelContract.validatedAction(fallbackAction)
         let instructions = CustomActionModelContract.instructions
         let prompt = CustomActionModelContract.prompt(
             event: event,
             world: world,
-            customAction: customAction,
-            fallbackAction: fallback
+            customAction: customAction
         )
         let options = defaultSampling.generationOptions
         let requestText = Self.fullRequestText(
@@ -570,8 +566,7 @@ actor FoundationModelClient {
             if let customActionResponseOverride {
                 response = try await customActionResponseOverride(instructions, prompt)
                 responseText = (try? JSONSerialization.data(withJSONObject: [
-                    "action": response.action,
-                    "useGoalFallback": response.useGoalFallback
+                    "action": response.action
                 ], options: [.sortedKeys])).map { String(decoding: $0, as: UTF8.self) }
             } else {
                 let session = LanguageModelSession(model: model, instructions: instructions)
@@ -586,13 +581,10 @@ actor FoundationModelClient {
                 responseMaterial = transcriptText(Transcript(entries: generated.transcriptEntries))
                 attemptTranscript = transcriptText(session.transcript)
                 response = CustomActionModelResponse(
-                    action: try generated.content.value(forProperty: "action"),
-                    useGoalFallback: try generated.content.value(forProperty: "useGoalFallback")
+                    action: try generated.content.value(forProperty: "action")
                 )
             }
-            let action = response.useGoalFallback || CustomActionModelContract.requiresGoalFallback(customAction)
-                ? fallback
-                : try CustomActionModelContract.validatedAction(response.action)
+            let action = try CustomActionModelContract.validatedAction(response.action)
             await attemptLogger.record(ModelDevLogEntry(
                 eventID: event.id,
                 goalTitle: event.sourceTitle,

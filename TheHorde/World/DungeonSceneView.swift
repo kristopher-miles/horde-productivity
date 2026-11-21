@@ -49,6 +49,7 @@ struct DungeonSceneView: View {
 
     var body: some View {
         SpriteView(scene: PixelDungeonScene(world: world, cue: cue, reduceMotion: motionPreference == "reduced" || (motionPreference == "system" && reduceMotion)), options: [.allowsTransparency])
+            .id(world.snapshot.dragonVisual.color)
             .aspectRatio(16 / 9, contentMode: .fit)
             .background(DesignTokens.dungeon)
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.radius))

@@ -247,7 +247,7 @@ struct AcceptedFlowCommitTests {
         FoundationModelClient(
             suggestionResponseOverride: { _, _ in "Guard the basalt crossing" },
             customActionResponseOverride: { _, _ in
-                CustomActionModelResponse(action: "Hold the basalt crossing", useGoalFallback: false)
+                CustomActionModelResponse(action: "Hold the basalt crossing")
             },
             finalProseResponseOverride: { _, _ in finalProse },
             generationOverride: { event, world, descriptors in

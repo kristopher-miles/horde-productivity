@@ -22,7 +22,7 @@ struct ModelPromptRegistryTests {
         ])
         assertStage(.customActionInterpretation, contains: [
             .sharedGoalContext, .sharedWorldContext, .customActionSystemInstructions,
-            .customActionRequestTemplate, .customActionOutputGuide, .customActionFallback,
+            .customActionRequestTemplate, .customActionOutputGuide, .customActionInvalidInput,
             .customActionCorrection
         ])
         assertStage(.finalProse, contains: [

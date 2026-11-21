@@ -40,6 +40,23 @@ class NormalizerTests(unittest.TestCase):
         self.assertEqual(mapped.getpixel((0, 0)), (0, 0, 0, 0))
         self.assertEqual(mapped.getpixel((1, 0)), (242, 118, 13, 255))
 
+    def test_border_repair_preserves_shape_and_replaces_exposed_body_color(self):
+        image = Image.new("RGBA", (5, 5), (0, 0, 0, 0))
+        for y in range(1, 4):
+            for x in range(1, 4):
+                image.putpixel((x, y), (220, 80, 10, 255))
+        palette = Image.new("RGB", (7, 1))
+        palette.putdata([
+            (5, 4, 11), (14, 11, 25), (23, 21, 42),
+            (36, 34, 58), (52, 51, 76), (74, 70, 94), (220, 80, 10),
+        ])
+
+        repaired = normalizer.repair_invalid_border_pixels(image, palette)
+
+        self.assertEqual(repaired.getchannel("A").getbbox(), image.getchannel("A").getbbox())
+        self.assertEqual(repaired.getpixel((2, 2)), (220, 80, 10, 255))
+        self.assertEqual(repaired.getpixel((1, 2)), (14, 11, 25, 255))
+
     def test_dark_background_removal_keeps_largest_sprite(self):
         image = Image.new("RGBA", (8, 5), (1, 1, 1, 255))
         image.putpixel((1, 1), (30, 10, 5, 255))

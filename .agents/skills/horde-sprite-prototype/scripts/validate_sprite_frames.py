@@ -10,6 +10,9 @@ from pathlib import Path
 from PIL import Image
 
 
+OUTLINE_COLOR_COUNT = 6
+
+
 def validate(manifest_path: Path, frames_dir: Path, palette_path: Path) -> list[str]:
     manifest = json.loads(manifest_path.read_text())
     width = manifest["frameSize"]["width"]
@@ -20,7 +23,9 @@ def validate(manifest_path: Path, frames_dir: Path, palette_path: Path) -> list[
     expected = [entry["file"] for entry in manifest["frames"]]
     prefix = f'{manifest["asset"]}-{manifest["cue"]}-'
     actual = sorted(path.name for path in frames_dir.glob(f"{prefix}*.png"))
-    allowed = set(Image.open(palette_path).convert("RGB").getdata())
+    palette = list(dict.fromkeys(Image.open(palette_path).convert("RGB").getdata()))
+    allowed = set(palette)
+    outline_colors = set(palette[:OUTLINE_COLOR_COUNT])
     errors: list[str] = []
     bottoms: set[int] = set()
 
@@ -61,6 +66,21 @@ def validate(manifest_path: Path, frames_dir: Path, palette_path: Path) -> list[
         extra = visible - allowed
         if extra:
             errors.append(f"{path.name}: {len(extra)} visible colors are outside the project palette")
+        if inset > 0 and not opaque:
+            pixels = image.load()
+            invalid_border = 0
+            for y in range(image.height):
+                for x in range(image.width):
+                    red, green, blue, alpha = pixels[x, y]
+                    if alpha == 0 or (red, green, blue) in outline_colors:
+                        continue
+                    if any(
+                        nx < 0 or ny < 0 or nx >= image.width or ny >= image.height or pixels[nx, ny][3] == 0
+                        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
+                    ):
+                        invalid_border += 1
+            if invalid_border:
+                errors.append(f"{path.name}: {invalid_border} silhouette border pixels are outside the outline palette")
     if len(bottoms) > 1:
         errors.append(f"bottom anchor drift: visible bottoms are {sorted(bottoms)}")
     return errors

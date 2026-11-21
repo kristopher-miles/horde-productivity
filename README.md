@@ -13,6 +13,11 @@ The initial Mac port uses its own local store; cross-device sync is intentionall
 
 ## Build and test
 
+Open `TheHorde.xcodeproj` and select the platform scheme that matches the target.
+Keep local development data, signing credentials, DerivedData, and prerelease
+ZIPs outside Git. The bundled sprite atlases are build inputs. Art contact sheets
+and preview renders can be regenerated with the tools in `PrototypeArt/`.
+
 ```sh
 rtk xcodebuild build -project TheHorde.xcodeproj -scheme TheHorde \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
